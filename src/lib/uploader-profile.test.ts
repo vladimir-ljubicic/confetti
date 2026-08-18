@@ -1,5 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { parseProfileRequest } from "./uploader-profile";
+import {
+  parseProfileRequest,
+  parseVisibility,
+  parseVisibilityField,
+} from "./uploader-profile";
+
+describe("parseVisibilityField", () => {
+  it("reads the named field from a JSON body", () => {
+    expect(parseVisibilityField({ visibility: "private" }, "visibility")).toBe("private");
+    expect(
+      parseVisibilityField({ defaultVisibility: "public" }, "defaultVisibility"),
+    ).toBe("public");
+  });
+
+  it("rejects non-object bodies and invalid values", () => {
+    expect(parseVisibilityField(null, "visibility")).toBeNull();
+    expect(parseVisibilityField("private", "visibility")).toBeNull();
+    expect(parseVisibilityField({ visibility: "friends" }, "visibility")).toBeNull();
+    expect(parseVisibilityField({}, "visibility")).toBeNull();
+  });
+});
+
+describe("parseVisibility", () => {
+  it("accepts the two visibility values", () => {
+    expect(parseVisibility("public")).toBe("public");
+    expect(parseVisibility("private")).toBe("private");
+  });
+
+  it("rejects anything else", () => {
+    expect(parseVisibility("friends")).toBeNull();
+    expect(parseVisibility("")).toBeNull();
+    expect(parseVisibility(undefined)).toBeNull();
+    expect(parseVisibility(null)).toBeNull();
+    expect(parseVisibility(42)).toBeNull();
+  });
+});
 
 describe("parseProfileRequest", () => {
   it("accepts a display name and visibility", () => {

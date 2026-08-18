@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getDeviceId } from "@/lib/device";
 import { getDict } from "@/lib/locale";
 import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
@@ -51,6 +52,14 @@ export default async function GalleryPage() {
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-5xl text-gold-deep">{dict.meta.title}</h1>
         <p className="text-sm tracking-widest text-ink/60 uppercase">{dict.gallery.date}</p>
+        {hasProfile && (
+          <Link
+            href="/my-photos"
+            className="text-sm text-gold-deep transition hover:underline"
+          >
+            {dict.gallery.myPhotos}
+          </Link>
+        )}
       </header>
 
       <UploadButton
