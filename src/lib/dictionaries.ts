@@ -28,6 +28,10 @@ const en = {
     confirmDelete: "Delete this photo?",
     actionFailed: "That didn't work — try again",
   },
+  uploaderPage: {
+    backToGallery: "Back to gallery",
+    empty: "No public photos yet.",
+  },
   upload: {
     add: "Add photos",
     uploading: "Uploading {done}/{total}…",
@@ -84,6 +88,10 @@ const sr: Dictionary = {
     delete: "Обриши",
     confirmDelete: "Обрисати ову фотографију?",
     actionFailed: "Није успело — покушајте поново",
+  },
+  uploaderPage: {
+    backToGallery: "Назад на галерију",
+    empty: "Још нема јавних фотографија.",
   },
   upload: {
     add: "Додај фотографије",
