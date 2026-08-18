@@ -20,6 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Database migrations
+
+Migrations live in `supabase/migrations/`, numbered and applied in order. There is no migration tool; apply each new file directly with psql using `POSTGRES_URL` from `.env.local`:
+
+```bash
+set -a && source .env.local && set +a
+psql "$POSTGRES_URL" -1 -f supabase/migrations/<file>.sql
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
