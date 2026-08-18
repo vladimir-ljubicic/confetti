@@ -49,6 +49,14 @@ const en = {
     cancel: "Cancel",
     saveFailed: "Saving failed — try again",
   },
+  admin: {
+    title: "Admin",
+    passcodeLabel: "Passcode",
+    submit: "Enter",
+    wrongPasscode: "Wrong passcode",
+    backToGallery: "Back to gallery",
+    signedIn: "You're signed in as admin.",
+  },
   // Describes switching TO the other language, so it stays understandable
   // to someone who doesn't speak the currently active one.
   localeToggle: {
@@ -109,6 +117,14 @@ const sr: Dictionary = {
     submit: "Сачувај и отпреми",
     cancel: "Откажи",
     saveFailed: "Чување није успело — покушајте поново",
+  },
+  admin: {
+    title: "Администрација",
+    passcodeLabel: "Лозинка",
+    submit: "Уђи",
+    wrongPasscode: "Погрешна лозинка",
+    backToGallery: "Назад на галерију",
+    signedIn: "Пријављени сте као администратор.",
   },
   localeToggle: {
     ariaLabel: "Switch to English",

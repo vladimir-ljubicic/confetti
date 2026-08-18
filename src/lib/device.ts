@@ -1,9 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { longLivedHttpOnlyCookie } from "./cookies";
 
 const DEVICE_COOKIE = "confetti_device";
-// Chrome caps cookie lifetime at 400 days.
-const DEVICE_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,11 +18,6 @@ export async function getOrCreateDeviceId(): Promise<string> {
   const existing = await getDeviceId();
   if (existing) return existing;
   const id = crypto.randomUUID();
-  (await cookies()).set(DEVICE_COOKIE, id, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: DEVICE_COOKIE_MAX_AGE,
-  });
+  (await cookies()).set(DEVICE_COOKIE, id, longLivedHttpOnlyCookie());
   return id;
 }
