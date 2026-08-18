@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] First visit issues a persistent device token; upload is attributed to it
-- [ ] Upload goes direct to Supabase Storage via signed TUS URL; original stored untouched
-- [ ] Gallery grid shows the photo via the URL helper; env flag flips transform/original
-- [ ] Downloaded original is byte-identical to the uploaded file
-- [ ] HEIC upload accepted (renders via transform when the flag is on)
+- [x] First visit issues a persistent device token; upload is attributed to it
+- [x] Upload goes direct to Supabase Storage via signed TUS URL; original stored untouched
+- [x] Gallery grid shows the photo via the URL helper; env flag flips transform/original
+- [x] Downloaded original is byte-identical to the uploaded file
+- [x] HEIC upload accepted (renders via transform when the flag is on)

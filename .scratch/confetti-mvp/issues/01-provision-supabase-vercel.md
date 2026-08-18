@@ -6,6 +6,6 @@
 
 **Status:** ready-for-human
 
-- [ ] Supabase project created, storage bucket for photos exists
-- [ ] Vercel project linked to the repo; scaffold deploys successfully
-- [ ] Supabase URL + anon key + service role key set locally and on Vercel
+- [x] Supabase project created, storage bucket for photos exists
+- [x] Vercel project linked to the repo; scaffold deploys successfully
+- [x] Supabase URL + anon key + service role key set locally and on Vercel
