@@ -6,6 +6,11 @@ import * as tus from "tus-js-client";
 import { extractTakenAt } from "@/lib/exif";
 import { generateThumbnail } from "@/lib/thumbnail";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
+import {
+  FILE_TOO_LARGE_STATUS,
+  RATE_LIMITED_STATUS,
+  type RateLimitReason,
+} from "@/lib/upload-limits";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { FirstUploadDialog, type FirstUploadDialogLabels } from "./first-upload-dialog";
 
@@ -19,12 +24,20 @@ type UploadLabels = {
   fileFailed: string;
   someFailed: string;
   frozen: string;
+  fileTooLarge: string;
+  batchLimit: string;
+  rateLimited: string;
+};
+
+type UploadLimitProps = {
+  maxBatch: number;
+  maxFileBytes: number;
 };
 
 type UploadItem = {
   id: number;
   file: File;
-  status: "pending" | "uploading" | "done" | "error";
+  status: "pending" | "uploading" | "done" | "error" | "too-large";
   percent: number;
 };
 
@@ -34,6 +47,16 @@ class ProfileRequiredError extends Error {}
 
 // The admin froze uploads; remaining files are dropped and a notice is shown.
 class UploadsFrozenError extends Error {}
+
+class FileTooLargeError extends Error {}
+
+// The device hit an upload limit; remaining files are dropped and a notice
+// names the limit that was hit.
+class RateLimitedError extends Error {
+  constructor(public reason: RateLimitReason) {
+    super();
+  }
+}
 
 // Best-effort: failures are swallowed and the upload proceeds without a
 // thumbnail.
@@ -51,7 +74,11 @@ async function uploadThumbnail(file: File, uploadUrl: string): Promise<void> {
   }
 }
 
-async function uploadFile(file: File, onProgress: (percent: number) => void): Promise<void> {
+async function uploadFile(
+  file: File,
+  batchSize: number,
+  onProgress: (percent: number) => void,
+): Promise<void> {
   const takenAt = await extractTakenAt(file);
   const response = await fetch("/api/uploads", {
     method: "POST",
@@ -60,11 +87,19 @@ async function uploadFile(file: File, onProgress: (percent: number) => void): Pr
       filename: file.name,
       contentType: file.type || "application/octet-stream",
       size: file.size,
+      batchSize,
       takenAt,
     }),
   });
   if (response.status === 409) throw new ProfileRequiredError();
   if (response.status === UPLOADS_FROZEN_STATUS) throw new UploadsFrozenError();
+  if (response.status === FILE_TOO_LARGE_STATUS) throw new FileTooLargeError();
+  if (response.status === RATE_LIMITED_STATUS) {
+    const body = (await response.json().catch(() => null)) as {
+      reason?: unknown;
+    } | null;
+    throw new RateLimitedError(body?.reason === "batch" ? "batch" : "window");
+  }
   if (!response.ok) throw new Error(`Upload request failed (${response.status})`);
   const { photoId, path, token, storageUrl, thumbnailUploadUrl } =
     (await response.json()) as UploadTicket;
@@ -101,10 +136,15 @@ export function UploadButton({
   labels,
   dialogLabels,
   needsProfile,
+  limits,
+  limitsExempt,
 }: {
   labels: UploadLabels;
   dialogLabels: FirstUploadDialogLabels;
   needsProfile: boolean;
+  limits: UploadLimitProps;
+  // Admin devices: the server skips limit checks, so the client must too.
+  limitsExempt: boolean;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +154,12 @@ export function UploadButton({
   const [items, setItems] = useState<UploadItem[]>([]);
   const [batchActive, setBatchActive] = useState(false);
   const [frozenNotice, setFrozenNotice] = useState(false);
+  const [limitNotice, setLimitNotice] = useState<string | null>(null);
+
+  const batchLimitMessage = labels.batchLimit.replace(
+    "{max}",
+    String(limits.maxBatch),
+  );
 
   function patchUpload(id: number, patch: Partial<UploadItem>) {
     setItems((current) =>
@@ -137,10 +183,12 @@ export function UploadButton({
     setItems(batch);
     setBatchActive(true);
     setFrozenNotice(false);
+    setLimitNotice(null);
 
     const queue = [...batch];
     const retryFiles: File[] = [];
-    let abort: "profile" | "frozen" | null = null;
+    let abort: "profile" | "frozen" | "limit" | null = null;
+    let limitMessage = labels.rateLimited;
     let anyFailed = false;
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENT_UPLOADS, queue.length) }, async () => {
@@ -149,9 +197,16 @@ export function UploadButton({
             if (abort === "profile") retryFiles.push(item.file);
             continue;
           }
+          if (!limitsExempt && item.file.size > limits.maxFileBytes) {
+            anyFailed = true;
+            patchUpload(item.id, { status: "too-large" });
+            continue;
+          }
           patchUpload(item.id, { status: "uploading" });
           try {
-            await uploadFile(item.file, (percent) => patchUpload(item.id, { percent }));
+            await uploadFile(item.file, files.length, (percent) =>
+              patchUpload(item.id, { percent }),
+            );
             patchUpload(item.id, { status: "done", percent: 100 });
           } catch (error) {
             if (error instanceof ProfileRequiredError) {
@@ -161,6 +216,14 @@ export function UploadButton({
             } else if (error instanceof UploadsFrozenError) {
               abort = "frozen";
               patchUpload(item.id, { status: "pending", percent: 0 });
+            } else if (error instanceof RateLimitedError) {
+              abort = "limit";
+              limitMessage =
+                error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
+              patchUpload(item.id, { status: "pending", percent: 0 });
+            } else if (error instanceof FileTooLargeError) {
+              anyFailed = true;
+              patchUpload(item.id, { status: "too-large" });
             } else {
               console.error("Upload failed", error);
               anyFailed = true;
@@ -176,8 +239,11 @@ export function UploadButton({
       setItems([]);
       if (abort === "profile") {
         askForProfile(retryFiles);
-      } else {
+      } else if (abort === "frozen") {
         setFrozenNotice(true);
+        router.refresh();
+      } else {
+        setLimitNotice(limitMessage);
         router.refresh();
       }
       return;
@@ -188,6 +254,11 @@ export function UploadButton({
 
   function onFilesSelected(files: File[]) {
     if (files.length === 0) return;
+    if (!limitsExempt && files.length > limits.maxBatch) {
+      setLimitNotice(batchLimitMessage);
+      return;
+    }
+    setLimitNotice(null);
     if (hasProfile) {
       void startBatch(files);
     } else {
@@ -196,7 +267,9 @@ export function UploadButton({
   }
 
   const doneCount = items.filter((item) => item.status === "done").length;
-  const failedCount = items.filter((item) => item.status === "error").length;
+  const failedCount = items.filter(
+    (item) => item.status === "error" || item.status === "too-large",
+  ).length;
 
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-3">
@@ -231,6 +304,13 @@ export function UploadButton({
               <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
               {item.status === "error" ? (
                 <span className="shrink-0 text-red-600">{labels.fileFailed}</span>
+              ) : item.status === "too-large" ? (
+                <span className="shrink-0 text-red-600">
+                  {labels.fileTooLarge.replace(
+                    "{max}",
+                    String(Math.round(limits.maxFileBytes / (1024 * 1024))),
+                  )}
+                </span>
               ) : item.status === "done" ? (
                 <span className="shrink-0 text-gold-deep">✓</span>
               ) : (
@@ -251,6 +331,8 @@ export function UploadButton({
       )}
 
       {frozenNotice && <p className="text-sm text-ink/70">{labels.frozen}</p>}
+
+      {limitNotice && <p className="text-sm text-red-600">{limitNotice}</p>}
 
       {dialogOpen && (
         <FirstUploadDialog

@@ -3,6 +3,8 @@ import { getDeviceId } from "@/lib/device";
 import { areUploadsFrozen } from "@/lib/event-settings";
 import { getDict } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
+import { isAdmin } from "@/lib/admin-session";
+import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { PhotoGrid } from "./photo-grid";
@@ -30,11 +32,13 @@ export default async function GalleryPage({
     Array.isArray(sortParam) ? sortParam[0] : sortParam,
     new Date(),
   );
-  const [photos, hasProfile, uploadsFrozen] = await Promise.all([
+  const uploadLimits = env.uploadLimits();
+  const [photos, hasProfile, uploadsFrozen, admin] = await Promise.all([
     loadPublicPhotos({ sort }),
     deviceHasProfile(),
     // Fail open: browsing must survive a settings outage.
     areUploadsFrozen().catch(() => false),
+    isAdmin(),
   ]);
 
   return (
@@ -61,6 +65,11 @@ export default async function GalleryPage({
           labels={dict.upload}
           dialogLabels={dict.firstUploadDialog}
           needsProfile={!hasProfile}
+          limits={{
+            maxBatch: uploadLimits.maxBatch,
+            maxFileBytes: uploadLimits.maxFileBytes,
+          }}
+          limitsExempt={admin}
         />
       )}
 

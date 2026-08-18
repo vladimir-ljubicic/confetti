@@ -39,6 +39,9 @@ const en = {
     fileFailed: "Failed",
     someFailed: "Some photos didn't upload",
     frozen: "Uploads are paused right now",
+    fileTooLarge: "Too large (max {max}MB)",
+    batchLimit: "You can add up to {max} photos at a time",
+    rateLimited: "Upload limit reached — try again in a few minutes",
   },
   firstUploadDialog: {
     title: "Introduce yourself",
@@ -135,6 +138,9 @@ const sr: Dictionary = {
     fileFailed: "Није успело",
     someFailed: "Неке фотографије нису отпремљене",
     frozen: "Отпремање је тренутно паузирано",
+    fileTooLarge: "Превелика (макс {max}MB)",
+    batchLimit: "Можете додати највише {max} фотографија одједном",
+    rateLimited: "Достигнут је лимит отпремања — покушајте поново за неколико минута",
   },
   firstUploadDialog: {
     title: "Представите се",

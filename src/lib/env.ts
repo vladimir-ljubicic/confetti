@@ -1,3 +1,5 @@
+import { parseUploadLimits } from "./upload-limits";
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing environment variable: ${name}`);
@@ -11,6 +13,7 @@ export const env = {
   imageTransformsEnabled: () => process.env.SUPABASE_IMAGE_TRANSFORMS === "true",
   adminPasscode: () => required("ADMIN_PASSCODE"),
   cronSecret: () => required("CRON_SECRET"),
+  uploadLimits: () => parseUploadLimits(process.env),
 };
 
 export const PHOTOS_BUCKET = "photos";
