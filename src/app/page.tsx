@@ -1,6 +1,8 @@
+import { getDeviceId } from "@/lib/device";
 import { getDict } from "@/lib/locale";
 import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { getUploaderProfile } from "@/lib/uploaders";
 import { UploadButton } from "./upload-button";
 
 // The gallery reads the database directly; without this the page would be
@@ -34,9 +36,15 @@ async function loadGallery() {
   );
 }
 
+async function deviceHasProfile() {
+  const deviceId = await getDeviceId();
+  if (!deviceId) return false;
+  return (await getUploaderProfile(deviceId)) !== null;
+}
+
 export default async function GalleryPage() {
   const dict = await getDict();
-  const photos = await loadGallery();
+  const [photos, hasProfile] = await Promise.all([loadGallery(), deviceHasProfile()]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-10 px-4 py-12">
@@ -45,7 +53,11 @@ export default async function GalleryPage() {
         <p className="text-sm tracking-widest text-ink/60 uppercase">{dict.gallery.date}</p>
       </header>
 
-      <UploadButton labels={dict.upload} />
+      <UploadButton
+        labels={dict.upload}
+        dialogLabels={dict.firstUploadDialog}
+        needsProfile={!hasProfile}
+      />
 
       {photos.length === 0 ? (
         <p className="py-16 text-ink/50">{dict.gallery.empty}</p>

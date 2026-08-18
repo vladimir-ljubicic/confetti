@@ -6,7 +6,14 @@
 
 **Status:** ready-for-agent
 
-- [ ] First upload cannot proceed without a display name
-- [ ] Chosen default visibility applies to that and all later uploads
-- [ ] Second upload from the same device shows no dialog — one tap
-- [ ] Multi-select batch uploads work with per-file progress
+- [x] First upload cannot proceed without a display name
+- [x] Chosen default visibility applies to that and all later uploads
+- [x] Second upload from the same device shows no dialog — one tap
+- [x] Multi-select batch uploads work with per-file progress
+
+## Comments
+
+- Display name capped at 80 chars (client `maxLength` + server 400) — sanity
+  limit for an attribution label, not in the spec.
+- If the server answers 409 profile-required mid-batch (stale cookie/profile),
+  the client reopens the dialog and re-queues the unfinished files.
