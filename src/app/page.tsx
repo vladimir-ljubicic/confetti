@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDeviceId } from "@/lib/device";
 import { getDict } from "@/lib/locale";
 import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
+import { resolveSortMode, type SortMode } from "@/lib/sort-mode";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { UploadButton } from "./upload-button";
@@ -18,15 +19,18 @@ type PhotoRow = {
   uploaded_at: string;
 };
 
-async function loadGallery() {
-  const { data, error } = await supabaseAdmin()
+async function loadGallery(sort: SortMode) {
+  let query = supabaseAdmin()
     .from("photos")
     .select("id, storage_path, original_filename, size_bytes, uploaded_at")
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
-    .is("deleted_at", null)
-    .order("uploaded_at", { ascending: false })
-    .limit(200);
+    .is("deleted_at", null);
+  query =
+    sort === "chrono"
+      ? query.order("effective_taken_at", { ascending: true })
+      : query.order("uploaded_at", { ascending: false });
+  const { data, error } = await query.limit(200);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   return Promise.all(
     (data as PhotoRow[]).map(async (photo) => ({
@@ -43,9 +47,23 @@ async function deviceHasProfile() {
   return (await getUploaderProfile(deviceId)) !== null;
 }
 
-export default async function GalleryPage() {
+export default async function GalleryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string | string[] }>;
+}) {
   const dict = await getDict();
-  const [photos, hasProfile] = await Promise.all([loadGallery(), deviceHasProfile()]);
+  const { sort: sortParam } = await searchParams;
+  const sort = resolveSortMode(
+    Array.isArray(sortParam) ? sortParam[0] : sortParam,
+    new Date(),
+  );
+  const [photos, hasProfile] = await Promise.all([loadGallery(sort), deviceHasProfile()]);
+
+  const sortOptions = [
+    { mode: "live", label: dict.gallery.sortLive },
+    { mode: "chrono", label: dict.gallery.sortChrono },
+  ] as const;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-10 px-4 py-12">
@@ -67,6 +85,25 @@ export default async function GalleryPage() {
         dialogLabels={dict.firstUploadDialog}
         needsProfile={!hasProfile}
       />
+
+      {photos.length > 0 && (
+        <nav className="flex rounded-full bg-pearl p-1 text-sm">
+          {sortOptions.map((option) => (
+            <Link
+              key={option.mode}
+              href={`/?sort=${option.mode}`}
+              aria-current={sort === option.mode ? "true" : undefined}
+              className={`rounded-full px-4 py-1.5 transition ${
+                sort === option.mode
+                  ? "bg-white text-gold-deep shadow-sm"
+                  : "text-ink/60 hover:text-ink"
+              }`}
+            >
+              {option.label}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {photos.length === 0 ? (
         <p className="py-16 text-ink/50">{dict.gallery.empty}</p>

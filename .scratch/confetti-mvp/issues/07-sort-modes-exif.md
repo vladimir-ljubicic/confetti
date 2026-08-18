@@ -6,6 +6,15 @@
 
 **Status:** ready-for-agent
 
-- [ ] Taken-time stored for uploads whose EXIF has it; missing EXIF falls back to upload time
-- [ ] Toggle switches sort modes
-- [ ] Default is live feed through 2026-09-20, chronological afterwards
+- [x] Taken-time stored for uploads whose EXIF has it; missing EXIF falls back to upload time
+- [x] Toggle switches sort modes
+- [x] Default is live feed through 2026-09-20, chronological afterwards
+
+## Comments
+
+Implemented: client-side EXIF via `exifr` (JPEG + HEIC), honoring
+`OffsetTimeOriginal` with the device zone as fallback; `taken_at` sent with the
+upload ticket request; generated `effective_taken_at` column backs the
+chronological order; toggle via `?sort=` with the date-based default in
+`resolveSortMode`. Gallery's 200-photo cap makes ascending chrono hide later
+photos once the gallery outgrows it — spun off as issue 19.

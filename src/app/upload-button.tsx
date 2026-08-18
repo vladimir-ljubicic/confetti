@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import * as tus from "tus-js-client";
+import { extractTakenAt } from "@/lib/exif";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { FirstUploadDialog, type FirstUploadDialogLabels } from "./first-upload-dialog";
 
@@ -29,6 +30,7 @@ type UploadItem = {
 class ProfileRequiredError extends Error {}
 
 async function uploadFile(file: File, onProgress: (percent: number) => void): Promise<void> {
+  const takenAt = await extractTakenAt(file);
   const response = await fetch("/api/uploads", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -36,6 +38,7 @@ async function uploadFile(file: File, onProgress: (percent: number) => void): Pr
       filename: file.name,
       contentType: file.type || "application/octet-stream",
       size: file.size,
+      takenAt,
     }),
   });
   if (response.status === 409) throw new ProfileRequiredError();

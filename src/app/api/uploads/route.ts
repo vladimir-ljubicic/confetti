@@ -11,15 +11,22 @@ type UploadRequest = {
   filename: string;
   contentType: string;
   size: number;
+  takenAt: string | null;
 };
+
+function parseTakenAt(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
 
 function parseBody(body: unknown): UploadRequest | null {
   if (typeof body !== "object" || body === null) return null;
-  const { filename, contentType, size } = body as Record<string, unknown>;
+  const { filename, contentType, size, takenAt } = body as Record<string, unknown>;
   if (typeof filename !== "string" || filename.length === 0) return null;
   if (typeof contentType !== "string" || contentType.length === 0) return null;
   if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) return null;
-  return { filename, contentType, size };
+  return { filename, contentType, size, takenAt: parseTakenAt(takenAt) };
 }
 
 export async function POST(request: Request) {
@@ -50,6 +57,7 @@ export async function POST(request: Request) {
     content_type: body.contentType,
     size_bytes: Math.round(body.size),
     visibility: uploader.defaultVisibility,
+    taken_at: body.takenAt,
   });
   if (insertError) return jsonError("Could not record photo", 500);
 

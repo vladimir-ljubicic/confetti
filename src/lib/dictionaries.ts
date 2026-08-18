@@ -11,6 +11,8 @@ const en = {
     empty: "No photos yet — be the first!",
     download: "Download",
     myPhotos: "My photos",
+    sortLive: "Live feed",
+    sortChrono: "Chronological",
   },
   myPhotos: {
     title: "My photos",
@@ -66,6 +68,8 @@ const sr: Dictionary = {
     empty: "Још нема фотографија — будите први!",
     download: "Преузми",
     myPhotos: "Моје фотографије",
+    sortLive: "Уживо",
+    sortChrono: "Хронолошки",
   },
   myPhotos: {
     title: "Моје фотографије",
