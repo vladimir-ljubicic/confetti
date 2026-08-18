@@ -13,6 +13,7 @@ const en = {
     myPhotos: "My photos",
     sortLive: "Live feed",
     sortChrono: "Chronological",
+    uploadsFrozen: "Uploads are paused for now — enjoy the gallery!",
   },
   myPhotos: {
     title: "My photos",
@@ -37,6 +38,7 @@ const en = {
     uploading: "Uploading {done}/{total}…",
     fileFailed: "Failed",
     someFailed: "Some photos didn't upload",
+    frozen: "Uploads are paused right now",
   },
   firstUploadDialog: {
     title: "Introduce yourself",
@@ -68,6 +70,9 @@ const en = {
     confirmDelete: "Delete this photo?",
     actionFailed: "That didn't work — try again",
     recycleBin: "Recycle bin",
+    freeze: "Freeze uploads",
+    unfreeze: "Unfreeze uploads",
+    frozenStatus: "Uploads are frozen",
   },
   adminBin: {
     title: "Recycle bin",
@@ -104,6 +109,7 @@ const sr: Dictionary = {
     myPhotos: "Моје фотографије",
     sortLive: "Уживо",
     sortChrono: "Хронолошки",
+    uploadsFrozen: "Отпремање је тренутно паузирано — уживајте у галерији!",
   },
   myPhotos: {
     title: "Моје фотографије",
@@ -128,6 +134,7 @@ const sr: Dictionary = {
     uploading: "Отпремање {done}/{total}…",
     fileFailed: "Није успело",
     someFailed: "Неке фотографије нису отпремљене",
+    frozen: "Отпремање је тренутно паузирано",
   },
   firstUploadDialog: {
     title: "Представите се",
@@ -159,6 +166,9 @@ const sr: Dictionary = {
     confirmDelete: "Обрисати ову фотографију?",
     actionFailed: "Није успело — покушајте поново",
     recycleBin: "Корпа",
+    freeze: "Замрзни отпремање",
+    unfreeze: "Одмрзни отпремање",
+    frozenStatus: "Отпремање је замрзнуто",
   },
   adminBin: {
     title: "Корпа",

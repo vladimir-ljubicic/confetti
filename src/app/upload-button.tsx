@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { extractTakenAt } from "@/lib/exif";
 import { generateThumbnail } from "@/lib/thumbnail";
+import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { FirstUploadDialog, type FirstUploadDialogLabels } from "./first-upload-dialog";
 
@@ -17,6 +18,7 @@ type UploadLabels = {
   uploading: string;
   fileFailed: string;
   someFailed: string;
+  frozen: string;
 };
 
 type UploadItem = {
@@ -29,6 +31,9 @@ type UploadItem = {
 // The server refuses to sign uploads for devices without a saved profile;
 // the client reacts by (re)opening the first-upload dialog.
 class ProfileRequiredError extends Error {}
+
+// The admin froze uploads; remaining files are dropped and a notice is shown.
+class UploadsFrozenError extends Error {}
 
 // Best-effort: failures are swallowed and the upload proceeds without a
 // thumbnail.
@@ -59,6 +64,7 @@ async function uploadFile(file: File, onProgress: (percent: number) => void): Pr
     }),
   });
   if (response.status === 409) throw new ProfileRequiredError();
+  if (response.status === UPLOADS_FROZEN_STATUS) throw new UploadsFrozenError();
   if (!response.ok) throw new Error(`Upload request failed (${response.status})`);
   const { photoId, path, token, storageUrl, thumbnailUploadUrl } =
     (await response.json()) as UploadTicket;
@@ -107,6 +113,7 @@ export function UploadButton({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [batchActive, setBatchActive] = useState(false);
+  const [frozenNotice, setFrozenNotice] = useState(false);
 
   function patchUpload(id: number, patch: Partial<UploadItem>) {
     setItems((current) =>
@@ -129,16 +136,17 @@ export function UploadButton({
     }));
     setItems(batch);
     setBatchActive(true);
+    setFrozenNotice(false);
 
     const queue = [...batch];
     const retryFiles: File[] = [];
-    let profileRequired = false;
+    let abort: "profile" | "frozen" | null = null;
     let anyFailed = false;
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENT_UPLOADS, queue.length) }, async () => {
         for (let item = queue.shift(); item; item = queue.shift()) {
-          if (profileRequired) {
-            retryFiles.push(item.file);
+          if (abort) {
+            if (abort === "profile") retryFiles.push(item.file);
             continue;
           }
           patchUpload(item.id, { status: "uploading" });
@@ -147,8 +155,11 @@ export function UploadButton({
             patchUpload(item.id, { status: "done", percent: 100 });
           } catch (error) {
             if (error instanceof ProfileRequiredError) {
-              profileRequired = true;
+              abort = "profile";
               retryFiles.push(item.file);
+              patchUpload(item.id, { status: "pending", percent: 0 });
+            } else if (error instanceof UploadsFrozenError) {
+              abort = "frozen";
               patchUpload(item.id, { status: "pending", percent: 0 });
             } else {
               console.error("Upload failed", error);
@@ -161,9 +172,14 @@ export function UploadButton({
     );
 
     setBatchActive(false);
-    if (profileRequired) {
+    if (abort) {
       setItems([]);
-      askForProfile(retryFiles);
+      if (abort === "profile") {
+        askForProfile(retryFiles);
+      } else {
+        setFrozenNotice(true);
+        router.refresh();
+      }
       return;
     }
     if (!anyFailed) setItems([]);
@@ -233,6 +249,8 @@ export function UploadButton({
       {!batchActive && failedCount > 0 && (
         <p className="text-sm text-red-600">{labels.someFailed}</p>
       )}
+
+      {frozenNotice && <p className="text-sm text-ink/70">{labels.frozen}</p>}
 
       {dialogOpen && (
         <FirstUploadDialog

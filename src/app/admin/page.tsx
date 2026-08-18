@@ -3,10 +3,12 @@ import { PhotoControls } from "@/app/photo-controls";
 import { groupPhotosByUploader } from "@/lib/admin-photos";
 import { isAdmin } from "@/lib/admin-session";
 import type { Dictionary } from "@/lib/dictionaries";
+import { areUploadsFrozen } from "@/lib/event-settings";
 import { getDict } from "@/lib/locale";
 import { galleryImageUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
+import { FreezeToggle } from "./freeze-toggle";
 import { AdminLoginForm } from "./login-form";
 import { UploaderRename } from "./uploader-rename";
 
@@ -56,6 +58,7 @@ export default async function AdminPage({
   const dict = await getDict();
   const labels = dict.admin;
   const admin = await isAdmin();
+  const uploadsFrozen = admin && (await areUploadsFrozen());
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
@@ -74,7 +77,18 @@ export default async function AdminPage({
       </header>
 
       {admin ? (
-        <AdminGallery labels={labels} searchParams={searchParams} />
+        <>
+          <FreezeToggle
+            frozen={uploadsFrozen}
+            labels={{
+              freeze: labels.freeze,
+              unfreeze: labels.unfreeze,
+              frozenStatus: labels.frozenStatus,
+              actionFailed: labels.actionFailed,
+            }}
+          />
+          <AdminGallery labels={labels} searchParams={searchParams} />
+        </>
       ) : (
         <AdminLoginForm
           labels={{

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDeviceId } from "@/lib/device";
 import { env, PHOTOS_BUCKET } from "@/lib/env";
+import { areUploadsFrozen } from "@/lib/event-settings";
 import { jsonError } from "@/lib/http";
 import { needsThumbnail } from "@/lib/image-source";
 import { storagePath, thumbnailPath } from "@/lib/storage-path";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { getUploaderProfile } from "@/lib/uploaders";
 
@@ -33,6 +35,10 @@ function parseBody(body: unknown): UploadRequest | null {
 export async function POST(request: Request) {
   const body = parseBody(await request.json().catch(() => null));
   if (!body) return jsonError("Invalid upload request", 400);
+
+  const frozen = await areUploadsFrozen().catch(() => null);
+  if (frozen === null) return jsonError("Could not check settings", 500);
+  if (frozen) return jsonError("Uploads are frozen", UPLOADS_FROZEN_STATUS);
 
   const deviceId = await getDeviceId();
   if (!deviceId) return jsonError("Profile required", 409);

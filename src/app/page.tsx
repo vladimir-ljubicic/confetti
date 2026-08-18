@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDeviceId } from "@/lib/device";
+import { areUploadsFrozen } from "@/lib/event-settings";
 import { getDict } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
 import { resolveSortMode } from "@/lib/sort-mode";
@@ -29,9 +30,11 @@ export default async function GalleryPage({
     Array.isArray(sortParam) ? sortParam[0] : sortParam,
     new Date(),
   );
-  const [photos, hasProfile] = await Promise.all([
+  const [photos, hasProfile, uploadsFrozen] = await Promise.all([
     loadPublicPhotos({ sort }),
     deviceHasProfile(),
+    // Fail open: browsing must survive a settings outage.
+    areUploadsFrozen().catch(() => false),
   ]);
 
   return (
@@ -49,11 +52,17 @@ export default async function GalleryPage({
         )}
       </header>
 
-      <UploadButton
-        labels={dict.upload}
-        dialogLabels={dict.firstUploadDialog}
-        needsProfile={!hasProfile}
-      />
+      {uploadsFrozen ? (
+        <p className="max-w-md rounded-lg bg-pearl px-6 py-4 text-center text-sm text-ink/70">
+          {dict.gallery.uploadsFrozen}
+        </p>
+      ) : (
+        <UploadButton
+          labels={dict.upload}
+          dialogLabels={dict.firstUploadDialog}
+          needsProfile={!hasProfile}
+        />
+      )}
 
       {photos.length > 0 && (
         <SortToggle
