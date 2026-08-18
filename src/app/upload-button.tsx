@@ -10,9 +10,13 @@ const CHUNK_SIZE = 6 * 1024 * 1024;
 type UploadState =
   | { phase: "idle" }
   | { phase: "uploading"; percent: number }
-  | { phase: "error"; message: string };
+  | { phase: "error" };
 
-export function UploadButton() {
+export function UploadButton({
+  labels,
+}: {
+  labels: { add: string; uploading: string; failed: string };
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>({ phase: "idle" });
@@ -66,10 +70,8 @@ export function UploadButton() {
       setState({ phase: "idle" });
       router.refresh();
     } catch (error) {
-      setState({
-        phase: "error",
-        message: error instanceof Error ? error.message : "Upload failed",
-      });
+      console.error("Upload failed", error);
+      setState({ phase: "error" });
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -94,11 +96,11 @@ export function UploadButton() {
         className="rounded-full bg-gold px-8 py-3 font-medium text-white shadow-sm transition hover:bg-gold-deep disabled:opacity-60"
       >
         {state.phase === "uploading"
-          ? `Uploading… ${state.percent}%`
-          : "Add a photo"}
+          ? labels.uploading.replace("{percent}", String(state.percent))
+          : labels.add}
       </button>
       {state.phase === "error" && (
-        <p className="text-sm text-red-600">{state.message}</p>
+        <p className="text-sm text-red-600">{labels.failed}</p>
       )}
     </div>
   );

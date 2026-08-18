@@ -1,3 +1,4 @@
+import { getDict } from "@/lib/locale";
 import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { UploadButton } from "./upload-button";
@@ -34,19 +35,20 @@ async function loadGallery() {
 }
 
 export default async function GalleryPage() {
+  const dict = await getDict();
   const photos = await loadGallery();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-10 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-5xl text-gold-deep">Jelena &amp; Vladimir</h1>
-        <p className="text-sm tracking-widest text-ink/60 uppercase">20. 09. 2026.</p>
+        <h1 className="font-serif text-5xl text-gold-deep">{dict.meta.title}</h1>
+        <p className="text-sm tracking-widest text-ink/60 uppercase">{dict.gallery.date}</p>
       </header>
 
-      <UploadButton />
+      <UploadButton labels={dict.upload} />
 
       {photos.length === 0 ? (
-        <p className="py-16 text-ink/50">No photos yet — be the first!</p>
+        <p className="py-16 text-ink/50">{dict.gallery.empty}</p>
       ) : (
         <ul className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {photos.map((photo) => (
@@ -65,7 +67,7 @@ export default async function GalleryPage() {
                   href={photo.downloadUrl}
                   className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
                 >
-                  Download
+                  {dict.gallery.download}
                 </a>
               )}
             </li>

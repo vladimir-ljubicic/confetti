@@ -6,6 +6,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] Existing UI fully translated; no hardcoded user-facing strings remain
-- [ ] Toggle switches Serbian ↔ English and persists across visits
-- [ ] Serbian is the default for new visitors
+- [x] Existing UI fully translated; no hardcoded user-facing strings remain
+- [x] Toggle switches Serbian ↔ English and persists across visits
+- [x] Serbian is the default for new visitors
