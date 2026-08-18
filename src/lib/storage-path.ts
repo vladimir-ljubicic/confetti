@@ -36,3 +36,8 @@ export function storagePath(
     : (CONTENT_TYPE_EXTENSIONS[contentType.toLowerCase()] ?? "bin");
   return `${uploaderId}/${photoId}.${ext}`;
 }
+
+// Client-generated JPEG thumbnails always live next to the original.
+export function thumbnailPath(uploaderId: string, photoId: string): string {
+  return `${uploaderId}/${photoId}.thumb.jpg`;
+}

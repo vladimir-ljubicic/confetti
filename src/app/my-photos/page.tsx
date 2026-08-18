@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 type OwnPhotoRow = {
   id: string;
   storage_path: string;
+  thumbnail_path: string | null;
   original_filename: string;
   size_bytes: number;
   visibility: Visibility;
@@ -21,7 +22,9 @@ type OwnPhotoRow = {
 async function loadOwnPhotos(deviceId: string) {
   const { data, error } = await supabaseAdmin()
     .from("photos")
-    .select("id, storage_path, original_filename, size_bytes, visibility, uploaded_at")
+    .select(
+      "id, storage_path, thumbnail_path, original_filename, size_bytes, visibility, uploaded_at",
+    )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)
     .is("deleted_at", null)

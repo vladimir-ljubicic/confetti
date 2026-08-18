@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { extractTakenAt } from "@/lib/exif";
+import { generateThumbnail } from "@/lib/thumbnail";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { FirstUploadDialog, type FirstUploadDialogLabels } from "./first-upload-dialog";
 
@@ -29,6 +30,22 @@ type UploadItem = {
 // the client reacts by (re)opening the first-upload dialog.
 class ProfileRequiredError extends Error {}
 
+// Best-effort: failures are swallowed and the upload proceeds without a
+// thumbnail.
+async function uploadThumbnail(file: File, uploadUrl: string): Promise<void> {
+  try {
+    const thumbnail = await generateThumbnail(file);
+    if (!thumbnail) return;
+    await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "content-type": "image/jpeg", "cache-control": "max-age=3600" },
+      body: thumbnail,
+    });
+  } catch (error) {
+    console.error("Thumbnail upload failed", error);
+  }
+}
+
 async function uploadFile(file: File, onProgress: (percent: number) => void): Promise<void> {
   const takenAt = await extractTakenAt(file);
   const response = await fetch("/api/uploads", {
@@ -43,7 +60,12 @@ async function uploadFile(file: File, onProgress: (percent: number) => void): Pr
   });
   if (response.status === 409) throw new ProfileRequiredError();
   if (!response.ok) throw new Error(`Upload request failed (${response.status})`);
-  const { photoId, path, token, storageUrl } = (await response.json()) as UploadTicket;
+  const { photoId, path, token, storageUrl, thumbnailUploadUrl } =
+    (await response.json()) as UploadTicket;
+
+  const thumbnailUpload = thumbnailUploadUrl
+    ? uploadThumbnail(file, thumbnailUploadUrl)
+    : null;
 
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(file, {
@@ -64,6 +86,7 @@ async function uploadFile(file: File, onProgress: (percent: number) => void): Pr
     upload.start();
   });
 
+  if (thumbnailUpload) await thumbnailUpload;
   const complete = await fetch(`/api/uploads/${photoId}/complete`, { method: "POST" });
   if (!complete.ok) throw new Error(`Completing upload failed (${complete.status})`);
 }

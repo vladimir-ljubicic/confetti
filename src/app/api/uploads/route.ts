@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getDeviceId } from "@/lib/device";
 import { env, PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { storagePath } from "@/lib/storage-path";
+import { needsThumbnail } from "@/lib/image-source";
+import { storagePath, thumbnailPath } from "@/lib/storage-path";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { getUploaderProfile } from "@/lib/uploaders";
@@ -49,6 +50,18 @@ export async function POST(request: Request) {
     .createSignedUploadUrl(path);
   if (signError || !signed) return jsonError("Could not authorize upload", 500);
 
+  // Files too large for image transforms render from a client-generated
+  // thumbnail instead; sign a second upload slot for it.
+  const thumbPath = needsThumbnail(body.size) ? thumbnailPath(deviceId, photoId) : null;
+  let thumbnailUploadUrl: string | null = null;
+  if (thumbPath) {
+    const { data: signedThumb, error: thumbError } = await supabase.storage
+      .from(PHOTOS_BUCKET)
+      .createSignedUploadUrl(thumbPath);
+    if (thumbError || !signedThumb) return jsonError("Could not authorize upload", 500);
+    thumbnailUploadUrl = signedThumb.signedUrl;
+  }
+
   const { error: insertError } = await supabase.from("photos").insert({
     id: photoId,
     uploader_id: deviceId,
@@ -58,6 +71,7 @@ export async function POST(request: Request) {
     size_bytes: Math.round(body.size),
     visibility: uploader.defaultVisibility,
     taken_at: body.takenAt,
+    thumbnail_path: thumbPath,
   });
   if (insertError) return jsonError("Could not record photo", 500);
 
@@ -66,6 +80,7 @@ export async function POST(request: Request) {
     path,
     token: signed.token,
     storageUrl: env.supabaseUrl(),
+    thumbnailUploadUrl,
   };
   return NextResponse.json(ticket);
 }

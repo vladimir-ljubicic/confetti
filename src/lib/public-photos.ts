@@ -8,6 +8,7 @@ const GALLERY_PAGE_SIZE = 200;
 type PublicPhotoRow = {
   id: string;
   storage_path: string;
+  thumbnail_path: string | null;
   original_filename: string;
   size_bytes: number;
   uploaded_at: string;
@@ -32,7 +33,7 @@ export async function loadPublicPhotos({
   let query = supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, original_filename, size_bytes, uploaded_at, uploaders (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, uploaders (display_name, public_id)",
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)

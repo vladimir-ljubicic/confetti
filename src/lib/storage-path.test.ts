@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storagePath } from "./storage-path";
+import { storagePath, thumbnailPath } from "./storage-path";
 
 const uploader = "11111111-1111-4111-8111-111111111111";
 const photo = "22222222-2222-4222-8222-222222222222";
@@ -33,5 +33,11 @@ describe("storagePath", () => {
     expect(storagePath(uploader, photo, "photo", "application/octet-stream")).toBe(
       `${uploader}/${photo}.bin`,
     );
+  });
+});
+
+describe("thumbnailPath", () => {
+  it("builds <uploaderId>/<photoId>.thumb.jpg", () => {
+    expect(thumbnailPath(uploader, photo)).toBe(`${uploader}/${photo}.thumb.jpg`);
   });
 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDeviceId } from "@/lib/device";
 import { PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { needsThumbnail } from "@/lib/image-source";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 export async function POST(
@@ -15,7 +16,7 @@ export async function POST(
   const supabase = supabaseAdmin();
   const { data: photo, error } = await supabase
     .from("photos")
-    .select("id, uploader_id, storage_path, uploaded_at")
+    .select("id, uploader_id, storage_path, thumbnail_path, uploaded_at")
     .eq("id", id)
     .maybeSingle();
   if (error || !photo) return jsonError("Photo not found", 404);
@@ -27,12 +28,27 @@ export async function POST(
     .info(photo.storage_path);
   if (infoError || !object) return jsonError("Upload not found in storage", 409);
 
+  // Thumbnail generation/upload is best-effort on the client; keep the path
+  // only if the object actually landed and the storage-verified size still
+  // needs it.
+  let thumbnailPath = photo.thumbnail_path;
+  if (thumbnailPath) {
+    if (typeof object.size === "number" && !needsThumbnail(object.size)) {
+      await supabase.storage.from(PHOTOS_BUCKET).remove([thumbnailPath]);
+      thumbnailPath = null;
+    } else {
+      const { data: thumb } = await supabase.storage.from(PHOTOS_BUCKET).info(thumbnailPath);
+      if (!thumb) thumbnailPath = null;
+    }
+  }
+
   // The client-reported size feeds the transform/original decision; trust
   // storage, not the client.
   const { error: updateError } = await supabase
     .from("photos")
     .update({
       uploaded_at: new Date().toISOString(),
+      thumbnail_path: thumbnailPath,
       ...(typeof object.size === "number" ? { size_bytes: object.size } : {}),
     })
     .eq("id", id)
