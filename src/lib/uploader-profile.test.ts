@@ -1,9 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseDisplayNameField,
   parseProfileRequest,
   parseVisibility,
   parseVisibilityField,
 } from "./uploader-profile";
+
+describe("parseDisplayNameField", () => {
+  it("reads and trims the display name from a JSON body", () => {
+    expect(parseDisplayNameField({ displayName: "  Мила Јовановић  " })).toBe(
+      "Мила Јовановић",
+    );
+  });
+
+  it("rejects non-object bodies, blank and overlong names", () => {
+    expect(parseDisplayNameField(null)).toBeNull();
+    expect(parseDisplayNameField("Mila")).toBeNull();
+    expect(parseDisplayNameField({})).toBeNull();
+    expect(parseDisplayNameField({ displayName: "   " })).toBeNull();
+    expect(parseDisplayNameField({ displayName: "x".repeat(81) })).toBeNull();
+  });
+});
 
 describe("parseVisibilityField", () => {
   it("reads the named field from a JSON body", () => {

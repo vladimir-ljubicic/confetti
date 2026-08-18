@@ -5,7 +5,8 @@ import { galleryImageUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { getUploaderProfile, type UploaderProfile } from "@/lib/uploaders";
-import { DefaultVisibilityPicker, PhotoControls } from "./controls";
+import { PhotoControls } from "@/app/photo-controls";
+import { DefaultVisibilityPicker } from "./controls";
 
 export const dynamic = "force-dynamic";
 

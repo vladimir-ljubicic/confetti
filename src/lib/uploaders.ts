@@ -15,11 +15,16 @@ export type PublicUploader = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Postgres rejects non-uuid values with an error rather than an empty match,
+// so callers must screen route params before querying uuid columns.
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
 export async function getUploaderByPublicId(
   publicId: string,
 ): Promise<PublicUploader | null> {
-  // Postgres rejects non-uuid values with an error rather than an empty match.
-  if (!UUID_PATTERN.test(publicId)) return null;
+  if (!isUuid(publicId)) return null;
   const { data, error } = await supabaseAdmin()
     .from("uploaders")
     .select("id, display_name")
