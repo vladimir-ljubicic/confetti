@@ -61,9 +61,16 @@ export default async function AdminPage({
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-deep">{labels.title}</h1>
-        <Link href="/" className="text-sm text-ink/60 transition hover:text-ink">
-          ← {labels.backToGallery}
-        </Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/" className="text-ink/60 transition hover:text-ink">
+            ← {labels.backToGallery}
+          </Link>
+          {admin && (
+            <Link href="/admin/bin" className="text-ink/60 transition hover:text-ink">
+              {labels.recycleBin}
+            </Link>
+          )}
+        </div>
       </header>
 
       {admin ? (

@@ -10,6 +10,7 @@ export const env = {
   // Image transforms need Supabase Pro; off = serve signed original URLs (dev).
   imageTransformsEnabled: () => process.env.SUPABASE_IMAGE_TRANSFORMS === "true",
   adminPasscode: () => required("ADMIN_PASSCODE"),
+  cronSecret: () => required("CRON_SECRET"),
 };
 
 export const PHOTOS_BUCKET = "photos";

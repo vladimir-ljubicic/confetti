@@ -67,6 +67,17 @@ const en = {
     delete: "Delete",
     confirmDelete: "Delete this photo?",
     actionFailed: "That didn't work — try again",
+    recycleBin: "Recycle bin",
+  },
+  adminBin: {
+    title: "Recycle bin",
+    backToAdmin: "Back to admin",
+    empty: "The recycle bin is empty.",
+    retentionNote: "Deleted photos are kept for {days} days, then permanently removed.",
+    unknownUploader: "Unknown uploader",
+    deletedAt: "Deleted",
+    restore: "Restore",
+    actionFailed: "That didn't work — try again",
   },
   // Describes switching TO the other language, so it stays understandable
   // to someone who doesn't speak the currently active one.
@@ -146,6 +157,17 @@ const sr: Dictionary = {
     makePrivate: "Учини приватном",
     delete: "Обриши",
     confirmDelete: "Обрисати ову фотографију?",
+    actionFailed: "Није успело — покушајте поново",
+    recycleBin: "Корпа",
+  },
+  adminBin: {
+    title: "Корпа",
+    backToAdmin: "Назад на администрацију",
+    empty: "Корпа је празна.",
+    retentionNote: "Обрисане фотографије се чувају {days} дана, а затим трајно уклањају.",
+    unknownUploader: "Непознат гост",
+    deletedAt: "Обрисана",
+    restore: "Врати",
     actionFailed: "Није успело — покушајте поново",
   },
   localeToggle: {
