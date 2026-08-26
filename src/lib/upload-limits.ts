@@ -42,8 +42,8 @@ export function parseUploadLimits(
   env: Record<string, string | undefined>,
 ): UploadLimits {
   return {
-    maxBatch: positiveInt(env.UPLOAD_MAX_BATCH, 50),
-    maxPerWindow: positiveInt(env.UPLOAD_MAX_PER_WINDOW, 100),
+    maxBatch: positiveInt(env.UPLOAD_MAX_BATCH, 100),
+    maxPerWindow: positiveInt(env.UPLOAD_MAX_PER_WINDOW, 300),
     windowMinutes: positiveInt(env.UPLOAD_WINDOW_MINUTES, 15),
     maxFileBytes: positiveInt(env.UPLOAD_MAX_FILE_MB, 50) * 1024 * 1024,
   };

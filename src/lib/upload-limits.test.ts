@@ -52,8 +52,8 @@ describe("evaluateUpload", () => {
 describe("parseUploadLimits", () => {
   it("returns defaults when no env vars are set", () => {
     expect(parseUploadLimits({})).toEqual({
-      maxBatch: 50,
-      maxPerWindow: 100,
+      maxBatch: 100,
+      maxPerWindow: 300,
       windowMinutes: 15,
       maxFileBytes: 50 * 1024 * 1024,
     });
@@ -84,8 +84,8 @@ describe("parseUploadLimits", () => {
         UPLOAD_MAX_FILE_MB: "",
       }),
     ).toEqual({
-      maxBatch: 50,
-      maxPerWindow: 100,
+      maxBatch: 100,
+      maxPerWindow: 300,
       windowMinutes: 15,
       maxFileBytes: 50 * 1024 * 1024,
     });
