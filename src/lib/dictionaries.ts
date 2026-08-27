@@ -7,6 +7,7 @@ const en = {
     description: "Wedding photos — share yours!",
   },
   gallery: {
+    eyebrow: "Wedding",
     date: "September 20, 2026",
     empty: "No photos yet — be the first!",
     download: "Download",
@@ -106,6 +107,7 @@ const sr: Dictionary = {
     description: "Фотографије са венчања — поделите своје!",
   },
   gallery: {
+    eyebrow: "Венчање",
     date: "20. 09. 2026.",
     empty: "Још нема фотографија — будите први!",
     download: "Преузми",

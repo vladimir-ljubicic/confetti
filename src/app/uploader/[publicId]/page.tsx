@@ -4,6 +4,7 @@ import { getDict } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderByPublicId } from "@/lib/uploaders";
+import { LocaleCorner } from "../../locale-corner";
 import { PhotoGrid } from "../../photo-grid";
 import { SortToggle } from "../../sort-toggle";
 
@@ -31,6 +32,7 @@ export default async function UploaderPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
+      <LocaleCorner />
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-small">{uploader.displayName}</h1>
         <Link href="/" className="text-sm text-ink/60 transition hover:text-ink">

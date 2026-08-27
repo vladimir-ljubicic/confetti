@@ -5,6 +5,7 @@ import { galleryImageUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { getUploaderProfile, type UploaderProfile } from "@/lib/uploaders";
+import { LocaleCorner } from "@/app/locale-corner";
 import { PhotoControls } from "@/app/photo-controls";
 import { DefaultVisibilityPicker } from "./controls";
 
@@ -55,6 +56,7 @@ export default async function MyPhotosPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
+      <LocaleCorner />
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
         <Link href="/" className="text-sm text-ink/60 transition hover:text-ink">

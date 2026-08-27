@@ -16,15 +16,15 @@ export function SortToggle({
   ] as const;
 
   return (
-    <nav className="flex rounded-full bg-sand p-1 text-sm">
+    <nav className="flex shrink-0 rounded-pill bg-sand p-[3px] text-meta">
       {options.map((option) => (
         <Link
           key={option.mode}
           href={`${basePath}?sort=${option.mode}`}
           aria-current={sort === option.mode ? "true" : undefined}
-          className={`rounded-full px-4 py-1.5 transition ${
+          className={`rounded-pill px-3 py-[7px] transition ${
             sort === option.mode
-              ? "bg-white text-gold-small shadow-sm"
+              ? "bg-card text-gold-small shadow-[0_1px_2px_rgba(43,38,32,0.08)]"
               : "text-ink/60 hover:text-ink"
           }`}
         >

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LocaleCorner } from "@/app/locale-corner";
 import { PhotoControls } from "@/app/photo-controls";
 import { groupPhotosByUploader } from "@/lib/admin-photos";
 import { isAdmin } from "@/lib/admin-session";
@@ -62,6 +63,7 @@ export default async function AdminPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
+      <LocaleCorner />
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
         <div className="flex items-center gap-4 text-sm">

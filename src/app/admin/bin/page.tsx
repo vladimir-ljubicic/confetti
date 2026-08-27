@@ -6,6 +6,7 @@ import { galleryImageUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { RECYCLE_RETENTION_DAYS } from "@/lib/recycle-bin";
+import { LocaleCorner } from "@/app/locale-corner";
 import { RestoreButton } from "./restore-button";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,7 @@ export default async function AdminBinPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
+      <LocaleCorner />
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
         <Link href="/admin" className="text-sm text-ink/60 transition hover:text-ink">
