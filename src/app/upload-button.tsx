@@ -138,6 +138,7 @@ export function UploadButton({
   needsProfile,
   limits,
   limitsExempt,
+  variant = "floating",
 }: {
   labels: UploadLabels;
   dialogLabels: FirstUploadDialogLabels;
@@ -145,6 +146,7 @@ export function UploadButton({
   limits: UploadLimitProps;
   // Admin devices: the server skips limit checks, so the client must too.
   limitsExempt: boolean;
+  variant?: "floating" | "inline";
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -272,7 +274,13 @@ export function UploadButton({
   ).length;
 
   return (
-    <div className="pointer-events-none sticky bottom-6 flex w-full flex-col items-center gap-3 px-4">
+    <div
+      className={
+        variant === "floating"
+          ? "pointer-events-none sticky bottom-6 flex w-full flex-col items-center gap-3 px-4"
+          : "flex w-full flex-col items-center gap-3"
+      }
+    >
       <input
         ref={inputRef}
         type="file"
@@ -336,9 +344,15 @@ export function UploadButton({
         type="button"
         disabled={batchActive}
         onClick={() => inputRef.current?.click()}
-        className="pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold px-7 py-4 text-base font-medium text-card shadow-floating transition hover:bg-gold-small disabled:opacity-60"
+        className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60 ${
+          variant === "floating"
+            ? "px-7 py-4 shadow-floating"
+            : "px-[30px] py-4 shadow-[0_12px_26px_-12px_rgb(176_141_60/0.9)]"
+        }`}
       >
-        {!batchActive && <span className="text-xl leading-none">+</span>}
+        {variant === "floating" && !batchActive && (
+          <span className="text-xl leading-none">+</span>
+        )}
         <span>
           {batchActive
             ? labels.uploading

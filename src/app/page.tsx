@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
+import { EmptyGallery } from "./empty-gallery";
 import { GalleryHeader } from "./gallery-header";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
@@ -35,6 +36,22 @@ export default async function GalleryPage({
     areUploadsFrozen().catch(() => false),
     isAdmin(),
   ]);
+
+  if (photos.length === 0) {
+    return (
+      <EmptyGallery
+        dict={dict}
+        locale={locale}
+        uploadsFrozen={uploadsFrozen}
+        needsProfile={!profile}
+        limits={{
+          maxBatch: uploadLimits.maxBatch,
+          maxFileBytes: uploadLimits.maxFileBytes,
+        }}
+        limitsExempt={admin}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
