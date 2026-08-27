@@ -3,9 +3,9 @@
 import { useServerAction } from "@/app/photo-controls";
 
 export type FreezeToggleLabels = {
-  freeze: string;
-  unfreeze: string;
-  frozenStatus: string;
+  title: string;
+  open: string;
+  frozen: string;
   actionFailed: string;
 };
 
@@ -18,34 +18,46 @@ export function FreezeToggle({
 }) {
   const { busy, failed, run } = useServerAction();
 
-  function toggle() {
+  function set(next: boolean) {
+    if (next === frozen || busy) return;
     void run(() =>
       fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ uploadsFrozen: !frozen }),
+        body: JSON.stringify({ uploadsFrozen: next }),
       }),
     );
   }
 
+  const segments: { value: boolean; label: string }[] = [
+    { value: false, label: labels.open },
+    { value: true, label: labels.frozen },
+  ];
+
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="flex items-center gap-3">
-        {frozen && (
-          <span className="rounded-full bg-ink/70 px-3 py-1 text-xs tracking-wide text-white uppercase">
-            {labels.frozenStatus}
-          </span>
-        )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={toggle}
-          className="rounded-full border border-gold-small px-4 py-1.5 text-sm text-gold-small transition hover:bg-gold-small hover:text-white disabled:opacity-60"
-        >
-          {frozen ? labels.unfreeze : labels.freeze}
-        </button>
+    <div className="flex flex-col rounded-t-card border border-ink/10 bg-card px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-ink">{labels.title}</span>
+        <div className="flex shrink-0 items-center rounded-pill bg-sand p-[3px] text-meta">
+          {segments.map((segment) => (
+            <button
+              key={segment.label}
+              type="button"
+              aria-pressed={frozen === segment.value}
+              disabled={busy}
+              onClick={() => set(segment.value)}
+              className={`rounded-pill px-3 py-2 transition disabled:opacity-60 ${
+                frozen === segment.value
+                  ? "bg-gold-small text-card"
+                  : "text-ink/55 hover:text-ink"
+              }`}
+            >
+              {segment.label}
+            </button>
+          ))}
+        </div>
       </div>
-      {failed && <p className="text-xs text-red-600">{labels.actionFailed}</p>}
+      {failed && <p className="pt-1 text-xs text-danger">{labels.actionFailed}</p>}
     </div>
   );
 }
