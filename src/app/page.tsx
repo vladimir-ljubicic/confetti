@@ -40,12 +40,14 @@ export default async function GalleryPage({
     isAdmin(),
   ]);
 
+  const uploadsBlocked = profile?.uploadsBlocked ?? false;
+
   if (photos.length === 0) {
     return (
       <EmptyGallery
         dict={dict}
         locale={locale}
-        uploadsFrozen={uploadsFrozen}
+        uploadsFrozen={uploadsFrozen || uploadsBlocked}
         needsProfile={!profile}
         limits={{
           maxBatch: uploadLimits.maxBatch,
@@ -109,7 +111,7 @@ export default async function GalleryPage({
               labels={dict.downloadSheet}
               photoCount={photos.length}
             />
-          ) : (
+          ) : uploadsBlocked ? null : (
             <UploadButton
               labels={dict.upload}
               sheetLabels={dict.introSheet}

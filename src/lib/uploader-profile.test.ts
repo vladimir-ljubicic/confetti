@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseDisplayNameField,
   parseProfileRequest,
+  parseUploaderPatch,
   parseVisibility,
   parseVisibilityField,
 } from "./uploader-profile";
@@ -85,5 +86,45 @@ describe("parseProfileRequest", () => {
   it("rejects non-object bodies", () => {
     expect(parseProfileRequest(null)).toBeNull();
     expect(parseProfileRequest("Mila")).toBeNull();
+  });
+});
+
+describe("parseUploaderPatch", () => {
+  it("reads a rename-only patch", () => {
+    expect(parseUploaderPatch({ displayName: "  Мила  " })).toEqual({
+      displayName: "Мила",
+    });
+  });
+
+  it("reads an uploads-blocked-only patch", () => {
+    expect(parseUploaderPatch({ uploadsBlocked: true })).toEqual({
+      uploadsBlocked: true,
+    });
+    expect(parseUploaderPatch({ uploadsBlocked: false })).toEqual({
+      uploadsBlocked: false,
+    });
+  });
+
+  it("reads both fields together", () => {
+    expect(parseUploaderPatch({ displayName: "Мила", uploadsBlocked: true })).toEqual({
+      displayName: "Мила",
+      uploadsBlocked: true,
+    });
+  });
+
+  it("rejects an invalid name even when the other field is valid", () => {
+    expect(parseUploaderPatch({ displayName: "   ", uploadsBlocked: true })).toBeNull();
+    expect(parseUploaderPatch({ displayName: "x".repeat(81) })).toBeNull();
+  });
+
+  it("rejects a non-boolean uploadsBlocked", () => {
+    expect(parseUploaderPatch({ uploadsBlocked: "yes" })).toBeNull();
+    expect(parseUploaderPatch({ displayName: "Мила", uploadsBlocked: 1 })).toBeNull();
+  });
+
+  it("rejects empty and non-object bodies", () => {
+    expect(parseUploaderPatch({})).toBeNull();
+    expect(parseUploaderPatch(null)).toBeNull();
+    expect(parseUploaderPatch("Мила")).toBeNull();
   });
 });

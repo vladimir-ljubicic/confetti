@@ -4,26 +4,29 @@ import { isAdmin } from "@/lib/admin-session";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import type { Visibility } from "@/lib/uploader-profile";
 import { AdminChrome, adminChromeLabels } from "../admin-chrome";
-import { UploaderRename } from "../uploader-rename";
+import { GuestRow } from "./guest-row";
 
 export const dynamic = "force-dynamic";
 
 type GuestPhotoRow = {
   id: string;
+  visibility: Visibility;
   uploaders: { display_name: string | null; public_id: string } | null;
 };
 
 async function loadGuestGroups() {
   const { data, error } = await supabaseAdmin()
     .from("photos")
-    .select("id, uploaders (display_name, public_id)")
+    .select("id, visibility, uploaders (display_name, public_id)")
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
   if (error) throw new Error(`Loading photos failed: ${error.message}`);
   return groupPhotosByUploader(
     (data as unknown as GuestPhotoRow[]).map((photo) => ({
       id: photo.id,
+      visibility: photo.visibility,
       uploader: photo.uploaders?.display_name
         ? {
             displayName: photo.uploaders.display_name,
@@ -54,6 +57,21 @@ export default async function AdminGuestsPage() {
   ]);
   const labels = dict.admin;
 
+  const countsLine = (photos: { visibility: Visibility }[]) => {
+    const total = pluralize(locale, photos.length, {
+      one: labels.photosOne,
+      few: labels.photosFew,
+      many: labels.photosMany,
+    });
+    const privateCount = photos.filter((photo) => photo.visibility === "private").length;
+    if (privateCount === 0) return total;
+    return `${total} · ${pluralize(locale, privateCount, {
+      one: labels.privateOne,
+      few: labels.privateFew,
+      many: labels.privateMany,
+    })}`;
+  };
+
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
@@ -65,6 +83,7 @@ export default async function AdminGuestsPage() {
           few: labels.guestsFew,
           many: labels.guestsMany,
         })}
+        sub={labels.guestsSub}
         labels={adminChromeLabels(dict)}
       />
 
@@ -72,34 +91,32 @@ export default async function AdminGuestsPage() {
         <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
       ) : (
         <ul className="flex flex-col gap-2 px-3.5 pb-8">
-          {groups.map((group) => (
-            <li
-              key={group.uploader?.publicId ?? "unknown"}
-              className="flex items-center justify-between gap-3 rounded-card bg-card px-3.5 py-3"
-            >
-              {group.uploader ? (
-                <UploaderRename
-                  publicId={group.uploader.publicId}
-                  name={group.uploader.displayName}
-                  labels={{
-                    rename: labels.rename,
-                    renameSave: labels.renameSave,
-                    renameCancel: labels.renameCancel,
-                    actionFailed: labels.actionFailed,
-                  }}
-                />
-              ) : (
-                <span className="font-medium text-ink">{labels.unknownUploader}</span>
-              )}
-              <span className="text-meta whitespace-nowrap text-ink/55">
-                {pluralize(locale, group.photos.length, {
-                  one: labels.photosOne,
-                  few: labels.photosFew,
-                  many: labels.photosMany,
-                })}
-              </span>
-            </li>
-          ))}
+          {groups.map((group) =>
+            group.uploader ? (
+              <GuestRow
+                key={group.uploader.publicId}
+                publicId={group.uploader.publicId}
+                name={group.uploader.displayName}
+                countsLine={countsLine(group.photos)}
+                labels={{
+                  rename: labels.rename,
+                  renameSave: labels.renameSave,
+                  renameCancel: labels.renameCancel,
+                  actionFailed: labels.actionFailed,
+                }}
+              />
+            ) : (
+              <li
+                key="unknown"
+                className="flex items-center justify-between gap-3 rounded-card bg-card px-3.5 py-3"
+              >
+                <span className="text-[15px] text-ink">{labels.unknownUploader}</span>
+                <span className="text-meta whitespace-nowrap text-ink/55">
+                  {countsLine(group.photos)}
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       )}
     </main>

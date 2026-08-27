@@ -60,6 +60,7 @@ export async function POST(request: Request) {
   const uploader = await getUploaderProfile(deviceId).catch(() => undefined);
   if (uploader === undefined) return jsonError("Could not look up device", 500);
   if (uploader === null) return jsonError("Profile required", 409);
+  if (uploader.uploadsBlocked) return jsonError("Uploads are blocked", 403);
 
   if (!(await isAdmin())) {
     const limits = env.uploadLimits();

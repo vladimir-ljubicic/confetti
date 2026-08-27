@@ -29,20 +29,22 @@ export type AdminChromeLabels = {
 export function AdminTopRow({
   locale,
   labels,
+  back,
 }: {
   locale: Locale;
   labels: Pick<AdminChromeLabels, "backToGallery" | "mark" | "localeAriaLabel">;
+  back?: { href: "/admin/guests"; label: string };
 }) {
   return (
     <div className="flex items-center justify-between gap-3 pt-4 pr-[18px] pl-2">
       <Link
-        href="/"
+        href={back?.href ?? "/"}
         className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-[13px] text-ink/60 transition hover:text-ink"
       >
         <span aria-hidden className="text-[15px]">
           ←
         </span>
-        {labels.backToGallery}
+        {back?.label ?? labels.backToGallery}
       </Link>
       <div className="flex items-center gap-2.5">
         <span className="flex items-center gap-1.5">

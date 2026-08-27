@@ -28,6 +28,27 @@ export function parseDisplayNameField(body: unknown): string | null {
   return trimmed;
 }
 
+export type UploaderPatch = {
+  displayName?: string;
+  uploadsBlocked?: boolean;
+};
+
+export function parseUploaderPatch(body: unknown): UploaderPatch | null {
+  if (typeof body !== "object" || body === null) return null;
+  const record = body as Record<string, unknown>;
+  const patch: UploaderPatch = {};
+  if ("displayName" in record) {
+    const displayName = parseDisplayNameField(body);
+    if (!displayName) return null;
+    patch.displayName = displayName;
+  }
+  if ("uploadsBlocked" in record) {
+    if (typeof record.uploadsBlocked !== "boolean") return null;
+    patch.uploadsBlocked = record.uploadsBlocked;
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
 export function parseProfileRequest(body: unknown): ProfileRequest | null {
   const displayName = parseDisplayNameField(body);
   if (!displayName) return null;
