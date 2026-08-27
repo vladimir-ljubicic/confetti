@@ -49,7 +49,7 @@ export function FirstUploadDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
       <form
         onSubmit={save}
         className="flex w-full max-w-sm flex-col gap-5 rounded-2xl bg-white p-6 shadow-lg"

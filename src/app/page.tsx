@@ -57,12 +57,18 @@ export default async function GalleryPage({
         }}
       />
 
-      <div className="flex flex-col items-center gap-10 px-4 pt-3.5 pb-12">
-        {uploadsFrozen ? (
-          <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-center text-sm text-ink/70">
-            {dict.gallery.uploadsFrozen}
-          </p>
-        ) : (
+      <div className="flex flex-1 flex-col pt-3.5">
+        {uploadsFrozen && (
+          <div className="flex justify-center px-4 pb-6">
+            <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-center text-sm text-ink/70">
+              {dict.gallery.uploadsFrozen}
+            </p>
+          </div>
+        )}
+
+        <PhotoGrid photos={photos} emptyLabel={dict.gallery.empty} />
+
+        {!uploadsFrozen && (
           <UploadButton
             labels={dict.upload}
             dialogLabels={dict.firstUploadDialog}
@@ -74,13 +80,6 @@ export default async function GalleryPage({
             limitsExempt={admin}
           />
         )}
-
-        <PhotoGrid
-          photos={photos}
-          downloadLabel={dict.gallery.download}
-          emptyLabel={dict.gallery.empty}
-          showUploader
-        />
       </div>
     </main>
   );

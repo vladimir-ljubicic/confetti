@@ -272,7 +272,7 @@ export function UploadButton({
   ).length;
 
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-3">
+    <div className="pointer-events-none sticky bottom-6 flex w-full flex-col items-center gap-3 px-4">
       <input
         ref={inputRef}
         type="file"
@@ -284,28 +284,16 @@ export function UploadButton({
           event.target.value = "";
         }}
       />
-      <button
-        type="button"
-        disabled={batchActive}
-        onClick={() => inputRef.current?.click()}
-        className="rounded-full bg-gold px-8 py-3 font-medium text-white shadow-sm transition hover:bg-gold-small disabled:opacity-60"
-      >
-        {batchActive
-          ? labels.uploading
-              .replace("{done}", String(doneCount))
-              .replace("{total}", String(items.length))
-          : labels.add}
-      </button>
 
       {items.length > 0 && (
-        <ul className="flex w-full flex-col gap-1.5">
+        <ul className="pointer-events-auto flex w-full max-w-md flex-col gap-1.5 rounded-bar bg-card/95 p-4 shadow-floating backdrop-blur-sm">
           {items.map((item) => (
             <li key={item.id} className="flex items-center gap-3 text-xs text-ink/70">
               <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
               {item.status === "error" ? (
-                <span className="shrink-0 text-red-600">{labels.fileFailed}</span>
+                <span className="shrink-0 text-danger">{labels.fileFailed}</span>
               ) : item.status === "too-large" ? (
-                <span className="shrink-0 text-red-600">
+                <span className="shrink-0 text-danger">
                   {labels.fileTooLarge.replace(
                     "{max}",
                     String(Math.round(limits.maxFileBytes / (1024 * 1024))),
@@ -327,12 +315,38 @@ export function UploadButton({
       )}
 
       {!batchActive && failedCount > 0 && (
-        <p className="text-sm text-red-600">{labels.someFailed}</p>
+        <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-danger shadow-floating">
+          {labels.someFailed}
+        </p>
       )}
 
-      {frozenNotice && <p className="text-sm text-ink/70">{labels.frozen}</p>}
+      {frozenNotice && (
+        <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-ink/70 shadow-floating">
+          {labels.frozen}
+        </p>
+      )}
 
-      {limitNotice && <p className="text-sm text-red-600">{limitNotice}</p>}
+      {limitNotice && (
+        <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-danger shadow-floating">
+          {limitNotice}
+        </p>
+      )}
+
+      <button
+        type="button"
+        disabled={batchActive}
+        onClick={() => inputRef.current?.click()}
+        className="pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold px-7 py-4 text-base font-medium text-card shadow-floating transition hover:bg-gold-small disabled:opacity-60"
+      >
+        {!batchActive && <span className="text-xl leading-none">+</span>}
+        <span>
+          {batchActive
+            ? labels.uploading
+                .replace("{done}", String(doneCount))
+                .replace("{total}", String(items.length))
+            : labels.add}
+        </span>
+      </button>
 
       {dialogOpen && (
         <FirstUploadDialog
