@@ -64,6 +64,10 @@ const en = {
     fileTooLarge: "Too large (max {max}MB)",
     batchLimit: "You can add up to {max} photos at a time",
     rateLimited: "Upload limit reached — try again in a few minutes",
+    retry: "Try again",
+    cancelled: "Cancelled",
+    restore: "Undo",
+    cancelUpload: "Cancel upload",
   },
   introSheet: {
     title: "Introduce yourself",
@@ -192,6 +196,10 @@ const sr: Dictionary = {
     fileTooLarge: "Превелика (макс {max}MB)",
     batchLimit: "Можете додати највише {max} фотографија одједном",
     rateLimited: "Достигнут је лимит отпремања — покушајте поново за неколико минута",
+    retry: "Пробај поново",
+    cancelled: "Отказано",
+    restore: "Врати",
+    cancelUpload: "Откажи отпремање",
   },
   introSheet: {
     title: "Представите се",

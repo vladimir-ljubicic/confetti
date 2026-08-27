@@ -11,6 +11,7 @@ import { EmptyGallery } from "./empty-gallery";
 import { GalleryHeader } from "./gallery-header";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
+import { UploadQueueProvider } from "./upload-queue";
 
 // The gallery reads the database directly; without this the page would be
 // statically prerendered at build time and serve stale rows.
@@ -76,31 +77,40 @@ export default async function GalleryPage({
       />
 
       <div className="flex flex-1 flex-col pt-3.5">
-        <PhotoGrid
-          photos={photos}
-          emptyLabel={dict.gallery.empty}
-          likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
-        />
+        <UploadQueueProvider
+          labels={{
+            retry: dict.upload.retry,
+            cancelled: dict.upload.cancelled,
+            restore: dict.upload.restore,
+            cancelUpload: dict.upload.cancelUpload,
+          }}
+        >
+          <PhotoGrid
+            photos={photos}
+            emptyLabel={dict.gallery.empty}
+            likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
+          />
 
-        {uploadsFrozen ? (
-          <DownloadAllButton
-            buttonLabel={dict.gallery.downloadAll}
-            labels={dict.downloadSheet}
-            photoCount={photos.length}
-          />
-        ) : (
-          <UploadButton
-            labels={dict.upload}
-            sheetLabels={dict.introSheet}
-            locale={locale}
-            needsProfile={!profile}
-            limits={{
-              maxBatch: uploadLimits.maxBatch,
-              maxFileBytes: uploadLimits.maxFileBytes,
-            }}
-            limitsExempt={admin}
-          />
-        )}
+          {uploadsFrozen ? (
+            <DownloadAllButton
+              buttonLabel={dict.gallery.downloadAll}
+              labels={dict.downloadSheet}
+              photoCount={photos.length}
+            />
+          ) : (
+            <UploadButton
+              labels={dict.upload}
+              sheetLabels={dict.introSheet}
+              locale={locale}
+              needsProfile={!profile}
+              limits={{
+                maxBatch: uploadLimits.maxBatch,
+                maxFileBytes: uploadLimits.maxFileBytes,
+              }}
+              limitsExempt={admin}
+            />
+          )}
+        </UploadQueueProvider>
       </div>
     </main>
   );
