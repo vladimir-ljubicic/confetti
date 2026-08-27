@@ -57,34 +57,42 @@ export default async function GalleryPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
-      <GalleryHeader
-        displayName={profile?.displayName ?? null}
-        photoCount={photos.length}
-        sort={sort}
-        locale={locale}
+      <UploadQueueProvider
         labels={{
-          eyebrow: dict.gallery.eyebrow,
-          myPhotos: dict.gallery.myPhotos,
-          sortLive: dict.gallery.sortLive,
-          sortChrono: dict.gallery.sortChrono,
-          localeAriaLabel: dict.localeToggle.ariaLabel,
+          retry: dict.upload.retry,
+          cancelled: dict.upload.cancelled,
+          restore: dict.upload.restore,
+          cancelUpload: dict.upload.cancelUpload,
+          waiting: dict.upload.waiting,
         }}
-        frozenNotice={
-          uploadsFrozen
-            ? { title: dict.gallery.frozenTitle, body: dict.gallery.frozenBody }
-            : null
-        }
-      />
-
-      <div className="flex flex-1 flex-col pt-3.5">
-        <UploadQueueProvider
+      >
+        <GalleryHeader
+          displayName={profile?.displayName ?? null}
+          photoCount={photos.length}
+          sort={sort}
+          locale={locale}
           labels={{
-            retry: dict.upload.retry,
-            cancelled: dict.upload.cancelled,
-            restore: dict.upload.restore,
-            cancelUpload: dict.upload.cancelUpload,
+            eyebrow: dict.gallery.eyebrow,
+            myPhotos: dict.gallery.myPhotos,
+            sortLive: dict.gallery.sortLive,
+            sortChrono: dict.gallery.sortChrono,
+            localeAriaLabel: dict.localeToggle.ariaLabel,
           }}
-        >
+          frozenNotice={
+            uploadsFrozen
+              ? { title: dict.gallery.frozenTitle, body: dict.gallery.frozenBody }
+              : null
+          }
+          offlineNotice={{
+            title: dict.upload.offlineTitle,
+            bodyOne: dict.upload.offlineBodyOne,
+            bodyFew: dict.upload.offlineBodyFew,
+            bodyMany: dict.upload.offlineBodyMany,
+            retry: dict.upload.offlineRetry,
+          }}
+        />
+
+        <div className="flex flex-1 flex-col pt-3.5">
           <PhotoGrid
             photos={photos}
             emptyLabel={dict.gallery.empty}
@@ -110,8 +118,8 @@ export default async function GalleryPage({
               limitsExempt={admin}
             />
           )}
-        </UploadQueueProvider>
-      </div>
+        </div>
+      </UploadQueueProvider>
     </main>
   );
 }

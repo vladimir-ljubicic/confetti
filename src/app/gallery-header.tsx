@@ -6,6 +6,7 @@ import type { Locale } from "@/lib/i18n";
 import type { SortMode } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
 import { LocaleToggle } from "./locale-toggle";
+import { OfflineNotice, type OfflineNoticeLabels } from "./offline-notice";
 import { SortToggle } from "./sort-toggle";
 
 // Scroll depth at which the masthead is gone and the compact bar's
@@ -23,6 +24,7 @@ export function GalleryHeader({
   locale,
   labels,
   frozenNotice,
+  offlineNotice,
 }: {
   displayName: string | null;
   photoCount: number;
@@ -36,6 +38,7 @@ export function GalleryHeader({
     localeAriaLabel: string;
   };
   frozenNotice?: { title: string; body: string } | null;
+  offlineNotice?: OfflineNoticeLabels | null;
 }) {
   const topRowRef = useRef<HTMLDivElement>(null);
   const compactBarRef = useRef<HTMLDivElement>(null);
@@ -146,6 +149,14 @@ export function GalleryHeader({
             <span className="text-body text-pretty text-ink/70">{frozenNotice.body}</span>
           </div>
         </div>
+      )}
+
+      {offlineNotice && (
+        <OfflineNotice
+          labels={offlineNotice}
+          locale={locale}
+          top={topRowHeight + compactBarHeight}
+        />
       )}
     </>
   );

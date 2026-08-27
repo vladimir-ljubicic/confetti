@@ -7,17 +7,27 @@ export function UploadTileView({
   tile,
   labels,
   likeLabels,
+  offline = false,
 }: {
   tile: UploadTile;
   labels: UploadTileLabels;
   likeLabels?: { like: string; unlike: string };
+  offline?: boolean;
 }) {
-  const inFlight = tile.status === "queued" || tile.status === "uploading";
+  const waiting = offline && tile.status === "queued";
+  const inFlight =
+    !waiting && (tile.status === "queued" || tile.status === "uploading");
   const turn = Math.min(Math.max(tile.percent, 0), 100) / 100;
   return (
     <li className="relative overflow-hidden rounded-tile bg-sand">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={tile.previewUrl} alt="" className="w-full" />
+
+      {waiting && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[rgba(43,38,32,0.42)]">
+          <span className="text-meta text-card">{labels.waiting}</span>
+        </div>
+      )}
 
       {inFlight && (
         <div className="absolute inset-0 bg-[rgba(43,38,32,0.34)]">

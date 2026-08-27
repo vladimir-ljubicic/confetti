@@ -4,11 +4,22 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
+
+function subscribeToConnectivity(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
 
 export type UploadTileStatus =
   | "queued"
@@ -33,6 +44,7 @@ export type UploadTileLabels = {
   cancelled: string;
   restore: string;
   cancelUpload: string;
+  waiting: string;
 };
 
 type UploadQueueContextValue = {
@@ -41,6 +53,11 @@ type UploadQueueContextValue = {
   addTiles: (tiles: UploadTile[]) => void;
   patchTile: (id: number, patch: Partial<UploadTile>) => void;
   removeTiles: (ids: number[]) => void;
+  offline: boolean;
+  bulkWaiting: number;
+  setBulkWaiting: (count: number) => void;
+  waitForOnline: () => Promise<void>;
+  retryNow: () => void;
 };
 
 const UploadQueueContext = createContext<UploadQueueContextValue | null>(null);
@@ -53,7 +70,32 @@ export function UploadQueueProvider({
   children: ReactNode;
 }) {
   const [tiles, setTiles] = useState<UploadTile[]>([]);
+  const [bulkWaiting, setBulkWaiting] = useState(0);
   const previewUrls = useRef(new Map<number, string>());
+  const onlineWaiters = useRef(new Set<() => void>());
+
+  const offline = useSyncExternalStore(
+    subscribeToConnectivity,
+    () => !navigator.onLine,
+    () => false,
+  );
+
+  const releaseWaiters = useCallback(() => {
+    const waiters = [...onlineWaiters.current];
+    onlineWaiters.current.clear();
+    for (const resolve of waiters) resolve();
+  }, []);
+
+  useEffect(() => {
+    const onOnline = () => releaseWaiters();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [releaseWaiters]);
+
+  const waitForOnline = useCallback(() => {
+    if (navigator.onLine) return Promise.resolve();
+    return new Promise<void>((resolve) => onlineWaiters.current.add(resolve));
+  }, []);
 
   const addTiles = useCallback((added: UploadTile[]) => {
     for (const tile of added) previewUrls.current.set(tile.id, tile.previewUrl);
@@ -76,8 +118,31 @@ export function UploadQueueProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ tiles, labels, addTiles, patchTile, removeTiles }),
-    [tiles, labels, addTiles, patchTile, removeTiles],
+    () => ({
+      tiles,
+      labels,
+      addTiles,
+      patchTile,
+      removeTiles,
+      offline,
+      bulkWaiting,
+      setBulkWaiting,
+      waitForOnline,
+      // Waiting uploads retry on demand; if the connection is still down they
+      // fail and re-queue, so this is safe to fire while offline.
+      retryNow: releaseWaiters,
+    }),
+    [
+      tiles,
+      labels,
+      addTiles,
+      patchTile,
+      removeTiles,
+      offline,
+      bulkWaiting,
+      waitForOnline,
+      releaseWaiters,
+    ],
   );
 
   return (

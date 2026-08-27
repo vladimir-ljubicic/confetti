@@ -69,6 +69,7 @@ export function PhotoGrid({
                   tile={entry.tile}
                   labels={queue.labels}
                   likeLabels={likeLabels}
+                  offline={queue.offline}
                 />
               )
             ) : (

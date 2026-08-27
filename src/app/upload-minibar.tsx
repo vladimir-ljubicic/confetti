@@ -87,3 +87,56 @@ export function BulkSummary({
     </div>
   );
 }
+
+export function RejectedCard({
+  previewUrl,
+  titleLabel,
+  detailLabel,
+  retryLabel,
+  skipLabel,
+  onRetry,
+  onSkip,
+}: {
+  previewUrl: string | null;
+  titleLabel: string;
+  detailLabel: string;
+  retryLabel: string;
+  skipLabel: string;
+  onRetry: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div className="pointer-events-auto flex w-full max-w-md flex-col gap-3 rounded-bar border border-ink/10 bg-card p-3.5 shadow-card">
+      <div className="flex items-center gap-3">
+        {previewUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt=""
+            className="h-11 w-11 shrink-0 rounded-thumb bg-sand object-cover"
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm text-ink">{titleLabel}</span>
+          <span className="text-xs text-ink/60">{detailLabel}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill px-4 text-[13px] text-gold-small"
+        >
+          {skipLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card"
+        >
+          {retryLabel}
+        </button>
+      </div>
+    </div>
+  );
+}

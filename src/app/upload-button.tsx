@@ -15,7 +15,7 @@ import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
-import { BulkMiniBar, BulkSummary } from "./upload-minibar";
+import { BulkMiniBar, BulkSummary, RejectedCard } from "./upload-minibar";
 import { useUploadQueue } from "./upload-queue";
 
 // Fixed by Supabase's resumable upload endpoint; other sizes are rejected.
@@ -50,6 +50,13 @@ type UploadLabels = {
   bulkFailedOne: string;
   bulkFailedFew: string;
   bulkFailedMany: string;
+  rejectedOne: string;
+  rejectedFew: string;
+  rejectedMany: string;
+  rejectedTooLargeOne: string;
+  rejectedTooLargeFew: string;
+  rejectedTooLargeMany: string;
+  skip: string;
 };
 
 type UploadLimitProps = {
@@ -77,11 +84,18 @@ type BulkView =
     }
   | { phase: "summary"; done: number; failedCount: number };
 
+type RejectedView = {
+  count: number;
+  previewUrl: string | null;
+  uploaded: number;
+};
+
 type BulkRun = {
   cancelled: boolean;
   aborts: Map<number, () => void>;
   uploadedBytes: Map<number, number>;
   inFlight: { id: number; url: string }[];
+  notifyCancel: () => void;
 };
 
 // The server refuses to sign uploads for devices without a saved profile;
@@ -94,6 +108,10 @@ class UploadsFrozenError extends Error {}
 class FileTooLargeError extends Error {}
 
 class UploadCancelledError extends Error {}
+
+// The device is offline; the item goes back into the queue and waits for the
+// connection to return.
+class OfflineError extends Error {}
 
 // The device hit an upload limit; remaining files are dropped and a notice
 // names the limit that was hit.
@@ -221,10 +239,12 @@ export function UploadButton({
   const [bulkView, setBulkView] = useState<BulkView | null>(null);
   const [frozenNotice, setFrozenNotice] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
+  const [rejectedView, setRejectedView] = useState<RejectedView | null>(null);
   const tileIdRef = useRef(0);
   const controllers = useRef(new Map<number, TileController>());
   const bulkRunRef = useRef<BulkRun | null>(null);
   const bulkFailedRef = useRef<File[]>([]);
+  const rejectedRef = useRef<{ file: File; previewUrl: string }[]>([]);
   const summaryTimerRef = useRef<number | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -232,6 +252,43 @@ export function UploadButton({
     "{max}",
     String(limits.maxBatch),
   );
+  const maxFileMb = Math.round(limits.maxFileBytes / (1024 * 1024));
+
+  function waitForOnline(): Promise<void> {
+    if (queue) return queue.waitForOnline();
+    if (navigator.onLine) return Promise.resolve();
+    return new Promise((resolve) =>
+      window.addEventListener("online", () => resolve(), { once: true }),
+    );
+  }
+
+  function recordRejection(file: File) {
+    rejectedRef.current.push({ file, previewUrl: URL.createObjectURL(file) });
+  }
+
+  function showRejected(uploaded: number) {
+    const rejected = rejectedRef.current;
+    if (rejected.length === 0) return;
+    setRejectedView({
+      count: rejected.length,
+      previewUrl: rejected[0].previewUrl,
+      uploaded,
+    });
+  }
+
+  function clearRejected() {
+    for (const entry of rejectedRef.current) {
+      URL.revokeObjectURL(entry.previewUrl);
+    }
+    rejectedRef.current = [];
+    setRejectedView(null);
+  }
+
+  function retryRejected() {
+    const files = rejectedRef.current.map((entry) => entry.file);
+    clearRejected();
+    void startBatch(files);
+  }
 
   function askForProfile(files: File[]) {
     setHasProfile(false);
@@ -260,8 +317,7 @@ export function UploadButton({
     const controller = controllers.current.get(item.id);
     if (!controller || controller.cancelled || controller.done) return;
     if (!limitsExempt && item.file.size > limits.maxFileBytes) {
-      queue?.patchTile(item.id, { status: "failed" });
-      return;
+      throw new FileTooLargeError();
     }
     queue?.patchTile(item.id, { status: "uploading", percent: 0 });
     try {
@@ -287,13 +343,16 @@ export function UploadButton({
       if (
         error instanceof ProfileRequiredError ||
         error instanceof UploadsFrozenError ||
-        error instanceof RateLimitedError
+        error instanceof RateLimitedError ||
+        error instanceof FileTooLargeError
       ) {
         throw error;
       }
-      if (!(error instanceof FileTooLargeError)) {
-        console.error("Upload failed", error);
+      if (!navigator.onLine) {
+        queue?.patchTile(item.id, { status: "queued", percent: 0 });
+        throw new OfflineError();
       }
+      console.error("Upload failed", error);
       queue?.patchTile(item.id, { status: "failed" });
     }
   }
@@ -306,8 +365,15 @@ export function UploadButton({
       await uploadTile(item, 1);
       router.refresh();
     } catch (error) {
+      if (error instanceof OfflineError) {
+        await waitForOnline();
+        return retryTile(item);
+      }
       dropTile(item.id);
-      if (error instanceof ProfileRequiredError) {
+      if (error instanceof FileTooLargeError) {
+        recordRejection(item.file);
+        showRejected(0);
+      } else if (error instanceof ProfileRequiredError) {
         askForProfile([item.file]);
       } else if (error instanceof UploadsFrozenError) {
         setFrozenNotice(true);
@@ -365,6 +431,7 @@ export function UploadButton({
     const retryFiles: File[] = [];
     let abort: "profile" | "frozen" | "limit" | null = null;
     let limitMessage = labels.rateLimited;
+    let uploaded = 0;
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENT_UPLOADS, pending.length) }, async () => {
         for (let item = pending.shift(); item; item = pending.shift()) {
@@ -375,9 +442,17 @@ export function UploadButton({
           }
           try {
             await uploadTile(item, files.length);
+            if (controllers.current.get(item.id)?.done) uploaded += 1;
           } catch (error) {
+            if (error instanceof OfflineError) {
+              pending.push(item);
+              await waitForOnline();
+              continue;
+            }
             dropTile(item.id);
-            if (error instanceof ProfileRequiredError) {
+            if (error instanceof FileTooLargeError) {
+              recordRejection(item.file);
+            } else if (error instanceof ProfileRequiredError) {
               abort = "profile";
               retryFiles.push(item.file);
             } else if (error instanceof UploadsFrozenError) {
@@ -393,6 +468,7 @@ export function UploadButton({
     );
 
     setBatchActive(false);
+    showRejected(uploaded);
     if (abort === "profile") {
       askForProfile(retryFiles);
       return;
@@ -423,6 +499,7 @@ export function UploadButton({
     run.cancelled = true;
     for (const abortTus of run.aborts.values()) abortTus();
     run.aborts.clear();
+    run.notifyCancel();
   }
 
   function retryBulkFailures() {
@@ -443,11 +520,18 @@ export function UploadButton({
       window.clearTimeout(summaryTimerRef.current);
       summaryTimerRef.current = null;
     }
+    let notifyCancel: () => void = () => {};
+    // Workers waiting out an offline stretch must also wake on cancel, or the
+    // batch could never finish.
+    const cancelSignal = new Promise<void>((resolve) => {
+      notifyCancel = resolve;
+    });
     const run: BulkRun = {
       cancelled: false,
       aborts: new Map(),
       uploadedBytes: new Map(),
       inFlight: [],
+      notifyCancel,
     };
     bulkRunRef.current = run;
     bulkFailedRef.current = [];
@@ -512,6 +596,9 @@ export function UploadButton({
     const retryFiles: File[] = [];
     let abort: "profile" | "frozen" | "limit" | null = null;
     let limitMessage = labels.rateLimited;
+    let offlineWaiting = 0;
+    const syncWaiting = () =>
+      queue?.setBulkWaiting(pending.length + offlineWaiting);
     try {
       await Promise.all(
         Array.from({ length: Math.min(CONCURRENT_UPLOADS, pending.length) }, async () => {
@@ -522,9 +609,10 @@ export function UploadButton({
               continue;
             }
             if (!limitsExempt && item.file.size > limits.maxFileBytes) {
-              bulkFailedRef.current.push(item.file);
+              recordRejection(item.file);
               continue;
             }
+            let requeue = false;
             run.inFlight.push({ id: item.id, url: URL.createObjectURL(item.file) });
             syncPreview();
             try {
@@ -559,10 +647,12 @@ export function UploadButton({
                 abort = "limit";
                 limitMessage =
                   error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
+              } else if (error instanceof FileTooLargeError) {
+                recordRejection(item.file);
+              } else if (!navigator.onLine) {
+                requeue = true;
               } else {
-                if (!(error instanceof FileTooLargeError)) {
-                  console.error("Upload failed", error);
-                }
+                console.error("Upload failed", error);
                 bulkFailedRef.current.push(item.file);
               }
             } finally {
@@ -574,6 +664,14 @@ export function UploadButton({
               }
               syncPreview();
             }
+            if (requeue) {
+              pending.push(item);
+              offlineWaiting += 1;
+              syncWaiting();
+              await Promise.race([waitForOnline(), cancelSignal]);
+              offlineWaiting -= 1;
+              syncWaiting();
+            }
           }
         }),
       );
@@ -582,15 +680,18 @@ export function UploadButton({
       document.removeEventListener("visibilitychange", reacquireWakeLock);
       await releaseWakeLock();
       bulkRunRef.current = null;
+      queue?.setBulkWaiting(0);
       setBatchActive(false);
     }
 
     if (abort === "profile") {
       setBulkView(null);
+      showRejected(done);
       askForProfile(retryFiles);
       return;
     }
     router.refresh();
+    showRejected(done);
     if (abort === "frozen") {
       setBulkView(null);
       setFrozenNotice(true);
@@ -607,6 +708,12 @@ export function UploadButton({
     }
 
     const failedCount = bulkFailedRef.current.length;
+    // The rejected card carries the success count itself; a summary next to
+    // it would duplicate it. Retryable failures still need the summary.
+    if (rejectedRef.current.length > 0 && failedCount === 0) {
+      setBulkView(null);
+      return;
+    }
     setBulkView({ phase: "summary", done, failedCount });
     summaryTimerRef.current = window.setTimeout(
       () => setBulkView(null),
@@ -703,6 +810,37 @@ export function UploadButton({
           }
           retryLabel={labels.retry}
           onRetry={bulkView.failedCount > 0 ? retryBulkFailures : null}
+        />
+      )}
+
+      {rejectedView && (
+        <RejectedCard
+          previewUrl={rejectedView.previewUrl}
+          titleLabel={pluralize(locale, rejectedView.count, {
+            one: labels.rejectedOne,
+            few: labels.rejectedFew,
+            many: labels.rejectedMany,
+          })}
+          detailLabel={[
+            pluralize(locale, rejectedView.count, {
+              one: labels.rejectedTooLargeOne,
+              few: labels.rejectedTooLargeFew,
+              many: labels.rejectedTooLargeMany,
+            }).replace("{max}", String(maxFileMb)),
+            ...(rejectedView.uploaded > 0
+              ? [
+                  pluralize(locale, rejectedView.uploaded, {
+                    one: labels.bulkDoneOne,
+                    few: labels.bulkDoneFew,
+                    many: labels.bulkDoneMany,
+                  }),
+                ]
+              : []),
+          ].join(" · ")}
+          retryLabel={labels.retry}
+          skipLabel={labels.skip}
+          onRetry={retryRejected}
+          onSkip={clearRejected}
         />
       )}
 

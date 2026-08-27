@@ -79,6 +79,22 @@ const en = {
     bulkFailedOne: "{count} didn't upload",
     bulkFailedFew: "{count} didn't upload",
     bulkFailedMany: "{count} didn't upload",
+    rejectedOne: "{count} photo didn't make it",
+    rejectedFew: "{count} photos didn't make it",
+    rejectedMany: "{count} photos didn't make it",
+    rejectedTooLargeOne: "Over {max} MB",
+    rejectedTooLargeFew: "Over {max} MB",
+    rejectedTooLargeMany: "Over {max} MB",
+    skip: "Leave out",
+    waiting: "waiting",
+    offlineTitle: "No internet",
+    offlineBodyOne:
+      "{count} photo is waiting in the queue. We'll continue on our own when the connection returns — keep this page open.",
+    offlineBodyFew:
+      "{count} photos are waiting in the queue. We'll continue on our own when the connection returns — keep this page open.",
+    offlineBodyMany:
+      "{count} photos are waiting in the queue. We'll continue on our own when the connection returns — keep this page open.",
+    offlineRetry: "Try now",
   },
   introSheet: {
     title: "Introduce yourself",
@@ -222,6 +238,22 @@ const sr: Dictionary = {
     bulkFailedOne: "{count} није успела",
     bulkFailedFew: "{count} нису успеле",
     bulkFailedMany: "{count} није успело",
+    rejectedOne: "{count} фотографија није прошла",
+    rejectedFew: "{count} фотографије нису прошле",
+    rejectedMany: "{count} фотографија није прошло",
+    rejectedTooLargeOne: "Већа од {max} MB",
+    rejectedTooLargeFew: "Веће од {max} MB",
+    rejectedTooLargeMany: "Веће од {max} MB",
+    skip: "Изостави",
+    waiting: "чека",
+    offlineTitle: "Нема интернета",
+    offlineBodyOne:
+      "{count} фотографија чека у реду. Настављамо саме кад се веза врати — не затварајте страницу.",
+    offlineBodyFew:
+      "{count} фотографије чекају у реду. Настављамо саме кад се веза врати — не затварајте страницу.",
+    offlineBodyMany:
+      "{count} фотографија чека у реду. Настављамо саме кад се веза врати — не затварајте страницу.",
+    offlineRetry: "Пробај сада",
   },
   introSheet: {
     title: "Представите се",
