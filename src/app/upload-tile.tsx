@@ -2,15 +2,18 @@
 
 import { LikePill } from "./like-pill";
 import type { UploadTile, UploadTileLabels } from "./upload-queue";
+import type { Likes } from "./use-likes";
 
 export function UploadTileView({
   tile,
   labels,
+  likes,
   likeLabels,
   offline = false,
 }: {
   tile: UploadTile;
   labels: UploadTileLabels;
+  likes?: Likes;
   likeLabels?: { like: string; unlike: string };
   offline?: boolean;
 }) {
@@ -76,11 +79,14 @@ export function UploadTileView({
         </div>
       )}
 
-      {tile.status === "done" && likeLabels && tile.photoId && (
+      {tile.status === "done" && likes && likeLabels && tile.photoId !== null && (
         <LikePill
-          photoId={tile.photoId}
-          initialLiked={false}
-          initialCount={0}
+          state={likes.stateFor(tile.photoId, { liked: false, count: 0 })}
+          onToggle={() => {
+            if (tile.photoId !== null) {
+              void likes.toggle(tile.photoId, { liked: false, count: 0 });
+            }
+          }}
           labels={likeLabels}
         />
       )}

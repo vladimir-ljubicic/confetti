@@ -1,55 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
-
-type LikeState = { liked: boolean; count: number };
+import type { LikeState } from "./use-likes";
 
 export function LikePill({
-  photoId,
-  initialLiked,
-  initialCount,
+  state,
+  onToggle,
   labels,
 }: {
-  photoId: string;
-  initialLiked: boolean;
-  initialCount: number;
+  state: LikeState;
+  onToggle: () => void;
   labels: { like: string; unlike: string };
 }) {
-  const [state, setState] = useState<LikeState>({
-    liked: initialLiked,
-    count: initialCount,
-  });
-  const requestId = useRef(0);
-
-  async function toggle() {
-    const previous = state;
-    const liked = !previous.liked;
-    setState({ liked, count: Math.max(previous.count + (liked ? 1 : -1), 0) });
-
-    const id = ++requestId.current;
-    try {
-      const response = await fetch(`/api/photos/${photoId}/like`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ liked }),
-      });
-      if (!response.ok) throw new Error();
-      const data = (await response.json()) as {
-        liked: boolean;
-        likeCount: number;
-      };
-      if (id === requestId.current) {
-        setState({ liked: data.liked, count: data.likeCount });
-      }
-    } catch {
-      if (id === requestId.current) setState(previous);
-    }
-  }
-
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={onToggle}
       aria-pressed={state.liked}
       aria-label={state.liked ? labels.unlike : labels.like}
       className="absolute right-2 bottom-2 -mb-[5px] flex min-h-11 items-end pb-[5px]"

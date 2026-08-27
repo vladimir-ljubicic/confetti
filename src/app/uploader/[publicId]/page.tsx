@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isAdmin } from "@/lib/admin-session";
 import { getDeviceId } from "@/lib/device";
 import { getDict } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
@@ -8,6 +9,7 @@ import { getUploaderByPublicId } from "@/lib/uploaders";
 import { LocaleCorner } from "../../locale-corner";
 import { PhotoGrid } from "../../photo-grid";
 import { SortToggle } from "../../sort-toggle";
+import { viewerLabels } from "../../viewer-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,7 @@ export default async function UploaderPage({
         downloadLabel={dict.gallery.download}
         emptyLabel={dict.uploaderPage.empty}
         likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
+        viewer={{ canManageAll: await isAdmin(), labels: viewerLabels(dict) }}
       />
     </main>
   );

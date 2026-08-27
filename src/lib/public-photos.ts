@@ -13,6 +13,7 @@ type PublicPhotoRow = {
   size_bytes: number;
   uploaded_at: string;
   like_count: number;
+  uploader_id: string | null;
   uploaders: { display_name: string | null; public_id: string } | null;
 };
 
@@ -23,6 +24,7 @@ export type PublicPhoto = {
   downloadUrl: string | null;
   likeCount: number;
   likedByViewer: boolean;
+  ownedByViewer: boolean;
   uploader: { displayName: string; publicId: string } | null;
 };
 
@@ -52,7 +54,7 @@ export async function loadPublicPhotos({
   let query = supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, like_count, uploaders (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, like_count, uploader_id, uploaders (display_name, public_id)",
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
@@ -77,6 +79,8 @@ export async function loadPublicPhotos({
       downloadUrl: await originalDownloadUrl(photo),
       likeCount: photo.like_count,
       likedByViewer: viewerLikes.has(photo.id),
+      ownedByViewer:
+        viewerDeviceId !== null && photo.uploader_id === viewerDeviceId,
       uploader: photo.uploaders?.display_name
         ? {
             displayName: photo.uploaders.display_name,

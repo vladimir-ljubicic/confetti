@@ -25,6 +25,11 @@ const en = {
     like: "Like",
     unlike: "Remove like",
   },
+  viewer: {
+    open: "Open photo",
+    close: "Close",
+    share: "Share",
+  },
   downloadSheet: {
     title: "Download all",
     intro: "Preparing the ZIP file takes a few minutes.",
@@ -183,6 +188,11 @@ const sr: Dictionary = {
     downloadAll: "Преузми све фотографије",
     like: "Свиђа ми се",
     unlike: "Уклони свиђање",
+  },
+  viewer: {
+    open: "Отвори фотографију",
+    close: "Затвори",
+    share: "Подели",
   },
   downloadSheet: {
     title: "Преузми све",

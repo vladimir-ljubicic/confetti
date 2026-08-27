@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { LikePill } from "./like-pill";
+import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
+import { useLikes } from "./use-likes";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
 type GridEntry =
@@ -16,15 +18,19 @@ export function PhotoGrid({
   emptyLabel,
   downloadLabel,
   likeLabels,
+  viewer,
   showUploader = false,
 }: {
   photos: PublicPhoto[];
   emptyLabel: string;
   downloadLabel?: string;
   likeLabels?: { like: string; unlike: string };
+  viewer?: { labels: ViewerLabels; canManageAll: boolean };
   showUploader?: boolean;
 }) {
   const queue = useUploadQueue();
+  const likes = useLikes();
+  const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const tiles = useMemo(() => queue?.tiles ?? [], [queue]);
   const photoIds = useMemo(
     () => new Set(photos.map((photo) => photo.id)),
@@ -58,65 +64,102 @@ export function PhotoGrid({
     entries.filter((_, index) => index % 2 === 1),
   ];
   return (
-    <div className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26">
-      {columns.map((column, columnIndex) => (
-        <ul key={columnIndex} className="flex flex-col gap-2">
-          {column.map((entry) =>
-            entry.kind === "tile" ? (
-              queue && (
-                <UploadTileView
-                  key={`tile-${entry.tile.id}`}
-                  tile={entry.tile}
-                  labels={queue.labels}
-                  likeLabels={likeLabels}
-                  offline={queue.offline}
-                />
-              )
-            ) : (
-              <li
-                key={entry.photo.id}
-                className="group relative overflow-hidden rounded-tile bg-sand"
-              >
-                {entry.photo.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={entry.photo.imageUrl}
-                    alt=""
-                    loading="lazy"
-                    className="w-full"
+    <>
+      <div className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26">
+        {columns.map((column, columnIndex) => (
+          <ul key={columnIndex} className="flex flex-col gap-2">
+            {column.map((entry) =>
+              entry.kind === "tile" ? (
+                queue && (
+                  <UploadTileView
+                    key={`tile-${entry.tile.id}`}
+                    tile={entry.tile}
+                    labels={queue.labels}
+                    likes={likes}
+                    likeLabels={likeLabels}
+                    offline={queue.offline}
                   />
-                ) : (
-                  <div className="aspect-3/4" />
-                )}
-                {showUploader && entry.photo.uploader && (
-                  <Link
-                    href={`/uploader/${entry.photo.uploader.publicId}`}
-                    className="absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-ink/60 to-transparent px-2.5 pt-8 pb-2 text-left text-xs text-white hover:underline"
-                  >
-                    {entry.photo.uploader.displayName}
-                  </Link>
-                )}
-                {likeLabels && (
-                  <LikePill
-                    photoId={entry.photo.id}
-                    initialLiked={entry.photo.likedByViewer}
-                    initialCount={entry.photo.likeCount}
-                    labels={likeLabels}
-                  />
-                )}
-                {downloadLabel && entry.photo.downloadUrl && (
-                  <a
-                    href={entry.photo.downloadUrl}
-                    className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
-                  >
-                    {downloadLabel}
-                  </a>
-                )}
-              </li>
-            ),
-          )}
-        </ul>
-      ))}
-    </div>
+                )
+              ) : (
+                <li
+                  key={entry.photo.id}
+                  className="group relative overflow-hidden rounded-tile bg-sand"
+                >
+                  {entry.photo.imageUrl ? (
+                    viewer ? (
+                      <button
+                        type="button"
+                        aria-label={viewer.labels.open}
+                        onClick={() => setViewerStartId(entry.photo.id)}
+                        className="block w-full"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={entry.photo.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          className="w-full"
+                        />
+                      </button>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.photo.imageUrl}
+                        alt=""
+                        loading="lazy"
+                        className="w-full"
+                      />
+                    )
+                  ) : (
+                    <div className="aspect-3/4" />
+                  )}
+                  {showUploader && entry.photo.uploader && (
+                    <Link
+                      href={`/uploader/${entry.photo.uploader.publicId}`}
+                      className="absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-ink/60 to-transparent px-2.5 pt-8 pb-2 text-left text-xs text-white hover:underline"
+                    >
+                      {entry.photo.uploader.displayName}
+                    </Link>
+                  )}
+                  {likeLabels && (
+                    <LikePill
+                      state={likes.stateFor(entry.photo.id, {
+                        liked: entry.photo.likedByViewer,
+                        count: entry.photo.likeCount,
+                      })}
+                      onToggle={() =>
+                        void likes.toggle(entry.photo.id, {
+                          liked: entry.photo.likedByViewer,
+                          count: entry.photo.likeCount,
+                        })
+                      }
+                      labels={likeLabels}
+                    />
+                  )}
+                  {downloadLabel && entry.photo.downloadUrl && (
+                    <a
+                      href={entry.photo.downloadUrl}
+                      className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
+                    >
+                      {downloadLabel}
+                    </a>
+                  )}
+                </li>
+              ),
+            )}
+          </ul>
+        ))}
+      </div>
+      {viewer && viewerStartId !== null && (
+        <PhotoViewer
+          photos={photos}
+          startId={viewerStartId}
+          likes={likes}
+          canManageAll={viewer.canManageAll}
+          labels={viewer.labels}
+          onClose={() => setViewerStartId(null)}
+        />
+      )}
+    </>
   );
 }

@@ -12,6 +12,7 @@ import { GalleryHeader } from "./gallery-header";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
 import { UploadQueueProvider } from "./upload-queue";
+import { viewerLabels } from "./viewer-labels";
 
 // The gallery reads the database directly; without this the page would be
 // statically prerendered at build time and serve stale rows.
@@ -97,6 +98,7 @@ export default async function GalleryPage({
             photos={photos}
             emptyLabel={dict.gallery.empty}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
+            viewer={{ canManageAll: admin, labels: viewerLabels(dict) }}
           />
 
           {uploadsFrozen ? (
