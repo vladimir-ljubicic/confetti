@@ -78,6 +78,8 @@ export default async function GalleryPage({
             sortLive: dict.gallery.sortLive,
             sortChrono: dict.gallery.sortChrono,
             localeAriaLabel: dict.localeToggle.ariaLabel,
+            coachMark: dict.gallery.coachMark,
+            coachMarkDismiss: dict.gallery.coachMarkDismiss,
           }}
           frozenNotice={
             uploadsFrozen

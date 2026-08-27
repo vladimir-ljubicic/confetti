@@ -24,6 +24,8 @@ const en = {
     downloadAll: "Download all photos",
     like: "Like",
     unlike: "Remove like",
+    coachMark: "Your photos are here",
+    coachMarkDismiss: "Dismiss",
   },
   viewer: {
     open: "Open photo",
@@ -208,6 +210,8 @@ const sr: Dictionary = {
     downloadAll: "Преузми све фотографије",
     like: "Свиђа ми се",
     unlike: "Уклони свиђање",
+    coachMark: "Ваше фотографије су овде",
+    coachMarkDismiss: "Затвори",
   },
   viewer: {
     open: "Отвори фотографију",

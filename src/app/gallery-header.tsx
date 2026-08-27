@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import type { SortMode } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
+import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
 import { OfflineNotice, type OfflineNoticeLabels } from "./offline-notice";
 import { SortToggle } from "./sort-toggle";
@@ -16,6 +17,37 @@ const MASTHEAD_SCROLL_PX = 140;
 const TOP_ROW_FALLBACK_HEIGHT_PX = 57;
 
 const COMPACT_BAR_FALLBACK_HEIGHT_PX = 60;
+
+const COACH_MARK_SEEN_KEY = "confetti:coach-mark-seen";
+
+const COACH_MARK_TTL_MS = 6000;
+
+// Vectors biased left/down so no fleck clips the viewport edge.
+const BURST_FLECKS = [
+  { color: "bg-gold", bx: -30, by: -18, delay: 0.45 },
+  { color: "bg-ink", bx: -8, by: -30, delay: 0.52 },
+  { color: "bg-gold-light", bx: 6, by: -34, delay: 0.59 },
+  { color: "bg-gold-small", bx: -34, by: 14, delay: 0.66 },
+  { color: "bg-gold", bx: -14, by: 30, delay: 0.73 },
+];
+
+function coachMarkSeen(): boolean {
+  try {
+    return localStorage.getItem(COACH_MARK_SEEN_KEY) !== null;
+  } catch {
+    // Storage unavailable: the flag could never persist, so showing the
+    // coach mark would repeat it on every visit.
+    return true;
+  }
+}
+
+function persistCoachMarkSeen() {
+  try {
+    localStorage.setItem(COACH_MARK_SEEN_KEY, "1");
+  } catch {
+    // Best-effort.
+  }
+}
 
 export function GalleryHeader({
   displayName,
@@ -36,6 +68,8 @@ export function GalleryHeader({
     sortLive: string;
     sortChrono: string;
     localeAriaLabel: string;
+    coachMark: string;
+    coachMarkDismiss: string;
   };
   frozenNotice?: { title: string; body: string } | null;
   offlineNotice?: OfflineNoticeLabels | null;
@@ -47,6 +81,44 @@ export function GalleryHeader({
     COMPACT_BAR_FALLBACK_HEIGHT_PX,
   );
   const [pastMasthead, setPastMasthead] = useState(false);
+  const [savedName, setSavedName] = useState<string | null>(null);
+  const [arrival, setArrival] = useState(false);
+  const [coachMark, setCoachMark] = useState(false);
+
+  const name = displayName ?? savedName;
+
+  useEffect(() => {
+    const begin = () => {
+      if (coachMarkSeen()) return;
+      setArrival(true);
+      setCoachMark(true);
+    };
+    // The first upload can happen from the empty gallery, where this header
+    // does not exist yet; it then mounts with the avatar already present.
+    if (displayName) begin();
+    const onProfileSaved = (event: Event) => {
+      const detail = (event as CustomEvent<{ displayName?: string }>).detail;
+      if (typeof detail?.displayName === "string") setSavedName(detail.displayName);
+      begin();
+    };
+    window.addEventListener(PROFILE_SAVED_EVENT, onProfileSaved);
+    return () => window.removeEventListener(PROFILE_SAVED_EVENT, onProfileSaved);
+  }, [displayName]);
+
+  const dismissCoachMark = useCallback(() => {
+    persistCoachMarkSeen();
+    setCoachMark(false);
+  }, []);
+
+  useEffect(() => {
+    if (!coachMark) return;
+    const timer = window.setTimeout(dismissCoachMark, COACH_MARK_TTL_MS);
+    window.addEventListener("scroll", dismissCoachMark, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("scroll", dismissCoachMark);
+    };
+  }, [coachMark, dismissCoachMark]);
 
   useEffect(() => {
     const topRow = topRowRef.current;
@@ -80,14 +152,55 @@ export function GalleryHeader({
         </span>
         <div className="flex items-center gap-2.5">
           <LocaleToggle locale={locale} labels={{ ariaLabel: labels.localeAriaLabel }} />
-          {displayName && (
+          {name && (
             <Link href="/my-photos" aria-label={labels.myPhotos} className="-m-1.5 p-1.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-sand font-serif text-base text-gold-deep">
-                {displayName.trim().charAt(0).toLocaleUpperCase(locale)}
+              <span className="relative block h-8 w-8">
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-sand font-serif text-base text-gold-deep ${
+                    arrival ? "avatar-pop" : ""
+                  }`}
+                >
+                  {name.trim().charAt(0).toLocaleUpperCase(locale)}
+                </span>
+                {arrival &&
+                  BURST_FLECKS.map((fleck, i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      className={`avatar-burst-fleck absolute top-3.5 left-3.5 h-2 w-[5px] rounded-[1px] ${fleck.color}`}
+                      style={
+                        {
+                          "--bx": `${fleck.bx}px`,
+                          "--by": `${fleck.by}px`,
+                          animationDelay: `${fleck.delay}s`,
+                        } as React.CSSProperties
+                      }
+                    />
+                  ))}
               </span>
             </Link>
           )}
         </div>
+
+        {coachMark && (
+          <div
+            onClick={dismissCoachMark}
+            className="coach-mark-in absolute top-full right-2 z-[1] flex flex-col items-end"
+          >
+            <span className="-mb-1.5 mr-4 h-[11px] w-[11px] rotate-45 rounded-[2px] border-t border-l border-ink/10 bg-card" />
+            <span className="flex items-center gap-1 rounded-card border border-ink/10 bg-card py-[11px] pr-1.5 pl-3.5 text-[13px] leading-[1.35] whitespace-nowrap text-ink shadow-card">
+              {labels.coachMark}
+              <button
+                type="button"
+                aria-label={labels.coachMarkDismiss}
+                onClick={dismissCoachMark}
+                className="-my-[13px] flex h-11 w-11 items-center justify-center text-[15px] text-ink/55"
+              >
+                ✕
+              </button>
+            </span>
+          </div>
+        )}
       </div>
 
       <header className="flex flex-col items-center gap-[11px] px-7 pt-4 pb-[26px] text-center">
