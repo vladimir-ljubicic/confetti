@@ -12,7 +12,8 @@ import {
   type RateLimitReason,
 } from "@/lib/upload-limits";
 import type { UploadTicket } from "@/lib/upload-ticket";
-import { FirstUploadDialog, type FirstUploadDialogLabels } from "./first-upload-dialog";
+import type { Locale } from "@/lib/i18n";
+import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
 
 // Fixed by Supabase's resumable upload endpoint; other sizes are rejected.
 const CHUNK_SIZE = 6 * 1024 * 1024;
@@ -42,7 +43,7 @@ type UploadItem = {
 };
 
 // The server refuses to sign uploads for devices without a saved profile;
-// the client reacts by (re)opening the first-upload dialog.
+// the client reacts by (re)opening the intro sheet.
 class ProfileRequiredError extends Error {}
 
 // The admin froze uploads; remaining files are dropped and a notice is shown.
@@ -134,14 +135,16 @@ async function uploadFile(
 
 export function UploadButton({
   labels,
-  dialogLabels,
+  sheetLabels,
+  locale,
   needsProfile,
   limits,
   limitsExempt,
   variant = "floating",
 }: {
   labels: UploadLabels;
-  dialogLabels: FirstUploadDialogLabels;
+  sheetLabels: IntroSheetLabels;
+  locale: Locale;
   needsProfile: boolean;
   limits: UploadLimitProps;
   // Admin devices: the server skips limit checks, so the client must too.
@@ -363,8 +366,10 @@ export function UploadButton({
       </button>
 
       {dialogOpen && (
-        <FirstUploadDialog
-          labels={dialogLabels}
+        <IntroSheet
+          labels={sheetLabels}
+          locale={locale}
+          fileCount={pendingFiles.length}
           onSaved={() => {
             setHasProfile(true);
             setDialogOpen(false);

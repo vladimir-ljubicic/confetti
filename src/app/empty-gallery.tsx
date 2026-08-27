@@ -58,7 +58,8 @@ export function EmptyGallery({
           <UploadButton
             variant="inline"
             labels={dict.upload}
-            dialogLabels={dict.firstUploadDialog}
+            sheetLabels={dict.introSheet}
+            locale={locale}
             needsProfile={needsProfile}
             limits={limits}
             limitsExempt={limitsExempt}

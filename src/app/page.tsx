@@ -91,7 +91,8 @@ export default async function GalleryPage({
         ) : (
           <UploadButton
             labels={dict.upload}
-            dialogLabels={dict.firstUploadDialog}
+            sheetLabels={dict.introSheet}
+            locale={locale}
             needsProfile={!profile}
             limits={{
               maxBatch: uploadLimits.maxBatch,
