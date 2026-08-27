@@ -56,7 +56,7 @@ export default async function AdminBinPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-4xl text-gold-deep">{labels.title}</h1>
+        <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
         <Link href="/admin" className="text-sm text-ink/60 transition hover:text-ink">
           ← {labels.backToAdmin}
         </Link>
@@ -70,7 +70,7 @@ export default async function AdminBinPage() {
       ) : (
         <ul className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {photos.map((photo) => (
-            <li key={photo.id} className="overflow-hidden rounded-lg bg-pearl">
+            <li key={photo.id} className="overflow-hidden rounded-lg bg-sand">
               {photo.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

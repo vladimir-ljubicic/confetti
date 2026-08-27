@@ -40,7 +40,7 @@ export function FreezeToggle({
           type="button"
           disabled={busy}
           onClick={toggle}
-          className="rounded-full border border-gold-deep px-4 py-1.5 text-sm text-gold-deep transition hover:bg-gold-deep hover:text-white disabled:opacity-60"
+          className="rounded-full border border-gold-small px-4 py-1.5 text-sm text-gold-small transition hover:bg-gold-small hover:text-white disabled:opacity-60"
         >
           {frozen ? labels.unfreeze : labels.freeze}
         </button>

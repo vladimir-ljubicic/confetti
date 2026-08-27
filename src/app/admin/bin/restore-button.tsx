@@ -21,7 +21,7 @@ export function RestoreButton({
         type="button"
         disabled={busy}
         onClick={restore}
-        className="text-xs text-gold-deep transition hover:underline disabled:opacity-60"
+        className="text-xs text-gold-small transition hover:underline disabled:opacity-60"
       >
         {labels.restore}
       </button>

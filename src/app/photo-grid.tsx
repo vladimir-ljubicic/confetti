@@ -18,7 +18,7 @@ export function PhotoGrid({
   return (
     <ul className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
       {photos.map((photo) => (
-        <li key={photo.id} className="group relative overflow-hidden rounded-lg bg-pearl">
+        <li key={photo.id} className="group relative overflow-hidden rounded-lg bg-sand">
           {photo.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img

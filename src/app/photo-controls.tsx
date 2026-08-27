@@ -75,7 +75,7 @@ export function PhotoControls({
           type="button"
           disabled={busy}
           onClick={toggleVisibility}
-          className="text-gold-deep transition hover:underline disabled:opacity-60"
+          className="text-gold-small transition hover:underline disabled:opacity-60"
         >
           {visibility === "public" ? labels.makePrivate : labels.makePublic}
         </button>

@@ -63,7 +63,7 @@ export default async function AdminPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-4xl text-gold-deep">{labels.title}</h1>
+        <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/" className="text-ink/60 transition hover:text-ink">
             ← {labels.backToGallery}
@@ -140,7 +140,7 @@ async function AdminGallery({
 
   const chipClass = (active: boolean) =>
     `rounded-full px-3 py-1 text-sm transition ${
-      active ? "bg-gold-deep text-white" : "bg-pearl text-ink hover:bg-pearl/70"
+      active ? "bg-gold-small text-white" : "bg-sand text-ink hover:bg-sand/70"
     }`;
 
   return (
@@ -182,7 +182,7 @@ async function AdminGallery({
           </header>
           <ul className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {group.photos.map((photo) => (
-              <li key={photo.id} className="relative overflow-hidden rounded-lg bg-pearl">
+              <li key={photo.id} className="relative overflow-hidden rounded-lg bg-sand">
                 {photo.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

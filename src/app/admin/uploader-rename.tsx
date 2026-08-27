@@ -46,7 +46,7 @@ export function UploaderRename({
             setValue(name);
             setEditing(true);
           }}
-          className="text-xs text-gold-deep transition hover:underline"
+          className="text-xs text-gold-small transition hover:underline"
         >
           {labels.rename}
         </button>
@@ -62,12 +62,12 @@ export function UploaderRename({
         required
         maxLength={DISPLAY_NAME_MAX_LENGTH}
         autoFocus
-        className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-sm outline-none focus:border-gold-deep"
+        className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-sm outline-none focus:border-gold-small"
       />
       <button
         type="submit"
         disabled={busy}
-        className="text-xs text-gold-deep transition hover:underline disabled:opacity-60"
+        className="text-xs text-gold-small transition hover:underline disabled:opacity-60"
       >
         {labels.renameSave}
       </button>

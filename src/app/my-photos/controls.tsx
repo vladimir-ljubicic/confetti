@@ -35,7 +35,7 @@ export function DefaultVisibilityPicker({
   }
 
   return (
-    <fieldset className="flex flex-col gap-2 rounded-2xl bg-pearl/60 px-5 py-4">
+    <fieldset className="flex flex-col gap-2 rounded-2xl bg-sand/60 px-5 py-4">
       <legend className="float-left mb-2 text-sm font-medium text-ink">
         {labels.defaultLabel}
       </legend>
@@ -52,7 +52,7 @@ export function DefaultVisibilityPicker({
             value={visibility}
             checked={selected === visibility}
             onChange={() => void change(visibility)}
-            className="accent-gold-deep"
+            className="accent-gold-small"
           />
           {label}
         </label>

@@ -32,7 +32,7 @@ export default async function UploaderPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-4xl text-gold-deep">{uploader.displayName}</h1>
+        <h1 className="font-serif text-4xl text-gold-small">{uploader.displayName}</h1>
         <Link href="/" className="text-sm text-ink/60 transition hover:text-ink">
           ← {dict.uploaderPage.backToGallery}
         </Link>

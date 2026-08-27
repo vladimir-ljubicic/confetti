@@ -16,7 +16,7 @@ export function SortToggle({
   ] as const;
 
   return (
-    <nav className="flex rounded-full bg-pearl p-1 text-sm">
+    <nav className="flex rounded-full bg-sand p-1 text-sm">
       {options.map((option) => (
         <Link
           key={option.mode}
@@ -24,7 +24,7 @@ export function SortToggle({
           aria-current={sort === option.mode ? "true" : undefined}
           className={`rounded-full px-4 py-1.5 transition ${
             sort === option.mode
-              ? "bg-white text-gold-deep shadow-sm"
+              ? "bg-white text-gold-small shadow-sm"
               : "text-ink/60 hover:text-ink"
           }`}
         >

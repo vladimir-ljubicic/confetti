@@ -288,7 +288,7 @@ export function UploadButton({
         type="button"
         disabled={batchActive}
         onClick={() => inputRef.current?.click()}
-        className="rounded-full bg-gold px-8 py-3 font-medium text-white shadow-sm transition hover:bg-gold-deep disabled:opacity-60"
+        className="rounded-full bg-gold px-8 py-3 font-medium text-white shadow-sm transition hover:bg-gold-small disabled:opacity-60"
       >
         {batchActive
           ? labels.uploading
@@ -312,9 +312,9 @@ export function UploadButton({
                   )}
                 </span>
               ) : item.status === "done" ? (
-                <span className="shrink-0 text-gold-deep">✓</span>
+                <span className="shrink-0 text-gold-small">✓</span>
               ) : (
-                <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-pearl">
+                <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-sand">
                   <span
                     className="block h-full rounded-full bg-gold transition-[width]"
                     style={{ width: `${item.percent}%` }}

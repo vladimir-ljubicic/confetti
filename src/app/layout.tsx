@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Geist } from "next/font/google";
+import { Cormorant_Garamond, Jost } from "next/font/google";
 import { getDictionary } from "@/lib/dictionaries";
 import { getDict, getLocale } from "@/lib/locale";
 import { LocaleToggle } from "./locale-toggle";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const jost = Jost({
+  variable: "--font-jost",
+  subsets: ["latin", "cyrillic"],
 });
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
-  weight: ["500", "600"],
+  weight: ["400", "500"],
+  style: ["normal", "italic"],
   subsets: ["latin", "cyrillic"],
 });
 
@@ -31,9 +32,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={locale}
-      className={`${geistSans.variable} ${cormorant.variable} h-full antialiased`}
+      className={`${jost.variable} ${cormorant.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-ivory text-ink">
+      <body className="flex min-h-full flex-col bg-paper text-ink">
         <div className="absolute top-4 right-4">
           <LocaleToggle locale={locale} labels={dict.localeToggle} />
         </div>

@@ -44,12 +44,12 @@ export default async function GalleryPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-10 px-4 py-12">
       <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-5xl text-gold-deep">{dict.meta.title}</h1>
+        <h1 className="font-serif text-5xl text-gold-small">{dict.meta.title}</h1>
         <p className="text-sm tracking-widest text-ink/60 uppercase">{dict.gallery.date}</p>
         {hasProfile && (
           <Link
             href="/my-photos"
-            className="text-sm text-gold-deep transition hover:underline"
+            className="text-sm text-gold-small transition hover:underline"
           >
             {dict.gallery.myPhotos}
           </Link>
@@ -57,7 +57,7 @@ export default async function GalleryPage({
       </header>
 
       {uploadsFrozen ? (
-        <p className="max-w-md rounded-lg bg-pearl px-6 py-4 text-center text-sm text-ink/70">
+        <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-center text-sm text-ink/70">
           {dict.gallery.uploadsFrozen}
         </p>
       ) : (

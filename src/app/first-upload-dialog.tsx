@@ -54,7 +54,7 @@ export function FirstUploadDialog({
         onSubmit={save}
         className="flex w-full max-w-sm flex-col gap-5 rounded-2xl bg-white p-6 shadow-lg"
       >
-        <h2 className="font-serif text-2xl text-gold-deep">{labels.title}</h2>
+        <h2 className="font-serif text-2xl text-gold-small">{labels.title}</h2>
 
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium text-ink">{labels.nameLabel}</span>
@@ -84,7 +84,7 @@ export function FirstUploadDialog({
                 value={value}
                 checked={visibility === value}
                 onChange={() => setVisibility(value)}
-                className="accent-gold-deep"
+                className="accent-gold-small"
               />
               {label}
             </label>
@@ -104,7 +104,7 @@ export function FirstUploadDialog({
           <button
             type="submit"
             disabled={name.trim().length === 0 || saving}
-            className="rounded-full bg-gold px-6 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gold-deep disabled:opacity-60"
+            className="rounded-full bg-gold px-6 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-gold-small disabled:opacity-60"
           >
             {labels.submit}
           </button>

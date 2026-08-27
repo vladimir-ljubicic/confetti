@@ -1,11 +1,63 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ivory: #faf6ee;
-  --color-pearl: #f1eadb;
+  /* Color */
+  --color-paper: #faf6ee;
+  --color-card: #fffdf8;
+  --color-paper-alt: #f4efe4;
+  --color-sand: #f1eadb;
+  --color-sand-deep: #e7dfcd;
+  --color-gold-tint: #f7f0df;
   --color-gold: #b08d3c;
-  --color-gold-deep: #8a6d2c;
+  /* gold on card fails AA below 14px: 11–13px gold text uses gold-small;
+     gold itself only for 14px+ labels and non-text fills. */
+  --color-gold-small: #8a6d2c;
+  --color-gold-deep: #7a5f24;
+  --color-gold-light: #d9b866;
   --color-ink: #2b2620;
-  --font-sans: var(--font-geist-sans);
+  --color-stage: #1b1815;
+  --color-danger: #9d4b4b;
+  --color-danger-light: #e39a9a;
+  --color-warning-bg: #f7e9e3;
+  --color-warning-text: #8a4b2c;
+
+  /* Typefaces */
+  --font-sans: var(--font-jost);
   --font-serif: var(--font-cormorant);
+
+  /* Type scale */
+  --text-masthead: 46px;
+  --text-masthead--line-height: 1.02;
+  /* Screen h2; screens range 28–32px */
+  --text-title: 30px;
+  --text-title--line-height: 1.1;
+  /* Sheet h3; sheets range 29–30px */
+  --text-sheet-title: 30px;
+  --text-sheet-title--line-height: 1.15;
+  --text-body: 13px;
+  --text-body--line-height: 1.5;
+  --text-meta: 12px;
+
+  /* Radii */
+  --radius-tile: 6px;
+  --radius-thumb: 8px;
+  --radius-card: 14px;
+  --radius-bar: 20px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-floating: 0 14px 30px -10px rgb(43 38 32 / 0.5);
+  --shadow-card: 0 18px 40px -18px rgb(43 38 32 / 0.45);
+  --shadow-sheet: 0 -20px 50px -20px rgb(43 38 32 / 0.4);
+}
+
+/* 11–12px uppercase label; tracking widens to 0.28em on ceremonial screens */
+@utility eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+@utility rounded-sheet {
+  border-radius: 28px 28px 36px 36px;
 }
