@@ -1,12 +1,13 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-session";
 import { getDict, getLocale } from "@/lib/locale";
 import { galleryImageUrl } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import { INTL_LOCALES, type Locale } from "@/lib/i18n";
+import { INTL_LOCALES, pluralize, type Locale } from "@/lib/i18n";
 import { RECYCLE_RETENTION_DAYS } from "@/lib/recycle-bin";
-import { LocaleCorner } from "@/app/locale-corner";
+import type { Dictionary } from "@/lib/dictionaries";
+import { AdminChrome, adminChromeLabels } from "../admin-chrome";
+import { BinActions } from "./bin-actions";
 import { RestoreButton } from "./restore-button";
 
 export const dynamic = "force-dynamic";
@@ -40,55 +41,87 @@ async function loadDeletedPhotos() {
   );
 }
 
-function formatDeletedAt(iso: string, locale: Locale): string {
+function deletedTime(iso: string, locale: Locale): string {
   return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
-    dateStyle: "medium",
-    timeStyle: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(iso));
+}
+
+function deletedLine(
+  iso: string,
+  now: Date,
+  locale: Locale,
+  labels: Dictionary["adminBin"],
+): string {
+  const dayStart = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.max(
+    0,
+    Math.round((dayStart(now) - dayStart(new Date(iso))) / 86_400_000),
+  );
+  if (days === 0) return labels.deletedToday;
+  if (days === 1) return labels.deletedYesterday;
+  return pluralize(locale, days, {
+    one: labels.deletedDaysAgoOne,
+    few: labels.deletedDaysAgoFew,
+    many: labels.deletedDaysAgoMany,
+  });
 }
 
 export default async function AdminBinPage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const [dict, locale] = await Promise.all([getDict(), getLocale()]);
+  const [dict, locale, photos] = await Promise.all([
+    getDict(),
+    getLocale(),
+    loadDeletedPhotos(),
+  ]);
   const labels = dict.adminBin;
-  const photos = await loadDeletedPhotos();
+  const now = new Date();
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
-      <LocaleCorner />
-      <header className="flex flex-col items-center gap-3 text-center">
-        <h1 className="font-serif text-4xl text-gold-small">{labels.title}</h1>
-        <Link href="/admin" className="text-sm text-ink/60 transition hover:text-ink">
-          ← {labels.backToAdmin}
-        </Link>
-        <p className="text-sm text-ink/50">
-          {labels.retentionNote.replace("{days}", String(RECYCLE_RETENTION_DAYS))}
-        </p>
-      </header>
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
+      <AdminChrome
+        locale={locale}
+        active="bin"
+        binCount={photos.length}
+        title={labels.title}
+        sub={labels.sub.replace("{days}", String(RECYCLE_RETENTION_DAYS))}
+        labels={adminChromeLabels(dict)}
+      />
 
       {photos.length === 0 ? (
-        <p className="py-16 text-ink/50">{labels.empty}</p>
+        <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
       ) : (
-        <ul className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {photos.map((photo) => (
-            <li key={photo.id} className="overflow-hidden rounded-lg bg-sand">
-              {photo.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photo.imageUrl}
-                  alt=""
-                  loading="lazy"
-                  className="aspect-square w-full object-cover"
-                />
-              )}
-              <div className="flex flex-col gap-1 px-2 py-2 text-xs">
-                <span className="font-medium text-ink">
-                  {photo.uploaderName ?? labels.unknownUploader}
+        <>
+          <ul className="flex flex-col gap-2 px-3.5">
+            {photos.map((photo) => (
+              <li
+                key={photo.id}
+                className="flex items-center gap-3 rounded-card bg-card px-3.5 py-3"
+              >
+                <span className="relative size-14 shrink-0 overflow-hidden rounded-thumb bg-sand">
+                  {photo.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photo.imageUrl}
+                      alt=""
+                      loading="lazy"
+                      className="size-full object-cover"
+                    />
+                  )}
+                  <span aria-hidden className="absolute inset-0 bg-stage/40" />
                 </span>
-                <span className="text-ink/50">
-                  {labels.deletedAt}: {formatDeletedAt(photo.deletedAt, locale)}
-                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm text-ink">
+                    {photo.uploaderName ?? labels.unknownUploader} ·{" "}
+                    {deletedTime(photo.deletedAt, locale)}
+                  </span>
+                  <span className="text-meta text-ink/55">
+                    {deletedLine(photo.deletedAt, now, locale, labels)}
+                  </span>
+                </div>
                 <RestoreButton
                   photoId={photo.id}
                   labels={{
@@ -96,10 +129,24 @@ export default async function AdminBinPage() {
                     actionFailed: labels.actionFailed,
                   }}
                 />
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+
+          <BinActions
+            countLine={`${pluralize(locale, photos.length, {
+              one: dict.admin.photosOne,
+              few: dict.admin.photosFew,
+              many: dict.admin.photosMany,
+            })} →`}
+            labels={{
+              restoreAll: labels.restoreAll,
+              emptyBin: labels.emptyBin,
+              confirmEmptyBin: labels.confirmEmptyBin,
+              actionFailed: labels.actionFailed,
+            }}
+          />
+        </>
       )}
     </main>
   );
