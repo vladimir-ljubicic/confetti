@@ -219,6 +219,12 @@ const en = {
     confirmEmptyBin: "Permanently delete all photos in the bin?",
     actionFailed: "That didn't work — try again",
   },
+  deadLink: {
+    titleLine1: "This link",
+    titleLine2: "doesn't work",
+    body: "It may have expired or been copied wrong. Scan the QR code on your table or ask the couple for a fresh link.",
+    retry: "Try again",
+  },
   // Describes switching TO the other language, so it stays understandable
   // to someone who doesn't speak the currently active one.
   localeToggle: {
@@ -449,6 +455,12 @@ const sr: Dictionary = {
     emptyBin: "Испразни корпу",
     confirmEmptyBin: "Трајно обрисати све фотографије из корпе?",
     actionFailed: "Није успело — покушајте поново",
+  },
+  deadLink: {
+    titleLine1: "Овај линк",
+    titleLine2: "не важи",
+    body: "Можда је истекао или је погрешно прекопиран. Скенирајте QR код са стола или замолите младенце за нови линк.",
+    retry: "Пробај поново",
   },
   localeToggle: {
     ariaLabel: "Switch to English",
