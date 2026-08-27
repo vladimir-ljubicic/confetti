@@ -18,8 +18,24 @@ const en = {
     sortLive: "Live feed",
     sortChrono: "Chronological",
     uploadsFrozen: "Uploads are paused for now — enjoy the gallery!",
+    frozenTitle: "Thank you!",
+    frozenBody:
+      "Adding new photos has ended. The gallery stays here — browse and download whenever you like.",
+    downloadAll: "Download all photos",
     like: "Like",
     unlike: "Remove like",
+  },
+  downloadSheet: {
+    title: "Download all",
+    intro: "Preparing the ZIP file takes a few minutes.",
+    photosRow: "Photos",
+    photosValue: "{count} · originals",
+    download: "Download ZIP",
+    cancel: "Cancel",
+    preparingTitle: "Preparing ZIP",
+    preparingBody:
+      "Packing happens on the server. You can close this page and come back — the download link waits here.",
+    failed: "That didn't work — try again",
   },
   myPhotos: {
     title: "My photos",
@@ -123,8 +139,24 @@ const sr: Dictionary = {
     sortLive: "Уживо",
     sortChrono: "Хронолошки",
     uploadsFrozen: "Отпремање је тренутно паузирано — уживајте у галерији!",
+    frozenTitle: "Хвала вам!",
+    frozenBody:
+      "Додавање нових фотографија је завршено. Галерија остаје овде — гледајте и преузимајте кад год желите.",
+    downloadAll: "Преузми све фотографије",
     like: "Свиђа ми се",
     unlike: "Уклони свиђање",
+  },
+  downloadSheet: {
+    title: "Преузми све",
+    intro: "Припрема ZIP датотеке траје неколико минута.",
+    photosRow: "Фотографије",
+    photosValue: "{count} · оригинали",
+    download: "Преузми ZIP",
+    cancel: "Откажи",
+    preparingTitle: "Припрема ZIP",
+    preparingBody:
+      "Паковање се обавља на серверу. Можете затворити страницу и вратити се — линк за преузимање чека овде.",
+    failed: "Није успело — покушајте поново",
   },
   myPhotos: {
     title: "Моје фотографије",

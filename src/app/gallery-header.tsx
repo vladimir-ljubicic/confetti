@@ -14,12 +14,15 @@ const MASTHEAD_SCROLL_PX = 140;
 
 const TOP_ROW_FALLBACK_HEIGHT_PX = 57;
 
+const COMPACT_BAR_FALLBACK_HEIGHT_PX = 60;
+
 export function GalleryHeader({
   displayName,
   photoCount,
   sort,
   locale,
   labels,
+  frozenNotice,
 }: {
   displayName: string | null;
   photoCount: number;
@@ -32,16 +35,26 @@ export function GalleryHeader({
     sortChrono: string;
     localeAriaLabel: string;
   };
+  frozenNotice?: { title: string; body: string } | null;
 }) {
   const topRowRef = useRef<HTMLDivElement>(null);
+  const compactBarRef = useRef<HTMLDivElement>(null);
   const [topRowHeight, setTopRowHeight] = useState(TOP_ROW_FALLBACK_HEIGHT_PX);
+  const [compactBarHeight, setCompactBarHeight] = useState(
+    COMPACT_BAR_FALLBACK_HEIGHT_PX,
+  );
   const [pastMasthead, setPastMasthead] = useState(false);
 
   useEffect(() => {
     const topRow = topRowRef.current;
-    if (!topRow) return;
-    const observer = new ResizeObserver(() => setTopRowHeight(topRow.offsetHeight));
+    const compactBar = compactBarRef.current;
+    if (!topRow || !compactBar) return;
+    const observer = new ResizeObserver(() => {
+      setTopRowHeight(topRow.offsetHeight);
+      setCompactBarHeight(compactBar.offsetHeight);
+    });
     observer.observe(topRow);
+    observer.observe(compactBar);
     return () => observer.disconnect();
   }, []);
 
@@ -91,6 +104,7 @@ export function GalleryHeader({
       </header>
 
       <div
+        ref={compactBarRef}
         style={{ top: topRowHeight }}
         className="sticky z-[3] flex items-center gap-2.5 border-b border-ink/7 bg-paper/94 px-4 pt-[9px] pb-3 backdrop-blur-[10px]"
       >
@@ -116,6 +130,23 @@ export function GalleryHeader({
           </div>
         )}
       </div>
+
+      {frozenNotice && (
+        <div
+          style={{ top: topRowHeight + compactBarHeight }}
+          className="sticky z-[2] mx-3.5 mt-3.5 flex items-start gap-[11px] rounded-card bg-sand px-4 py-3.5"
+        >
+          <span className="mt-0.5 shrink-0">
+            <ConfettiMark size={20} />
+          </span>
+          <div className="flex min-w-0 flex-col gap-[3px]">
+            <span className="font-serif text-xl leading-[1.2] text-gold-small">
+              {frozenNotice.title}
+            </span>
+            <span className="text-body text-pretty text-ink/70">{frozenNotice.body}</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }

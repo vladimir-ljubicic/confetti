@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
+import { DownloadAllButton } from "./download-all-button";
 import { EmptyGallery } from "./empty-gallery";
 import { GalleryHeader } from "./gallery-header";
 import { PhotoGrid } from "./photo-grid";
@@ -67,24 +68,27 @@ export default async function GalleryPage({
           sortChrono: dict.gallery.sortChrono,
           localeAriaLabel: dict.localeToggle.ariaLabel,
         }}
+        frozenNotice={
+          uploadsFrozen
+            ? { title: dict.gallery.frozenTitle, body: dict.gallery.frozenBody }
+            : null
+        }
       />
 
       <div className="flex flex-1 flex-col pt-3.5">
-        {uploadsFrozen && (
-          <div className="flex justify-center px-4 pb-6">
-            <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-center text-sm text-ink/70">
-              {dict.gallery.uploadsFrozen}
-            </p>
-          </div>
-        )}
-
         <PhotoGrid
           photos={photos}
           emptyLabel={dict.gallery.empty}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
         />
 
-        {!uploadsFrozen && (
+        {uploadsFrozen ? (
+          <DownloadAllButton
+            buttonLabel={dict.gallery.downloadAll}
+            labels={dict.downloadSheet}
+            photoCount={photos.length}
+          />
+        ) : (
           <UploadButton
             labels={dict.upload}
             dialogLabels={dict.firstUploadDialog}
