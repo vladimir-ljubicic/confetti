@@ -3,6 +3,8 @@ import { viewerLabels } from "@/app/viewer-labels";
 import { groupPhotosByUploader } from "@/lib/admin-photos";
 import { isAdmin } from "@/lib/admin-session";
 import { areUploadsFrozen } from "@/lib/event-settings";
+import { formatSize } from "@/lib/export";
+import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
@@ -28,7 +30,7 @@ type AdminPhotoRow = {
   uploaders: { display_name: string | null; public_id: string } | null;
 };
 
-async function loadAllPhotos(): Promise<AdminPhoto[]> {
+async function loadAllPhotos(): Promise<{ photos: AdminPhoto[]; totalBytes: number }> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
@@ -38,8 +40,10 @@ async function loadAllPhotos(): Promise<AdminPhoto[]> {
     .is("deleted_at", null)
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`Loading photos failed: ${error.message}`);
-  return Promise.all(
-    (data as unknown as AdminPhotoRow[]).map(async (photo) => ({
+  const rows = data as unknown as AdminPhotoRow[];
+  const totalBytes = rows.reduce((sum, photo) => sum + photo.size_bytes, 0);
+  const photos = await Promise.all(
+    rows.map(async (photo) => ({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
       imageUrl: await galleryImageUrl(photo),
@@ -56,6 +60,7 @@ async function loadAllPhotos(): Promise<AdminPhoto[]> {
         : null,
     })),
   );
+  return { photos, totalBytes };
 }
 
 async function countBinPhotos(): Promise<number> {
@@ -92,18 +97,21 @@ export default async function AdminPage({
     );
   }
 
-  const [photos, binCount, uploadsFrozen, params] = await Promise.all([
-    loadAllPhotos(),
-    countBinPhotos(),
-    areUploadsFrozen(),
-    searchParams,
-  ]);
+  const [{ photos, totalBytes }, binCount, uploadsFrozen, exportJob, params] =
+    await Promise.all([
+      loadAllPhotos(),
+      countBinPhotos(),
+      areUploadsFrozen(),
+      getExportJob("admin").catch(() => null),
+      searchParams,
+    ]);
   const uploaderFilter = Array.isArray(params.uploader)
     ? params.uploader[0]
     : params.uploader;
   const privateFilter =
     (Array.isArray(params.filter) ? params.filter[0] : params.filter) === "private";
 
+  const exportSizeBytes = exportJob?.zip_size_bytes ?? totalBytes;
   const groups = groupPhotosByUploader(photos);
   const namedGroups = groups.filter((group) => group.uploader !== null);
   const privateCount = photos.filter((photo) => photo.visibility === "private").length;
@@ -195,9 +203,17 @@ export default async function AdminPage({
         />
         <AdminDownloadRow
           rowLabel={labels.downloadAll}
-          rowValue={labels.downloadAllValue}
+          rowValue={
+            exportSizeBytes > 0
+              ? labels.downloadAllValue.replace("{size}", formatSize(exportSizeBytes))
+              : labels.downloadAllValue.replace(", {size}", "")
+          }
           labels={dict.downloadSheet}
-          photoCount={photos.length}
+          locale={locale}
+          photoCount={exportJob?.total_count ?? photos.length}
+          privateCount={privateCount}
+          sizeBytes={exportSizeBytes > 0 ? exportSizeBytes : null}
+          initialStatus={exportJob ? exportJobStatus(exportJob) : null}
         />
       </div>
     </main>

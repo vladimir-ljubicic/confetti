@@ -1,5 +1,6 @@
 import { getDeviceId } from "@/lib/device";
 import { areUploadsFrozen } from "@/lib/event-settings";
+import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
@@ -41,6 +42,9 @@ export default async function GalleryPage({
   ]);
 
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
+  const exportJob = uploadsFrozen
+    ? await getExportJob("public").catch(() => null)
+    : null;
 
   if (photos.length === 0) {
     return (
@@ -109,7 +113,10 @@ export default async function GalleryPage({
             <DownloadAllButton
               buttonLabel={dict.gallery.downloadAll}
               labels={dict.downloadSheet}
-              photoCount={photos.length}
+              locale={locale}
+              photoCount={exportJob?.total_count ?? photos.length}
+              sizeBytes={exportJob?.zip_size_bytes ?? null}
+              initialStatus={exportJob ? exportJobStatus(exportJob) : null}
             />
           ) : uploadsBlocked ? null : (
             <UploadButton
