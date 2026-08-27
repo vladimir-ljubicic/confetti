@@ -11,39 +11,50 @@ import {
   RATE_LIMITED_STATUS,
   type RateLimitReason,
 } from "@/lib/upload-limits";
+import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
-import type { Locale } from "@/lib/i18n";
+import { pluralize, type Locale } from "@/lib/i18n";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
+import { BulkMiniBar, BulkSummary } from "./upload-minibar";
 import { useUploadQueue } from "./upload-queue";
 
 // Fixed by Supabase's resumable upload endpoint; other sizes are rejected.
 const CHUNK_SIZE = 6 * 1024 * 1024;
 const CONCURRENT_UPLOADS = 3;
-// Larger batches use the plain progress list; per-photo tiles would be noise.
+// Larger batches use the bulk mini-bar; per-photo tiles would be noise.
 const OPTIMISTIC_TILE_MAX = 10;
 const CANCELLED_TILE_TTL_MS = 4000;
+const BULK_REFRESH_EVERY = 10;
+const BULK_TICK_MS = 1000;
+// Too little data for a stable rate before this.
+const BULK_ETA_WARMUP_MS = 3000;
+const SUMMARY_TTL_MS = 6000;
+// Longer when failures remain, so the retry pill can still be reached.
+const SUMMARY_FAILED_TTL_MS = 30000;
 
 type UploadLabels = {
   add: string;
   uploading: string;
-  fileFailed: string;
-  someFailed: string;
   frozen: string;
-  fileTooLarge: string;
   batchLimit: string;
   rateLimited: string;
+  retry: string;
+  cancel: string;
+  bulkProgress: string;
+  bulkEtaMinutes: string;
+  bulkEtaUnderMinute: string;
+  bulkHint: string;
+  bulkDoneOne: string;
+  bulkDoneFew: string;
+  bulkDoneMany: string;
+  bulkFailedOne: string;
+  bulkFailedFew: string;
+  bulkFailedMany: string;
 };
 
 type UploadLimitProps = {
   maxBatch: number;
   maxFileBytes: number;
-};
-
-type UploadItem = {
-  id: number;
-  file: File;
-  status: "pending" | "uploading" | "done" | "error" | "too-large";
-  percent: number;
 };
 
 type TileItem = { id: number; file: File };
@@ -53,6 +64,24 @@ type TileController = {
   done: boolean;
   abortTus: (() => void) | null;
   removeTimer: number | null;
+};
+
+type BulkView =
+  | {
+      phase: "uploading";
+      current: number;
+      total: number;
+      fraction: number;
+      etaMs: number | null;
+      previewUrl: string | null;
+    }
+  | { phase: "summary"; done: number; failedCount: number };
+
+type BulkRun = {
+  cancelled: boolean;
+  aborts: Map<number, () => void>;
+  uploadedBytes: Map<number, number>;
+  inFlight: { id: number; url: string }[];
 };
 
 // The server refuses to sign uploads for devices without a saved profile;
@@ -187,24 +216,22 @@ export function UploadButton({
   const [hasProfile, setHasProfile] = useState(!needsProfile);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [items, setItems] = useState<UploadItem[]>([]);
   const [batchActive, setBatchActive] = useState(false);
   const [batchTileIds, setBatchTileIds] = useState<Set<number>>(new Set());
+  const [bulkView, setBulkView] = useState<BulkView | null>(null);
   const [frozenNotice, setFrozenNotice] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
   const tileIdRef = useRef(0);
   const controllers = useRef(new Map<number, TileController>());
+  const bulkRunRef = useRef<BulkRun | null>(null);
+  const bulkFailedRef = useRef<File[]>([]);
+  const summaryTimerRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const batchLimitMessage = labels.batchLimit.replace(
     "{max}",
     String(limits.maxBatch),
   );
-
-  function patchUpload(id: number, patch: Partial<UploadItem>) {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
-  }
 
   function askForProfile(files: File[]) {
     setHasProfile(false);
@@ -330,7 +357,6 @@ export function UploadButton({
       })),
     );
     setBatchTileIds(new Set(tileItems.map((item) => item.id)));
-    setItems([]);
     setBatchActive(true);
     setFrozenNotice(false);
     setLimitNotice(null);
@@ -376,91 +402,223 @@ export function UploadButton({
     router.refresh();
   }
 
-  async function startListBatch(files: File[]) {
-    const batch: UploadItem[] = files.map((file, index) => ({
-      id: index,
-      file,
-      status: "pending",
-      percent: 0,
-    }));
-    setItems(batch);
-    setBatchTileIds(new Set());
+  async function acquireWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request("screen");
+    } catch {
+      wakeLockRef.current = null;
+    }
+  }
+
+  async function releaseWakeLock() {
+    const sentinel = wakeLockRef.current;
+    wakeLockRef.current = null;
+    if (sentinel) await sentinel.release().catch(() => {});
+  }
+
+  function cancelBulk() {
+    const run = bulkRunRef.current;
+    if (!run) return;
+    run.cancelled = true;
+    for (const abortTus of run.aborts.values()) abortTus();
+    run.aborts.clear();
+  }
+
+  function retryBulkFailures() {
+    if (summaryTimerRef.current) {
+      window.clearTimeout(summaryTimerRef.current);
+      summaryTimerRef.current = null;
+    }
+    const files = bulkFailedRef.current;
+    if (files.length === 0) {
+      setBulkView(null);
+      return;
+    }
+    void startBulkBatch(files);
+  }
+
+  async function startBulkBatch(files: File[]) {
+    if (summaryTimerRef.current) {
+      window.clearTimeout(summaryTimerRef.current);
+      summaryTimerRef.current = null;
+    }
+    const run: BulkRun = {
+      cancelled: false,
+      aborts: new Map(),
+      uploadedBytes: new Map(),
+      inFlight: [],
+    };
+    bulkRunRef.current = run;
+    bulkFailedRef.current = [];
     setBatchActive(true);
     setFrozenNotice(false);
     setLimitNotice(null);
 
-    const queued = [...batch];
+    const total = files.length;
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    const startedAt = Date.now();
+    let done = 0;
+    let sinceRefresh = 0;
+
+    setBulkView({
+      phase: "uploading",
+      current: 1,
+      total,
+      fraction: 0,
+      etaMs: null,
+      previewUrl: null,
+    });
+
+    const patchUploading = (patch: Partial<Extract<BulkView, { phase: "uploading" }>>) =>
+      setBulkView((view) =>
+        view && view.phase === "uploading" ? { ...view, ...patch } : view,
+      );
+
+    const sumUploadedBytes = () => {
+      let sum = 0;
+      for (const bytes of run.uploadedBytes.values()) sum += bytes;
+      return sum;
+    };
+
+    const syncPreview = () =>
+      patchUploading({ previewUrl: run.inFlight[0]?.url ?? null });
+
+    const ticker = window.setInterval(() => {
+      if (run.cancelled) return;
+      const bytes = sumUploadedBytes();
+      const elapsed = Date.now() - startedAt;
+      patchUploading({
+        fraction: totalBytes > 0 ? bytes / totalBytes : 0,
+        etaMs:
+          elapsed >= BULK_ETA_WARMUP_MS
+            ? estimateRemainingMs(bytes, totalBytes, elapsed)
+            : null,
+      });
+    }, BULK_TICK_MS);
+
+    // Mobile browsers kill uploads when the tab backgrounds; tus resumption
+    // only helps if the guest returns. The lock is auto-released on tab
+    // switch, hence the re-acquire on visibilitychange.
+    void acquireWakeLock();
+    const reacquireWakeLock = () => {
+      if (document.visibilityState === "visible" && bulkRunRef.current === run) {
+        void acquireWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", reacquireWakeLock);
+
+    const pending: TileItem[] = files.map((file, index) => ({ id: index, file }));
     const retryFiles: File[] = [];
     let abort: "profile" | "frozen" | "limit" | null = null;
     let limitMessage = labels.rateLimited;
-    let anyFailed = false;
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENT_UPLOADS, queued.length) }, async () => {
-        for (let item = queued.shift(); item; item = queued.shift()) {
-          if (abort) {
-            if (abort === "profile") retryFiles.push(item.file);
-            continue;
-          }
-          if (!limitsExempt && item.file.size > limits.maxFileBytes) {
-            anyFailed = true;
-            patchUpload(item.id, { status: "too-large" });
-            continue;
-          }
-          patchUpload(item.id, { status: "uploading" });
-          try {
-            await uploadFile(item.file, files.length, (percent) =>
-              patchUpload(item.id, { percent }),
-            );
-            patchUpload(item.id, { status: "done", percent: 100 });
-          } catch (error) {
-            if (error instanceof ProfileRequiredError) {
-              abort = "profile";
-              retryFiles.push(item.file);
-              patchUpload(item.id, { status: "pending", percent: 0 });
-            } else if (error instanceof UploadsFrozenError) {
-              abort = "frozen";
-              patchUpload(item.id, { status: "pending", percent: 0 });
-            } else if (error instanceof RateLimitedError) {
-              abort = "limit";
-              limitMessage =
-                error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
-              patchUpload(item.id, { status: "pending", percent: 0 });
-            } else if (error instanceof FileTooLargeError) {
-              anyFailed = true;
-              patchUpload(item.id, { status: "too-large" });
-            } else {
-              console.error("Upload failed", error);
-              anyFailed = true;
-              patchUpload(item.id, { status: "error" });
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENT_UPLOADS, pending.length) }, async () => {
+          for (let item = pending.shift(); item; item = pending.shift()) {
+            if (run.cancelled) continue;
+            if (abort) {
+              if (abort === "profile") retryFiles.push(item.file);
+              continue;
+            }
+            if (!limitsExempt && item.file.size > limits.maxFileBytes) {
+              bulkFailedRef.current.push(item.file);
+              continue;
+            }
+            run.inFlight.push({ id: item.id, url: URL.createObjectURL(item.file) });
+            syncPreview();
+            try {
+              await uploadFile(
+                item.file,
+                total,
+                (percent) =>
+                  run.uploadedBytes.set(item.id, (percent / 100) * item.file.size),
+                {
+                  isCancelled: () => run.cancelled,
+                  onTusStart: (abortTus) => run.aborts.set(item.id, abortTus),
+                },
+              );
+              run.uploadedBytes.set(item.id, item.file.size);
+              done += 1;
+              sinceRefresh += 1;
+              patchUploading({ current: Math.min(done + 1, total) });
+              if (sinceRefresh >= BULK_REFRESH_EVERY) {
+                sinceRefresh = 0;
+                router.refresh();
+              }
+            } catch (error) {
+              run.uploadedBytes.delete(item.id);
+              if (error instanceof UploadCancelledError || run.cancelled) {
+                // Cancelled files are neither done nor failed.
+              } else if (error instanceof ProfileRequiredError) {
+                abort = "profile";
+                retryFiles.push(item.file);
+              } else if (error instanceof UploadsFrozenError) {
+                abort = "frozen";
+              } else if (error instanceof RateLimitedError) {
+                abort = "limit";
+                limitMessage =
+                  error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
+              } else {
+                if (!(error instanceof FileTooLargeError)) {
+                  console.error("Upload failed", error);
+                }
+                bulkFailedRef.current.push(item.file);
+              }
+            } finally {
+              run.aborts.delete(item.id);
+              const index = run.inFlight.findIndex((entry) => entry.id === item.id);
+              if (index >= 0) {
+                URL.revokeObjectURL(run.inFlight[index].url);
+                run.inFlight.splice(index, 1);
+              }
+              syncPreview();
             }
           }
-        }
-      }),
-    );
+        }),
+      );
+    } finally {
+      window.clearInterval(ticker);
+      document.removeEventListener("visibilitychange", reacquireWakeLock);
+      await releaseWakeLock();
+      bulkRunRef.current = null;
+      setBatchActive(false);
+    }
 
-    setBatchActive(false);
-    if (abort) {
-      setItems([]);
-      if (abort === "profile") {
-        askForProfile(retryFiles);
-      } else if (abort === "frozen") {
-        setFrozenNotice(true);
-        router.refresh();
-      } else {
-        setLimitNotice(limitMessage);
-        router.refresh();
-      }
+    if (abort === "profile") {
+      setBulkView(null);
+      askForProfile(retryFiles);
       return;
     }
-    if (!anyFailed) setItems([]);
     router.refresh();
+    if (abort === "frozen") {
+      setBulkView(null);
+      setFrozenNotice(true);
+      return;
+    }
+    if (abort === "limit") {
+      setBulkView(null);
+      setLimitNotice(limitMessage);
+      return;
+    }
+    if (run.cancelled) {
+      setBulkView(null);
+      return;
+    }
+
+    const failedCount = bulkFailedRef.current.length;
+    setBulkView({ phase: "summary", done, failedCount });
+    summaryTimerRef.current = window.setTimeout(
+      () => setBulkView(null),
+      failedCount > 0 ? SUMMARY_FAILED_TTL_MS : SUMMARY_TTL_MS,
+    );
   }
 
   async function startBatch(files: File[]) {
     if (queue && files.length <= OPTIMISTIC_TILE_MAX) {
       await startTileBatch(files);
     } else {
-      await startListBatch(files);
+      await startBulkBatch(files);
     }
   }
 
@@ -481,15 +639,9 @@ export function UploadButton({
   const batchTiles = (queue?.tiles ?? []).filter((tile) =>
     batchTileIds.has(tile.id),
   );
-  const tileMode = batchTiles.length > 0;
-  const doneCount = tileMode
-    ? batchTiles.filter((tile) => tile.status === "done").length
-    : items.filter((item) => item.status === "done").length;
-  const totalCount = tileMode
-    ? batchTiles.filter((tile) => tile.status !== "cancelled").length
-    : items.length;
-  const failedCount = items.filter(
-    (item) => item.status === "error" || item.status === "too-large",
+  const doneCount = batchTiles.filter((tile) => tile.status === "done").length;
+  const totalCount = batchTiles.filter(
+    (tile) => tile.status !== "cancelled",
   ).length;
 
   return (
@@ -512,39 +664,46 @@ export function UploadButton({
         }}
       />
 
-      {items.length > 0 && (
-        <ul className="pointer-events-auto flex w-full max-w-md flex-col gap-1.5 rounded-bar bg-card/95 p-4 shadow-floating backdrop-blur-sm">
-          {items.map((item) => (
-            <li key={item.id} className="flex items-center gap-3 text-xs text-ink/70">
-              <span className="min-w-0 flex-1 truncate">{item.file.name}</span>
-              {item.status === "error" ? (
-                <span className="shrink-0 text-danger">{labels.fileFailed}</span>
-              ) : item.status === "too-large" ? (
-                <span className="shrink-0 text-danger">
-                  {labels.fileTooLarge.replace(
-                    "{max}",
-                    String(Math.round(limits.maxFileBytes / (1024 * 1024))),
-                  )}
-                </span>
-              ) : item.status === "done" ? (
-                <span className="shrink-0 text-gold-small">✓</span>
-              ) : (
-                <span className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-sand">
-                  <span
-                    className="block h-full rounded-full bg-gold transition-[width]"
-                    style={{ width: `${item.percent}%` }}
-                  />
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
+      {bulkView?.phase === "uploading" && (
+        <BulkMiniBar
+          progressLabel={labels.bulkProgress
+            .replace("{done}", String(bulkView.current))
+            .replace("{total}", String(bulkView.total))}
+          etaLabel={
+            bulkView.etaMs !== null
+              ? formatEta(bulkView.etaMs, {
+                  minutes: labels.bulkEtaMinutes,
+                  underMinute: labels.bulkEtaUnderMinute,
+                })
+              : null
+          }
+          hintLabel={labels.bulkHint}
+          cancelLabel={labels.cancel}
+          fraction={bulkView.fraction}
+          previewUrl={bulkView.previewUrl}
+          onCancel={cancelBulk}
+        />
       )}
 
-      {!batchActive && failedCount > 0 && (
-        <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-danger shadow-floating">
-          {labels.someFailed}
-        </p>
+      {bulkView?.phase === "summary" && (
+        <BulkSummary
+          doneLabel={pluralize(locale, bulkView.done, {
+            one: labels.bulkDoneOne,
+            few: labels.bulkDoneFew,
+            many: labels.bulkDoneMany,
+          })}
+          failedLabel={
+            bulkView.failedCount > 0
+              ? pluralize(locale, bulkView.failedCount, {
+                  one: labels.bulkFailedOne,
+                  few: labels.bulkFailedFew,
+                  many: labels.bulkFailedMany,
+                })
+              : null
+          }
+          retryLabel={labels.retry}
+          onRetry={bulkView.failedCount > 0 ? retryBulkFailures : null}
+        />
       )}
 
       {frozenNotice && (
@@ -559,27 +718,29 @@ export function UploadButton({
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={batchActive}
-        onClick={() => inputRef.current?.click()}
-        className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60 ${
-          variant === "floating"
-            ? "px-7 py-4 shadow-floating"
-            : "px-[30px] py-4 shadow-[0_12px_26px_-12px_rgb(176_141_60/0.9)]"
-        }`}
-      >
-        {variant === "floating" && !batchActive && (
-          <span className="text-xl leading-none">+</span>
-        )}
-        <span>
-          {batchActive
-            ? labels.uploading
-                .replace("{done}", String(doneCount))
-                .replace("{total}", String(totalCount))
-            : labels.add}
-        </span>
-      </button>
+      {!bulkView && (
+        <button
+          type="button"
+          disabled={batchActive}
+          onClick={() => inputRef.current?.click()}
+          className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60 ${
+            variant === "floating"
+              ? "px-7 py-4 shadow-floating"
+              : "px-[30px] py-4 shadow-[0_12px_26px_-12px_rgb(176_141_60/0.9)]"
+          }`}
+        >
+          {variant === "floating" && !batchActive && (
+            <span className="text-xl leading-none">+</span>
+          )}
+          <span>
+            {batchActive
+              ? labels.uploading
+                  .replace("{done}", String(doneCount))
+                  .replace("{total}", String(totalCount))
+              : labels.add}
+          </span>
+        </button>
+      )}
 
       {dialogOpen && (
         <IntroSheet

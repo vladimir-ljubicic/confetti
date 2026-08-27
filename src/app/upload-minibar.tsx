@@ -1,0 +1,89 @@
+"use client";
+
+import { ConfettiMark } from "./confetti-mark";
+
+export function BulkMiniBar({
+  progressLabel,
+  etaLabel,
+  hintLabel,
+  cancelLabel,
+  fraction,
+  previewUrl,
+  onCancel,
+}: {
+  progressLabel: string;
+  etaLabel: string | null;
+  hintLabel: string;
+  cancelLabel: string;
+  fraction: number;
+  previewUrl: string | null;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="pointer-events-auto flex w-full max-w-md flex-col gap-[11px] rounded-bar border border-ink/10 bg-card px-4 pt-3.5 pb-[15px] shadow-card">
+      <div className="flex items-center gap-[11px]">
+        {previewUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt=""
+            className="h-[38px] w-[38px] shrink-0 rounded-[7px] bg-sand object-cover"
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm text-ink">{progressLabel}</span>
+            {etaLabel && (
+              <span className="shrink-0 text-xs text-ink/60">{etaLabel}</span>
+            )}
+          </div>
+          <span className="flex h-[5px] overflow-hidden rounded-[2.5px] bg-[#eee5d2]">
+            <span
+              className="block bg-gold transition-[width]"
+              style={{ width: `${Math.min(Math.max(fraction, 0), 1) * 100}%` }}
+            />
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="-my-2.5 -mr-1.5 flex min-h-11 shrink-0 items-center justify-center px-3 text-[13px] text-gold-small"
+        >
+          {cancelLabel}
+        </button>
+      </div>
+      <span className="text-xs leading-[1.4] text-ink/60">{hintLabel}</span>
+    </div>
+  );
+}
+
+export function BulkSummary({
+  doneLabel,
+  failedLabel,
+  retryLabel,
+  onRetry,
+}: {
+  doneLabel: string;
+  failedLabel: string | null;
+  retryLabel: string;
+  onRetry: (() => void) | null;
+}) {
+  return (
+    <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-bar border border-ink/10 bg-card py-3.5 pr-3.5 pl-4 shadow-card">
+      <ConfettiMark size={18} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm text-ink">{doneLabel}</span>
+        {failedLabel && <span className="text-xs text-ink/60">{failedLabel}</span>}
+      </div>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card"
+        >
+          {retryLabel}
+        </button>
+      )}
+    </div>
+  );
+}
