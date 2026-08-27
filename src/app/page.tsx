@@ -14,12 +14,6 @@ import { UploadButton } from "./upload-button";
 // statically prerendered at build time and serve stale rows.
 export const dynamic = "force-dynamic";
 
-async function getProfile() {
-  const deviceId = await getDeviceId();
-  if (!deviceId) return null;
-  return getUploaderProfile(deviceId);
-}
-
 export default async function GalleryPage({
   searchParams,
 }: {
@@ -33,9 +27,10 @@ export default async function GalleryPage({
     new Date(),
   );
   const uploadLimits = env.uploadLimits();
+  const deviceId = await getDeviceId();
   const [photos, profile, uploadsFrozen, admin] = await Promise.all([
-    loadPublicPhotos({ sort }),
-    getProfile(),
+    loadPublicPhotos({ sort, viewerDeviceId: deviceId }),
+    deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     areUploadsFrozen().catch(() => false),
     isAdmin(),
@@ -66,7 +61,11 @@ export default async function GalleryPage({
           </div>
         )}
 
-        <PhotoGrid photos={photos} emptyLabel={dict.gallery.empty} />
+        <PhotoGrid
+          photos={photos}
+          emptyLabel={dict.gallery.empty}
+          likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
+        />
 
         {!uploadsFrozen && (
           <UploadButton

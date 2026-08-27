@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getDeviceId } from "@/lib/device";
 import { getDict } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
 import { resolveSortMode } from "@/lib/sort-mode";
@@ -28,7 +29,11 @@ export default async function UploaderPage({
   const uploader = await getUploaderByPublicId(publicId);
   if (!uploader) notFound();
 
-  const photos = await loadPublicPhotos({ sort, uploaderId: uploader.uploaderId });
+  const photos = await loadPublicPhotos({
+    sort,
+    uploaderId: uploader.uploaderId,
+    viewerDeviceId: await getDeviceId(),
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-8 px-4 py-12">
@@ -52,6 +57,7 @@ export default async function UploaderPage({
         photos={photos}
         downloadLabel={dict.gallery.download}
         emptyLabel={dict.uploaderPage.empty}
+        likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
       />
     </main>
   );

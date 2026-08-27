@@ -12,6 +12,7 @@ type PublicPhotoRow = {
   original_filename: string;
   size_bytes: number;
   uploaded_at: string;
+  like_count: number;
   uploaders: { display_name: string | null; public_id: string } | null;
 };
 
@@ -20,20 +21,38 @@ export type PublicPhoto = {
   uploadedAt: string;
   imageUrl: string | null;
   downloadUrl: string | null;
+  likeCount: number;
+  likedByViewer: boolean;
   uploader: { displayName: string; publicId: string } | null;
 };
+
+async function loadViewerLikes(
+  viewerDeviceId: string | null,
+  photoIds: string[],
+): Promise<Set<string>> {
+  if (!viewerDeviceId || photoIds.length === 0) return new Set();
+  const { data, error } = await supabaseAdmin()
+    .from("likes")
+    .select("photo_id")
+    .eq("device_id", viewerDeviceId)
+    .in("photo_id", photoIds);
+  if (error) throw new Error(`Loading likes failed: ${error.message}`);
+  return new Set((data as { photo_id: string }[]).map((row) => row.photo_id));
+}
 
 export async function loadPublicPhotos({
   sort,
   uploaderId,
+  viewerDeviceId = null,
 }: {
   sort: SortMode;
   uploaderId?: string;
+  viewerDeviceId?: string | null;
 }): Promise<PublicPhoto[]> {
   let query = supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, uploaders (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, like_count, uploaders (display_name, public_id)",
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
@@ -45,12 +64,19 @@ export async function loadPublicPhotos({
       : query.order("uploaded_at", { ascending: false });
   const { data, error } = await query.limit(GALLERY_PAGE_SIZE);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
+  const rows = data as unknown as PublicPhotoRow[];
+  const viewerLikes = await loadViewerLikes(
+    viewerDeviceId,
+    rows.map((row) => row.id),
+  );
   return Promise.all(
-    (data as unknown as PublicPhotoRow[]).map(async (photo) => ({
+    rows.map(async (photo) => ({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
       imageUrl: await galleryImageUrl(photo),
       downloadUrl: await originalDownloadUrl(photo),
+      likeCount: photo.like_count,
+      likedByViewer: viewerLikes.has(photo.id),
       uploader: photo.uploaders?.display_name
         ? {
             displayName: photo.uploaders.display_name,

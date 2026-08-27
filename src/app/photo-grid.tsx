@@ -1,15 +1,18 @@
 import Link from "next/link";
 import type { PublicPhoto } from "@/lib/public-photos";
+import { LikePill } from "./like-pill";
 
 export function PhotoGrid({
   photos,
   emptyLabel,
   downloadLabel,
+  likeLabels,
   showUploader = false,
 }: {
   photos: PublicPhoto[];
   emptyLabel: string;
   downloadLabel?: string;
+  likeLabels?: { like: string; unlike: string };
   showUploader?: boolean;
 }) {
   if (photos.length === 0) {
@@ -46,6 +49,14 @@ export function PhotoGrid({
                 >
                   {photo.uploader.displayName}
                 </Link>
+              )}
+              {likeLabels && (
+                <LikePill
+                  photoId={photo.id}
+                  initialLiked={photo.likedByViewer}
+                  initialCount={photo.likeCount}
+                  labels={likeLabels}
+                />
               )}
               {downloadLabel && photo.downloadUrl && (
                 <a

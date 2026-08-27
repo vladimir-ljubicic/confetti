@@ -15,6 +15,8 @@ const en = {
     sortLive: "Live feed",
     sortChrono: "Chronological",
     uploadsFrozen: "Uploads are paused for now — enjoy the gallery!",
+    like: "Like",
+    unlike: "Remove like",
   },
   myPhotos: {
     title: "My photos",
@@ -115,6 +117,8 @@ const sr: Dictionary = {
     sortLive: "Уживо",
     sortChrono: "Хронолошки",
     uploadsFrozen: "Отпремање је тренутно паузирано — уживајте у галерији!",
+    like: "Свиђа ми се",
+    unlike: "Уклони свиђање",
   },
   myPhotos: {
     title: "Моје фотографије",
