@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { freezeDue } from "@/lib/event-date";
-import { areUploadsFrozen, setUploadsFrozen } from "@/lib/event-settings";
+import { freezeDue } from "@/lib/event-schedule";
+import { getEventSettings, updateEventSettings } from "@/lib/event-settings";
 import {
   EXPORT_KINDS,
   exportJobStale,
@@ -17,10 +17,11 @@ export async function GET(request: Request) {
     return jsonError("Unauthorized", 401);
   }
 
-  let frozen = await areUploadsFrozen();
+  const settings = await getEventSettings();
+  let frozen = settings.uploadsFrozen;
   let froze = false;
-  if (!frozen && freezeDue(new Date())) {
-    await setUploadsFrozen(true);
+  if (!frozen && freezeDue(settings, new Date())) {
+    await updateEventSettings({ uploadsFrozen: true });
     frozen = true;
     froze = true;
   }

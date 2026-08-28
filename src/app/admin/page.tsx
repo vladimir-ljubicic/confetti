@@ -2,7 +2,7 @@ import Link from "next/link";
 import { viewerLabels } from "@/app/viewer-labels";
 import { groupPhotosByUploader } from "@/lib/admin-photos";
 import { isAdmin } from "@/lib/admin-session";
-import { areUploadsFrozen } from "@/lib/event-settings";
+import { getEventSettings } from "@/lib/event-settings";
 import { formatSize } from "@/lib/export";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
@@ -107,11 +107,11 @@ export default async function AdminPage({
     );
   }
 
-  const [{ photos, totalBytes }, binCount, uploadsFrozen, exportJob, params] =
+  const [{ photos, totalBytes }, binCount, settings, exportJob, params] =
     await Promise.all([
       loadAllPhotos(),
       countBinPhotos(),
-      areUploadsFrozen(),
+      getEventSettings(),
       getExportJob("admin").catch(() => null),
       searchParams,
     ]);
@@ -204,11 +204,15 @@ export default async function AdminPage({
 
       <div className="sticky bottom-0 mt-auto flex flex-col gap-0.5 bg-paper-alt px-3.5 pt-4 pb-[22px]">
         <FreezeToggle
-          frozen={uploadsFrozen}
+          frozen={settings.uploadsFrozen}
+          eventDateIso={settings.eventDateIso}
+          freezeOffsetDays={settings.freezeOffsetDays}
           labels={{
             title: labels.guestUploads,
             open: labels.uploadsOpen,
             frozen: labels.uploadsFrozen,
+            eventDate: labels.eventDate,
+            freezeAfterDays: labels.freezeAfterDays,
             actionFailed: labels.actionFailed,
           }}
         />

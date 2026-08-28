@@ -2,6 +2,7 @@
 
 import { COUPLE_NAMES } from "@/lib/couple";
 import type { Dictionary } from "@/lib/dictionaries";
+import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
 import { LocaleToggle } from "./locale-toggle";
@@ -12,6 +13,7 @@ import { UploadQueueProvider, useUploadQueue } from "./upload-queue";
 type EmptyGalleryProps = {
   dict: Dictionary;
   locale: Locale;
+  eventDateIso: string;
   uploadsFrozen: boolean;
   uploadsBlocked: boolean;
   needsProfile: boolean;
@@ -52,6 +54,7 @@ export function EmptyGallery(props: EmptyGalleryProps) {
 function EmptyGalleryBody({
   dict,
   locale,
+  eventDateIso,
   uploadsFrozen,
   uploadsBlocked,
   needsProfile,
@@ -89,7 +92,9 @@ function EmptyGalleryBody({
           </h1>
           <div className="flex items-center gap-2.5 text-ink/35">
             <span className="block h-px w-[34px] bg-current" />
-            <span className="text-meta tracking-[0.22em] text-ink/60">20 · 09 · 2026</span>
+            <span className="text-meta tracking-[0.22em] text-ink/60">
+              {formatEventDate(eventDateIso, " · ")}
+            </span>
             <span className="block h-px w-[34px] bg-current" />
           </div>
           <p className="mt-1.5 font-serif text-[22px] leading-[1.45] text-ink/70 italic">

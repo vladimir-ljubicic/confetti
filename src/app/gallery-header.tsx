@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { COUPLE_NAMES } from "@/lib/couple";
+import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
 import type { SortMode } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
@@ -55,6 +56,7 @@ export function GalleryHeader({
   photoCount,
   sort,
   locale,
+  eventDateIso,
   labels,
   frozenNotice,
   offlineNotice,
@@ -63,6 +65,7 @@ export function GalleryHeader({
   photoCount: number;
   sort: SortMode;
   locale: Locale;
+  eventDateIso: string;
   labels: {
     eyebrow: string;
     myPhotos: string;
@@ -216,7 +219,9 @@ export function GalleryHeader({
         </h1>
         <div className="flex items-center gap-2.5 text-ink/30">
           <span className="block h-px w-[34px] bg-current" />
-          <span className="text-meta tracking-[0.22em] text-ink/60">20 · 09 · 2026</span>
+          <span className="text-meta tracking-[0.22em] text-ink/60">
+            {formatEventDate(eventDateIso, " · ")}
+          </span>
           <span className="block h-px w-[34px] bg-current" />
         </div>
       </header>
@@ -235,7 +240,7 @@ export function GalleryHeader({
             {COUPLE_NAMES[locale].oneLine}
           </span>
           <span className="text-[11px] tracking-[0.16em] text-ink/68">
-            20.09.2026 · {photoCount}
+            {formatEventDate(eventDateIso, ".")} · {photoCount}
           </span>
         </div>
         {photoCount > 0 && (

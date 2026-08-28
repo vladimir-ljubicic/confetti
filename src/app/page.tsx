@@ -1,5 +1,9 @@
 import { getDeviceId } from "@/lib/device";
-import { areUploadsFrozen } from "@/lib/event-settings";
+import {
+  DEFAULT_EVENT_DATE_ISO,
+  DEFAULT_FREEZE_OFFSET_DAYS,
+} from "@/lib/event-schedule";
+import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
@@ -30,13 +34,18 @@ export default async function GalleryPage({
   const sort = resolveSortMode(Array.isArray(sortParam) ? sortParam[0] : sortParam);
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
-  const [photos, profile, uploadsFrozen, admin] = await Promise.all([
+  const [photos, profile, settings, admin] = await Promise.all([
     loadPublicPhotos({ sort, viewerDeviceId: deviceId }),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
-    areUploadsFrozen().catch(() => false),
+    getEventSettings().catch(() => ({
+      uploadsFrozen: false,
+      eventDateIso: DEFAULT_EVENT_DATE_ISO,
+      freezeOffsetDays: DEFAULT_FREEZE_OFFSET_DAYS,
+    })),
     isAdmin(),
   ]);
+  const uploadsFrozen = settings.uploadsFrozen;
 
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
   const exportJob = uploadsFrozen
@@ -48,6 +57,7 @@ export default async function GalleryPage({
       <EmptyGallery
         dict={dict}
         locale={locale}
+        eventDateIso={settings.eventDateIso}
         uploadsFrozen={uploadsFrozen}
         uploadsBlocked={uploadsBlocked}
         needsProfile={!profile}
@@ -76,6 +86,7 @@ export default async function GalleryPage({
           photoCount={photos.length}
           sort={sort}
           locale={locale}
+          eventDateIso={settings.eventDateIso}
           labels={{
             eyebrow: dict.gallery.eyebrow,
             myPhotos: dict.gallery.myPhotos,
