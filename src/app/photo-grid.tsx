@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
@@ -47,7 +48,7 @@ export function PhotoGrid({
   emptyLabel: string;
   downloadLabel?: string;
   likeLabels?: { like: string; unlike: string };
-  viewer?: { labels: ViewerLabels; canManageAll: boolean };
+  viewer?: { labels: ViewerLabels; canManageAll: boolean; locale: Locale };
   showUploader?: boolean;
 }) {
   const queue = useUploadQueue();
@@ -173,6 +174,7 @@ export function PhotoGrid({
           startId={viewerStartId}
           likes={likes}
           canManageAll={viewer.canManageAll}
+          locale={viewer.locale}
           labels={viewer.labels}
           onClose={() => setViewerStartId(null)}
         />

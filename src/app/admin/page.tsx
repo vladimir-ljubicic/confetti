@@ -42,6 +42,15 @@ async function loadAllPhotos(): Promise<{ photos: AdminPhoto[]; totalBytes: numb
   if (error) throw new Error(`Loading photos failed: ${error.message}`);
   const rows = data as unknown as AdminPhotoRow[];
   const totalBytes = rows.reduce((sum, photo) => sum + photo.size_bytes, 0);
+  // The viewer's uploader pill shows the guest's public photo count, matching
+  // their public gallery page.
+  const publicCounts = new Map<string, number>();
+  for (const row of rows) {
+    const publicId = row.uploaders?.public_id;
+    if (publicId && row.visibility === "public") {
+      publicCounts.set(publicId, (publicCounts.get(publicId) ?? 0) + 1);
+    }
+  }
   const photos = await Promise.all(
     rows.map(async (photo) => ({
       id: photo.id,
@@ -56,6 +65,7 @@ async function loadAllPhotos(): Promise<{ photos: AdminPhoto[]; totalBytes: numb
         ? {
             displayName: photo.uploaders.display_name,
             publicId: photo.uploaders.public_id,
+            photoCount: publicCounts.get(photo.uploaders.public_id) ?? 0,
           }
         : null,
     })),
@@ -184,6 +194,7 @@ export default async function AdminPage({
           <AdminPhotoGrid
             photos={shown}
             privateBadge={labels.privateBadge}
+            locale={locale}
             viewerLabels={viewerLabels(dict)}
           />
 

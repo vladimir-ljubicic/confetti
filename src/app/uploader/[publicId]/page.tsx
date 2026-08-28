@@ -102,7 +102,7 @@ export default async function UploaderPage({
           photos={photos}
           emptyLabel={dict.uploaderPage.empty}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
-          viewer={{ canManageAll: admin, labels: viewerLabels(dict) }}
+          viewer={{ canManageAll: admin, labels: viewerLabels(dict), locale }}
           showUploader
         />
       </div>

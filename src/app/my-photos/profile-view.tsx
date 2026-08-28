@@ -172,8 +172,9 @@ export function ProfileView({
   const likeTotal = all.reduce((sum, photo) => sum + photo.likeCount, 0);
 
   // The viewer swipes through the currently filtered set, mirroring how the
-  // main gallery swipes through its current sort order. publicId is unused
-  // by the viewer, which never links to an uploader page from here.
+  // main gallery swipes through its current sort order. The empty publicId
+  // keeps the viewer's caption a plain name instead of an uploader pill —
+  // guests never need to navigate to their own page from here.
   const viewerPhotos: ViewerPhoto[] = shown.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploadedAt,
@@ -183,7 +184,9 @@ export function ProfileView({
     likeCount: photo.likeCount,
     likedByViewer: photo.likedByViewer,
     ownedByViewer: true,
-    uploader: displayName ? { displayName, publicId: "" } : null,
+    uploader: displayName
+      ? { displayName, publicId: "", photoCount: 0 }
+      : null,
   }));
 
   function clearPress() {
@@ -468,6 +471,7 @@ export function ProfileView({
           startId={viewerStartId}
           likes={likes}
           canManageAll={false}
+          locale={locale}
           labels={viewerLabels}
           onClose={() => setViewerStartId(null)}
         />

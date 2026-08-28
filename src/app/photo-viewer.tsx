@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { pluralize, type Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon } from "./like-pill";
@@ -22,6 +24,9 @@ export type ViewerLabels = {
   delete: string;
   confirmDelete: string;
   actionFailed: string;
+  photosOne: string;
+  photosFew: string;
+  photosMany: string;
 };
 
 function formatDateTime(iso: string): string {
@@ -35,6 +40,7 @@ export function PhotoViewer({
   startId,
   likes,
   canManageAll,
+  locale,
   labels,
   onClose,
 }: {
@@ -42,6 +48,7 @@ export function PhotoViewer({
   startId: string;
   likes: Likes;
   canManageAll: boolean;
+  locale: Locale;
   labels: ViewerLabels;
   onClose: () => void;
 }) {
@@ -221,11 +228,38 @@ export function PhotoViewer({
       </div>
 
       <div className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center">
-        {current.uploader && (
-          <span className="font-serif text-[25px] leading-[1.2] text-[#f0e7d2] italic">
-            {current.uploader.displayName}
-          </span>
-        )}
+        {current.uploader &&
+          // An empty publicId marks the guest's own profile view, where
+          // navigating to their uploader page would be pointless.
+          (current.uploader.publicId === "" ? (
+            <span className="font-serif text-[25px] leading-[1.2] text-[#f0e7d2] italic">
+              {current.uploader.displayName}
+            </span>
+          ) : (
+            <Link
+              href={`/uploader/${current.uploader.publicId}`}
+              className="flex min-h-12 items-center gap-2.5 rounded-pill border border-[rgba(250,246,238,0.22)] bg-[rgba(250,246,238,0.08)] py-[5px] pr-3.5 pl-1.5 transition active:bg-[rgba(250,246,238,0.14)]"
+            >
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(250,246,238,0.16)] font-serif text-[16px] text-[#e8dcc0]">
+                {current.uploader.displayName.trim().charAt(0).toLocaleUpperCase(locale)}
+              </span>
+              <span className="flex flex-col items-start">
+                <span className="font-serif text-[21px] leading-[1.1] text-[#f0e7d2] italic">
+                  {current.uploader.displayName}
+                </span>
+                <span className="text-[11px] tracking-[0.1em] text-[rgba(250,246,238,0.55)]">
+                  {pluralize(locale, current.uploader.photoCount, {
+                    one: labels.photosOne,
+                    few: labels.photosFew,
+                    many: labels.photosMany,
+                  })}
+                </span>
+              </span>
+              <span aria-hidden className="text-[14px] text-[rgba(250,246,238,0.55)]">
+                ›
+              </span>
+            </Link>
+          ))}
         <div className="flex items-center gap-[9px] text-[rgba(250,246,238,0.22)]">
           <span className="block h-px w-[26px] bg-current" />
           <span className="text-[11px] tracking-[0.18em] text-[rgba(250,246,238,0.6)]">

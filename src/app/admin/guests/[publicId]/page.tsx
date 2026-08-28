@@ -59,8 +59,12 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
     .is("deleted_at", null)
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`Loading photos failed: ${error.message}`);
+  const rows = data as unknown as GuestPhotoRow[];
+  // The viewer's uploader pill shows the guest's public photo count, matching
+  // their public gallery page.
+  const publicCount = rows.filter((row) => row.visibility === "public").length;
   return Promise.all(
-    (data as unknown as GuestPhotoRow[]).map(async (photo) => ({
+    rows.map(async (photo) => ({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
       imageUrl: await galleryImageUrl(photo),
@@ -69,7 +73,7 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
       likedByViewer: false,
       ownedByViewer: false,
       visibility: photo.visibility,
-      uploader: { displayName: guest.displayName, publicId },
+      uploader: { displayName: guest.displayName, publicId, photoCount: publicCount },
     })),
   );
 }
@@ -179,6 +183,7 @@ export default async function AdminGuestPage({
           <AdminPhotoGrid
             photos={shown}
             privateBadge={labels.privateBadge}
+            locale={locale}
             viewerLabels={viewerLabels(dict)}
           />
           <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>

@@ -14,5 +14,8 @@ export function viewerLabels(dict: Dictionary): ViewerLabels {
     delete: dict.myPhotos.delete,
     confirmDelete: dict.myPhotos.confirmDelete,
     actionFailed: dict.myPhotos.actionFailed,
+    photosOne: dict.uploaderPage.photosOne,
+    photosFew: dict.uploaderPage.photosFew,
+    photosMany: dict.uploaderPage.photosMany,
   };
 }

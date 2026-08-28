@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
 import { useLikes } from "@/app/use-likes";
+import type { Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
 
@@ -11,10 +12,12 @@ export type AdminPhoto = PublicPhoto & { visibility: Visibility };
 export function AdminPhotoGrid({
   photos,
   privateBadge,
+  locale,
   viewerLabels,
 }: {
   photos: AdminPhoto[];
   privateBadge: string;
+  locale: Locale;
   viewerLabels: ViewerLabels;
 }) {
   const likes = useLikes();
@@ -55,6 +58,7 @@ export function AdminPhotoGrid({
           startId={viewerStartId}
           likes={likes}
           canManageAll
+          locale={locale}
           labels={viewerLabels}
           onClose={() => setViewerStartId(null)}
         />

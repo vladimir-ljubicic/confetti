@@ -25,7 +25,7 @@ export type PublicPhoto = {
   likeCount: number;
   likedByViewer: boolean;
   ownedByViewer: boolean;
-  uploader: { displayName: string; publicId: string } | null;
+  uploader: { displayName: string; publicId: string; photoCount: number } | null;
 };
 
 export async function loadViewerLikes(
@@ -62,6 +62,27 @@ export async function loadPublicPhotoStats(
   };
 }
 
+// Public photo count per uploader id, across the whole gallery (not just the
+// current page of rows).
+export async function loadPublicUploaderPhotoCounts(): Promise<
+  Map<string, number>
+> {
+  const { data, error } = await supabaseAdmin()
+    .from("photos")
+    .select("uploader_id")
+    .eq("visibility", "public")
+    .not("uploaded_at", "is", null)
+    .not("uploader_id", "is", null)
+    .is("deleted_at", null);
+  if (error)
+    throw new Error(`Counting uploader photos failed: ${error.message}`);
+  const counts = new Map<string, number>();
+  for (const row of data as { uploader_id: string }[]) {
+    counts.set(row.uploader_id, (counts.get(row.uploader_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export async function loadPublicPhotos({
   sort,
   uploaderId,
@@ -89,10 +110,13 @@ export async function loadPublicPhotos({
   const { data, error } = await query.limit(GALLERY_PAGE_SIZE);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
-  const viewerLikes = await loadViewerLikes(
-    viewerDeviceId,
-    rows.map((row) => row.id),
-  );
+  const [viewerLikes, uploaderCounts] = await Promise.all([
+    loadViewerLikes(
+      viewerDeviceId,
+      rows.map((row) => row.id),
+    ),
+    loadPublicUploaderPhotoCounts(),
+  ]);
   return Promise.all(
     rows.map(async (photo) => ({
       id: photo.id,
@@ -107,6 +131,7 @@ export async function loadPublicPhotos({
         ? {
             displayName: photo.uploaders.display_name,
             publicId: photo.uploaders.public_id,
+            photoCount: uploaderCounts.get(photo.uploader_id ?? "") ?? 0,
           }
         : null,
     })),
