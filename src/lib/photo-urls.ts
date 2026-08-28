@@ -27,13 +27,48 @@ async function signedUrl(path: string, options?: SignOptions): Promise<string | 
   return error ? null : data.signedUrl;
 }
 
+// Signing costs one request per call, and a page of tiles asks for a whole
+// grid's worth at once. Paths raised in the same tick are signed together;
+// paths already in the cache below never get here. Transformed URLs are absent
+// because the batch endpoint takes no transform.
+type PendingSign = { path: string; settle: (url: string | null) => void };
+
+let pendingSigns: PendingSign[] = [];
+
+async function flushSigns(): Promise<void> {
+  const batch = pendingSigns;
+  pendingSigns = [];
+  try {
+    const { data, error } = await supabaseAdmin()
+      .storage.from(PHOTOS_BUCKET)
+      .createSignedUrls(
+        batch.map((sign) => sign.path),
+        GALLERY_URL_TTL_SECONDS,
+      );
+    if (error) throw error;
+    const urls = new Map(
+      data.map((row) => [row.path, row.error ? null : row.signedUrl]),
+    );
+    for (const sign of batch) sign.settle(urls.get(sign.path) ?? null);
+  } catch {
+    for (const sign of batch) sign.settle(null);
+  }
+}
+
+function batchSignedUrl(path: string): Promise<string | null> {
+  return new Promise((settle) => {
+    if (pendingSigns.length === 0) setTimeout(() => void flushSigns(), 0);
+    pendingSigns.push({ path, settle });
+  });
+}
+
 // Re-signing mints a different token for the same photo, and a changed URL
 // makes browsers re-download an image they already have. Caching keeps the
 // URL byte-identical across renders within the cache window. Signing
 // failures throw so they are never cached; callers map them back to null.
 const cachedSignedUrl = unstable_cache(
   async (path: string, options?: SignOptions): Promise<string> => {
-    const url = await signedUrl(path, options);
+    const url = options ? await signedUrl(path, options) : await batchSignedUrl(path);
     if (url === null) throw new Error(`Signing ${path} failed`);
     return url;
   },
