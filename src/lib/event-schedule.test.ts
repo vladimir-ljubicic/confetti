@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  daysUntilFreeze,
   formatEventDate,
   freezeDue,
   uploadFreezeAt,
@@ -43,6 +44,29 @@ describe("freezeDue", () => {
   it("is true at and after the freeze moment", () => {
     expect(freezeDue(schedule, new Date("2026-09-26T22:00:00Z"))).toBe(true);
     expect(freezeDue(schedule, new Date("2026-10-01T00:00:00Z"))).toBe(true);
+  });
+});
+
+describe("daysUntilFreeze", () => {
+  const schedule = { eventDateIso: "2026-09-20", freezeOffsetDays: 7 };
+
+  it("counts Belgrade calendar days including today", () => {
+    expect(daysUntilFreeze(schedule, new Date("2026-09-20T10:00:00+02:00"))).toBe(7);
+  });
+
+  it("is 1 on the last upload day, even just before midnight", () => {
+    expect(daysUntilFreeze(schedule, new Date("2026-09-26T08:00:00+02:00"))).toBe(1);
+    expect(daysUntilFreeze(schedule, new Date("2026-09-26T23:59:59+02:00"))).toBe(1);
+  });
+
+  it("uses the Belgrade date, not the UTC date", () => {
+    // 22:30 UTC on the 26th is already the 27th in Belgrade.
+    expect(daysUntilFreeze(schedule, new Date("2026-09-26T22:30:00Z"))).toBe(0);
+  });
+
+  it("goes to zero and below once the window is shut", () => {
+    expect(daysUntilFreeze(schedule, new Date("2026-09-27T00:00:00+02:00"))).toBe(0);
+    expect(daysUntilFreeze(schedule, new Date("2026-09-29T12:00:00+02:00"))).toBe(-2);
   });
 });
 

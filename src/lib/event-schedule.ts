@@ -40,6 +40,27 @@ export function freezeDue(schedule: EventSchedule, now: Date): boolean {
   return now.getTime() >= uploadFreezeAt(schedule).getTime();
 }
 
+function belgradeDateIso(instant: Date): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: EVENT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(instant);
+}
+
+// Belgrade calendar days left to upload, counting today: 1 means the window
+// closes tonight at midnight; 0 or less means it is already shut.
+export function daysUntilFreeze(schedule: EventSchedule, now: Date): number {
+  const closesOn = addDays(schedule.eventDateIso, schedule.freezeOffsetDays);
+  const today = belgradeDateIso(now);
+  return (
+    (Date.parse(`${closesOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) /
+    86_400_000
+  );
+}
+
 export function formatEventDate(dateIso: string, separator: string): string {
   const [year, month, day] = dateIso.split("-");
   return [day, month, year].join(separator);

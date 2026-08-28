@@ -2,9 +2,11 @@ import { getDeviceId } from "@/lib/device";
 import {
   DEFAULT_EVENT_DATE_ISO,
   DEFAULT_FREEZE_OFFSET_DAYS,
+  daysUntilFreeze,
 } from "@/lib/event-schedule";
 import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
+import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
@@ -47,6 +49,18 @@ export default async function GalleryPage({
   ]);
   const uploadsFrozen = settings.uploadsFrozen;
 
+  const uploadDaysLeft = daysUntilFreeze(settings, new Date());
+  const uploadWindowLine =
+    uploadsFrozen || uploadDaysLeft <= 0
+      ? null
+      : uploadDaysLeft === 1
+        ? dict.gallery.uploadWindowToday
+        : pluralize(locale, uploadDaysLeft, {
+            one: dict.gallery.uploadWindowOne,
+            few: dict.gallery.uploadWindowFew,
+            many: dict.gallery.uploadWindowMany,
+          });
+
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
   const exportJob = uploadsFrozen
     ? await getExportJob("public").catch(() => null)
@@ -87,6 +101,7 @@ export default async function GalleryPage({
           sort={sort}
           locale={locale}
           eventDateIso={settings.eventDateIso}
+          uploadWindowLine={uploadWindowLine}
           labels={{
             eyebrow: dict.gallery.eyebrow,
             myPhotos: dict.gallery.myPhotos,

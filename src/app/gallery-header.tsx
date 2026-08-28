@@ -57,6 +57,7 @@ export function GalleryHeader({
   sort,
   locale,
   eventDateIso,
+  uploadWindowLine,
   labels,
   frozenNotice,
   offlineNotice,
@@ -66,6 +67,7 @@ export function GalleryHeader({
   sort: SortMode;
   locale: Locale;
   eventDateIso: string;
+  uploadWindowLine?: string | null;
   labels: {
     eyebrow: string;
     myPhotos: string;
@@ -224,6 +226,11 @@ export function GalleryHeader({
           </span>
           <span className="block h-px w-[34px] bg-current" />
         </div>
+        {uploadWindowLine && (
+          <p className="max-w-[250px] text-[12px] leading-[1.6] text-ink/62">
+            {uploadWindowLine}
+          </p>
+        )}
       </header>
 
       <div

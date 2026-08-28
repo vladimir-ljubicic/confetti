@@ -25,6 +25,14 @@ const en = {
     unlike: "Remove like",
     coachMark: "Your photos are here",
     coachMarkDismiss: "Dismiss",
+    uploadWindowToday:
+      "Photo uploads are open through today — after that, download the full gallery.",
+    uploadWindowOne:
+      "Photo uploads are open for {count} more day — after that, download the full gallery.",
+    uploadWindowFew:
+      "Photo uploads are open for {count} more days — after that, download the full gallery.",
+    uploadWindowMany:
+      "Photo uploads are open for {count} more days — after that, download the full gallery.",
   },
   viewer: {
     open: "Open photo",
@@ -266,6 +274,14 @@ const sr: Dictionary = {
     unlike: "Уклони свиђање",
     coachMark: "Ваше фотографије су овде",
     coachMarkDismiss: "Затвори",
+    uploadWindowToday:
+      "Додавање фотографија је отворено још само данас — после тога преузмите целу галерију.",
+    uploadWindowOne:
+      "Додавање фотографија је отворено још {count} дан — после тога преузмите целу галерију.",
+    uploadWindowFew:
+      "Додавање фотографија је отворено још {count} дана — после тога преузмите целу галерију.",
+    uploadWindowMany:
+      "Додавање фотографија је отворено још {count} дана — после тога преузмите целу галерију.",
   },
   viewer: {
     open: "Отвори фотографију",
