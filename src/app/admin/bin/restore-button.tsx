@@ -21,7 +21,7 @@ export function RestoreButton({
         type="button"
         disabled={busy}
         onClick={restore}
-        className="flex h-11 min-w-[78px] items-center justify-center rounded-pill bg-gold-small px-3.5 text-[13px] text-card transition disabled:opacity-60"
+        className="flex h-11 min-w-[78px] items-center justify-center rounded-pill bg-gold-small px-3.5 text-[13px] text-card transition active:bg-gold-deep disabled:opacity-60"
       >
         {labels.restore}
       </button>

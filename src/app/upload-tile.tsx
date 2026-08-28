@@ -60,7 +60,7 @@ export function UploadTileView({
           <button
             type="button"
             onClick={tile.retry}
-            className="rounded-pill bg-card px-4 py-2 text-[13px] text-ink shadow-sm"
+            className="rounded-pill bg-card px-4 py-2 text-[13px] text-ink shadow-sm transition active:bg-sand"
           >
             ↺ {labels.retry}
           </button>
@@ -72,7 +72,7 @@ export function UploadTileView({
           <button
             type="button"
             onClick={tile.restore}
-            className="rounded-pill bg-card px-4 py-2 text-[13px] text-ink shadow-sm"
+            className="rounded-pill bg-card px-4 py-2 text-[13px] text-ink shadow-sm transition active:bg-sand"
           >
             {labels.cancelled} · {labels.restore}
           </button>

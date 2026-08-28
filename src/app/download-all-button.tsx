@@ -77,7 +77,7 @@ export function DownloadAllButton({
           setSheetOpen(true);
           setFailed(false);
         }}
-        className="pointer-events-auto rounded-pill border border-ink/18 bg-card px-[26px] py-4 text-base font-medium text-gold-small shadow-[0_10px_24px_-14px_rgb(43_38_32/0.4)] transition hover:bg-gold-tint"
+        className="pointer-events-auto rounded-pill border border-ink/18 bg-card px-[26px] py-4 text-base font-medium text-gold-small shadow-[0_10px_24px_-14px_rgb(43_38_32/0.4)] transition hover:bg-gold-tint active:bg-sand"
       >
         {buttonLabel}
       </button>

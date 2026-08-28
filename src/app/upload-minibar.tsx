@@ -47,7 +47,7 @@ export function BulkMiniBar({
         <button
           type="button"
           onClick={onCancel}
-          className="-my-2.5 -mr-1.5 flex min-h-11 shrink-0 items-center justify-center px-3 text-[13px] text-gold-small"
+          className="-my-2.5 -mr-1.5 flex min-h-11 shrink-0 items-center justify-center rounded-pill px-3 text-[13px] text-gold-small transition active:bg-gold-tint"
         >
           {cancelLabel}
         </button>
@@ -79,7 +79,7 @@ export function BulkSummary({
         <button
           type="button"
           onClick={onRetry}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card"
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card transition active:bg-gold-deep"
         >
           {retryLabel}
         </button>
@@ -125,14 +125,14 @@ export function RejectedCard({
         <button
           type="button"
           onClick={onSkip}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill px-4 text-[13px] text-gold-small"
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill px-4 text-[13px] text-gold-small transition active:bg-gold-tint"
         >
           {skipLabel}
         </button>
         <button
           type="button"
           onClick={onRetry}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card"
+          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card transition active:bg-gold-deep"
         >
           {retryLabel}
         </button>

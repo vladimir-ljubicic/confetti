@@ -141,7 +141,7 @@ export default async function AdminGuestPage({
     `shrink-0 rounded-pill px-3.5 py-[9px] text-[13px] whitespace-nowrap transition ${
       active
         ? "bg-gold-small text-card"
-        : "border border-ink/18 text-ink/65 hover:text-ink"
+        : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
     }`;
 
   return (

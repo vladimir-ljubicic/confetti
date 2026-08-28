@@ -59,7 +59,7 @@ export function GuestRow({
             setValue(name);
             setEditing(true);
           }}
-          className="relative z-10 flex h-11 shrink-0 items-center rounded-pill border border-ink/16 px-[13px] text-[13px] whitespace-nowrap text-gold-small transition hover:border-ink/30"
+          className="relative z-10 flex h-11 shrink-0 items-center rounded-pill border border-ink/16 px-[13px] text-[13px] whitespace-nowrap text-gold-small transition hover:border-ink/30 active:border-ink/40"
         >
           {labels.rename}
         </button>
@@ -99,7 +99,7 @@ export function GuestRow({
             disabled={busy}
             onClick={() => setEditing(false)}
             aria-label={labels.renameCancel}
-            className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink disabled:opacity-60"
+            className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink active:text-ink disabled:opacity-60"
           >
             ✕
           </button>

@@ -225,14 +225,14 @@ export function ExportJobCard({
         <button
           type="button"
           onClick={onDownload}
-          className="flex h-12 flex-1 items-center justify-center rounded-pill bg-gold px-5 text-sm font-medium text-card transition hover:bg-gold-small"
+          className="flex h-12 flex-1 items-center justify-center rounded-pill bg-gold px-5 text-sm font-medium text-card transition hover:bg-gold-small active:bg-gold-deep"
         >
           {labels.downloadNow}
         </button>
         <button
           type="button"
           onClick={onCopy}
-          className="flex h-12 shrink-0 items-center justify-center rounded-pill border border-ink/18 px-5 text-sm text-gold-small transition hover:bg-gold-tint"
+          className="flex h-12 shrink-0 items-center justify-center rounded-pill border border-ink/18 px-5 text-sm text-gold-small transition hover:bg-gold-tint active:bg-sand"
         >
           {copied ? labels.linkCopied : labels.copyLink}
         </button>
@@ -289,7 +289,7 @@ export function ExportSheet({
           type="button"
           disabled={checking}
           onClick={onDownload}
-          className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60"
+          className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
         >
           {labels.download}
         </button>

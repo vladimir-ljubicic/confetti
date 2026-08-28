@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { DISPLAY_NAME_MAX_LENGTH, type Visibility } from "@/lib/uploader-profile";
 import { ConfettiMark } from "./confetti-mark";
@@ -91,7 +92,9 @@ export function IntroSheet({
     ["private", labels.visibilityPrivateTitle, labels.visibilityPrivateSub],
   ] as const;
 
-  return (
+  // Portaled: an ancestor is position:sticky, whose stacking context would
+  // otherwise trap the sheet below the gallery's sticky header bars.
+  return createPortal(
     <div className="pointer-events-auto fixed inset-0 z-50">
       <button
         type="button"
@@ -197,18 +200,19 @@ export function IntroSheet({
         <button
           type="submit"
           disabled={displayName.length === 0 || saving}
-          className="w-full rounded-pill bg-gold py-[17px] text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60"
+          className="w-full rounded-pill bg-gold py-[17px] text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
         >
           {submitLabel(labels, locale, fileCount)}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex min-h-11 items-center self-center text-[13px] text-ink/60 transition hover:text-ink"
+          className="flex min-h-11 items-center self-center text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
         >
           {labels.cancel}
         </button>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }

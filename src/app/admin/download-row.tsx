@@ -82,7 +82,7 @@ export function AdminDownloadRow({
           setSheetOpen(true);
           setFailed(false);
         }}
-        className="flex items-center justify-between gap-3 rounded-b-card border border-t-0 border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint"
+        className="flex items-center justify-between gap-3 rounded-b-card border border-t-0 border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand"
       >
         <span className="text-sm text-ink">{rowLabel}</span>
         <span className="text-[13px] whitespace-nowrap text-ink/50">{rowValue}</span>

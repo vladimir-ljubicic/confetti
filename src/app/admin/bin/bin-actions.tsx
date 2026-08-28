@@ -31,7 +31,7 @@ export function BinActions({
         type="button"
         disabled={busy}
         onClick={restoreAll}
-        className="flex items-center justify-between gap-3 rounded-card border border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint disabled:opacity-60"
+        className="flex items-center justify-between gap-3 rounded-card border border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand disabled:opacity-60"
       >
         <span className="text-sm text-ink">{labels.restoreAll}</span>
         <span className="text-[13px] whitespace-nowrap text-ink/50">{countLine}</span>

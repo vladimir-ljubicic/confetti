@@ -863,7 +863,7 @@ export function UploadButton({
           type="button"
           disabled={batchActive}
           onClick={() => inputRef.current?.click()}
-          className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60 ${
+          className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60 ${
             variant === "floating"
               ? "px-7 py-4 shadow-floating"
               : "px-[30px] py-4 shadow-[0_12px_26px_-12px_rgb(176_141_60/0.9)]"

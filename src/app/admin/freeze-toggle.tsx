@@ -49,7 +49,7 @@ export function FreezeToggle({
               className={`rounded-pill px-3 py-2 transition disabled:opacity-60 ${
                 frozen === segment.value
                   ? "bg-gold-small text-card"
-                  : "text-ink/55 hover:text-ink"
+                  : "text-ink/55 hover:text-ink active:text-ink"
               }`}
             >
               {segment.label}

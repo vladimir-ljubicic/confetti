@@ -39,7 +39,7 @@ export function AdminTopRow({
     <div className="flex items-center justify-between gap-3 pt-4 pr-[18px] pl-2">
       <Link
         href={back?.href ?? "/"}
-        className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-[13px] text-ink/60 transition hover:text-ink"
+        className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
       >
         <span aria-hidden className="text-[15px]">
           ←
@@ -105,7 +105,7 @@ export function AdminChrome({
             <Link
               key={tab.key}
               href={tab.href}
-              className="flex-1 rounded-pill py-2.5 text-center text-ink/60 transition hover:text-ink"
+              className="flex-1 rounded-pill py-2.5 text-center text-ink/60 transition hover:text-ink active:text-ink"
             >
               {tab.label}
             </Link>

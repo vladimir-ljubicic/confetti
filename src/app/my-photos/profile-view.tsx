@@ -104,7 +104,7 @@ function DefaultVisibilityCard({
               className={`rounded-pill px-3 py-[9px] transition ${
                 selected === visibility
                   ? "bg-gold-small text-card"
-                  : "text-ink/60 hover:text-ink"
+                  : "text-ink/60 hover:text-ink active:text-ink"
               }`}
             >
               {label}
@@ -274,7 +274,7 @@ export function ProfileView({
           <button
             type="button"
             onClick={exitSelect}
-            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink"
+            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink transition active:bg-[rgba(176,141,60,0.18)]"
           >
             <span className="text-base leading-none">✕</span>
             {labels.exitSelect}
@@ -282,7 +282,7 @@ export function ProfileView({
           <button
             type="button"
             onClick={() => setSelectedIds(new Set(shown.map((photo) => photo.id)))}
-            className="flex min-h-11 items-center px-3 text-[13px] whitespace-nowrap text-gold-small"
+            className="flex min-h-11 items-center rounded-pill px-3 text-[13px] whitespace-nowrap text-gold-small transition active:bg-[rgba(176,141,60,0.18)]"
           >
             {labels.selectAll}
           </button>
@@ -291,7 +291,7 @@ export function ProfileView({
         <div className="sticky top-0 z-10 flex items-center bg-paper py-3 pr-3 pl-2">
           <Link
             href="/"
-            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink/70 transition hover:text-ink"
+            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink/70 transition hover:text-ink active:text-ink"
           >
             <span aria-hidden>←</span>
             {labels.backToGallery}
@@ -334,7 +334,7 @@ export function ProfileView({
                 className={`shrink-0 rounded-pill px-3.5 py-[9px] text-[13px] whitespace-nowrap transition ${
                   filter === key
                     ? "bg-gold-small text-card"
-                    : "border border-ink/18 text-ink/65 hover:text-ink"
+                    : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
                 }`}
               >
                 {label.replace("{count}", String(count))}
@@ -412,7 +412,7 @@ export function ProfileView({
                 onClick={() =>
                   setSelectedVisibility(allSelectedPrivate ? "public" : "private")
                 }
-                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small disabled:opacity-60"
+                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
               >
                 {allSelectedPrivate ? labels.makePublic : labels.hide}
               </button>
@@ -420,7 +420,7 @@ export function ProfileView({
                 type="button"
                 disabled={busy || selectedPhotos.length === 0}
                 onClick={deleteSelected}
-                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger disabled:opacity-60"
+                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger transition active:opacity-60 disabled:opacity-60"
               >
                 {labels.delete}
               </button>

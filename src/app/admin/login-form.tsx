@@ -29,7 +29,7 @@ export function AdminLoginForm({ labels }: { labels: LoginLabels }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-gold px-7 py-3.5 text-base font-medium text-card transition hover:bg-gold-small disabled:opacity-60"
+        className="rounded-pill bg-gold px-7 py-3.5 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
       >
         {labels.submit}
       </button>

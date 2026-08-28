@@ -42,7 +42,7 @@ export default async function UploaderPage({
       <LocaleCorner />
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="font-serif text-4xl text-gold-small">{uploader.displayName}</h1>
-        <Link href="/" className="text-sm text-ink/60 transition hover:text-ink">
+        <Link href="/" className="text-sm text-ink/60 transition hover:text-ink active:text-ink">
           ← {dict.uploaderPage.backToGallery}
         </Link>
       </header>

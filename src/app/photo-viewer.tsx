@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PublicPhoto } from "@/lib/public-photos";
+import { HeartIcon } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import type { Likes } from "./use-likes";
 
@@ -211,7 +212,7 @@ export function PhotoViewer({
           {current.downloadUrl && (
             <a
               href={current.downloadUrl}
-              className="flex flex-1 items-center justify-center rounded-pill bg-paper p-[15px] text-[15px] font-medium text-ink"
+              className="flex flex-1 items-center justify-center rounded-pill bg-paper p-[15px] text-[15px] font-medium text-ink transition active:bg-sand"
             >
               {labels.download}
             </a>
@@ -226,13 +227,12 @@ export function PhotoViewer({
             }
             aria-pressed={like.liked}
             aria-label={like.liked ? labels.unlike : labels.like}
-            className="flex h-[50px] items-center justify-center gap-[7px] rounded-pill border border-[rgba(250,246,238,0.28)] px-[18px] text-[15px]"
+            className="flex h-[50px] items-center justify-center gap-[7px] rounded-pill border border-[rgba(250,246,238,0.28)] px-[18px] text-[15px] transition active:bg-[rgba(250,246,238,0.12)]"
           >
-            <span
-              className={`text-[17px] leading-none ${like.liked ? "text-gold-light" : "text-paper"}`}
-            >
-              {like.liked ? "♥" : "♡"}
-            </span>
+            <HeartIcon
+              filled={like.liked}
+              className={`h-[17px] w-[17px] ${like.liked ? "text-gold-light" : "text-paper"}`}
+            />
             {like.count > 0 && (
               <span className="text-[rgba(250,246,238,0.85)]">
                 {like.count}
@@ -244,7 +244,7 @@ export function PhotoViewer({
               type="button"
               onClick={() => void share()}
               aria-label={labels.share}
-              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper"
+              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper transition active:bg-[rgba(250,246,238,0.12)]"
             >
               ↗
             </button>
@@ -257,7 +257,7 @@ export function PhotoViewer({
               type="button"
               disabled={busy}
               onClick={() => void makePrivate()}
-              className="flex min-h-11 items-center text-[rgba(250,246,238,0.62)] disabled:opacity-60"
+              className="flex min-h-11 items-center text-[rgba(250,246,238,0.62)] transition active:text-[rgba(250,246,238,0.9)] disabled:opacity-60"
             >
               {labels.makePrivate}
             </button>
@@ -265,7 +265,7 @@ export function PhotoViewer({
               type="button"
               disabled={busy}
               onClick={() => void remove()}
-              className="flex min-h-11 items-center text-danger-light disabled:opacity-60"
+              className="flex min-h-11 items-center text-danger-light transition active:opacity-60 disabled:opacity-60"
             >
               {labels.delete}
             </button>

@@ -54,7 +54,7 @@ export function GuestHeader({
             <button
               type="submit"
               disabled={busy}
-              className="flex h-11 shrink-0 items-center rounded-pill bg-gold-small px-3.5 text-[13px] whitespace-nowrap text-card transition disabled:opacity-60"
+              className="flex h-11 shrink-0 items-center rounded-pill bg-gold-small px-3.5 text-[13px] whitespace-nowrap text-card transition active:bg-gold-deep disabled:opacity-60"
             >
               {labels.renameSave}
             </button>
@@ -63,7 +63,7 @@ export function GuestHeader({
               disabled={busy}
               onClick={() => setEditing(false)}
               aria-label={labels.renameCancel}
-              className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink disabled:opacity-60"
+              className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink active:text-ink disabled:opacity-60"
             >
               ✕
             </button>
@@ -86,7 +86,7 @@ export function GuestHeader({
               setValue(name);
               setEditing(true);
             }}
-            className="flex min-h-11 shrink-0 items-center rounded-pill border border-ink/16 bg-card px-3.5 text-[13px] whitespace-nowrap text-gold-small transition hover:border-ink/30"
+            className="flex min-h-11 shrink-0 items-center rounded-pill border border-ink/16 bg-card px-3.5 text-[13px] whitespace-nowrap text-gold-small transition hover:border-ink/30 active:border-ink/40"
           >
             {labels.rename}
           </button>
