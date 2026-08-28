@@ -41,6 +41,21 @@ function formatDateTime(iso: string): string {
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} · ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+// `object-contain` letterboxes the photo inside the element, so part of the
+// image box is empty stage. Re-derives the drawn rect to tell the two apart.
+function clickedLetterbox(event: React.MouseEvent<HTMLImageElement>): boolean {
+  const img = event.currentTarget;
+  const { naturalWidth, naturalHeight, clientWidth, clientHeight } = img;
+  if (!naturalWidth || !naturalHeight) return false;
+  const scale = Math.min(clientWidth / naturalWidth, clientHeight / naturalHeight);
+  const drawnWidth = naturalWidth * scale;
+  const drawnHeight = naturalHeight * scale;
+  const rect = img.getBoundingClientRect();
+  const x = event.clientX - rect.left - (clientWidth - drawnWidth) / 2;
+  const y = event.clientY - rect.top - (clientHeight - drawnHeight) / 2;
+  return x < 0 || y < 0 || x > drawnWidth || y > drawnHeight;
+}
+
 function ShareSheet({
   state,
   labels,
@@ -361,6 +376,9 @@ export function PhotoViewer({
         {visible.map((photo) => (
           <div
             key={photo.id}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) dismiss();
+            }}
             className="flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
           >
             {photo.imageUrl && (
@@ -369,6 +387,9 @@ export function PhotoViewer({
                 src={photo.imageUrl}
                 alt=""
                 loading="lazy"
+                onClick={(event) => {
+                  if (clickedLetterbox(event)) dismiss();
+                }}
                 className="max-h-full w-full object-contain"
               />
             )}
