@@ -190,17 +190,7 @@
   }
 }
 
-/* Language-switch cross-fade. */
-::view-transition {
-  pointer-events: none;
-}
-::view-transition-old(.locale-fade) {
-  animation: 130ms ease-out both locale-fade reverse;
-}
-::view-transition-new(.locale-fade) {
-  animation: 190ms ease-in 90ms both locale-fade;
-}
-@keyframes locale-fade {
+@keyframes fade {
   from {
     opacity: 0;
   }
@@ -208,7 +198,41 @@
     opacity: 1;
   }
 }
+
+/* A tile joining the grid: an upload settling in, or a scrolled-in page. */
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tile-in {
+  animation: tile-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+/* Language-switch cross-fade. */
+::view-transition-old(.locale-fade) {
+  animation: 130ms ease-out both fade reverse;
+}
+::view-transition-new(.locale-fade) {
+  animation: 190ms ease-in 90ms both fade;
+}
+
+/* Tiles land in their resting state at once. */
 @media (prefers-reduced-motion: reduce) {
+  .tile-in {
+    animation: none;
+  }
+
   ::view-transition-old(*),
   ::view-transition-new(*),
   ::view-transition-group(*) {

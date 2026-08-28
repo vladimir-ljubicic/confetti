@@ -109,6 +109,7 @@ export function PhotoGrid({
   const likes = useLikes();
   const {
     photos: loadedPhotos,
+    enterOrder,
     loading,
     loadMore,
     sentinelRef,
@@ -189,7 +190,14 @@ export function PhotoGrid({
               ) : (
                 <li
                   key={entry.photo.id}
-                  className="group relative overflow-hidden rounded-tile bg-sand"
+                  // A photo taking over from its own upload tile is already
+                  // on screen and must not fade in a second time.
+                  className={`group relative overflow-hidden rounded-tile bg-sand ${
+                    absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
+                  }`}
+                  style={{
+                    animationDelay: `${(enterOrder.get(entry.photo.id) ?? 0) * 40}ms`,
+                  }}
                 >
                   {entry.photo.imageUrl ? (
                     viewer ? (

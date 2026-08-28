@@ -22,7 +22,7 @@ export function UploadTileView({
     !waiting && (tile.status === "queued" || tile.status === "uploading");
   const turn = Math.min(Math.max(tile.percent, 0), 100) / 100;
   return (
-    <li className="relative overflow-hidden rounded-tile bg-sand">
+    <li className="tile-in relative overflow-hidden rounded-tile bg-sand">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={tile.previewUrl} alt="" className="w-full" />
 

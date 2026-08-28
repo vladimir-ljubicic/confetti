@@ -13,6 +13,9 @@ export type PhotoFeedSource = {
 
 export type PhotoFeed = {
   photos: PublicPhoto[];
+  // Place in the page a photo arrived with, for staggering its entrance;
+  // absent for the photos rendered on the server.
+  enterOrder: ReadonlyMap<string, number>;
   loading: boolean;
   loadMore: () => void;
   sentinelRef: (node: HTMLDivElement | null) => void;
@@ -23,6 +26,10 @@ const NO_PAGES: PublicPhotoPage[] = [];
 // Starts loading a page while the bottom of the gallery is still this far off,
 // so the grid keeps growing ahead of a fast scroll.
 const PREFETCH_MARGIN = "800px";
+
+// Past this many tiles into a page the stagger stops growing; a whole page
+// waiting its turn would trail far behind the scroll.
+const MAX_STAGGERED_TILES = 8;
 
 export function usePhotoFeed(
   serverPhotos: PublicPhoto[],
@@ -52,6 +59,16 @@ export function usePhotoFeed(
     }
     return merged;
   }, [serverPhotos, pages]);
+
+  const enterOrder = useMemo(() => {
+    const order = new Map<string, number>();
+    for (const page of pages) {
+      page.photos.forEach((photo, index) => {
+        order.set(photo.id, Math.min(index, MAX_STAGGERED_TILES));
+      });
+    }
+    return order;
+  }, [pages]);
 
   const cursor =
     pages.length === 0 ? (source?.nextCursor ?? null) : (pages.at(-1)?.nextCursor ?? null);
@@ -106,5 +123,5 @@ export function usePhotoFeed(
     return () => observer.disconnect();
   }, [sentinel]);
 
-  return { photos, loading, loadMore, sentinelRef: setSentinel };
+  return { photos, enterOrder, loading, loadMore, sentinelRef: setSentinel };
 }
