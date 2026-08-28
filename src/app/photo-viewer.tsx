@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
-import { LikeHeart } from "./like-pill";
+import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
@@ -34,6 +34,10 @@ export type ViewerLabels = {
 
 // How long the viewer holds itself on screen while it fades away.
 const CLOSE_MS = 200;
+
+// Two taps count as one gesture within this window and distance of each other.
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 40;
 
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
@@ -160,6 +164,12 @@ export function PhotoViewer({
   );
 
   const trackRef = useRef<HTMLDivElement>(null);
+  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null);
+  // Keyed so a second double-tap restarts the animation instead of joining
+  // the one still running.
+  const [burst, setBurst] = useState<{ key: number; photoId: string } | null>(
+    null,
+  );
   const { busy, failed, run } = useServerAction();
   const [shareState, setShareState] = useState<
     { status: "preparing" } | { status: "ready"; payload: ShareData } | null
@@ -253,6 +263,38 @@ export function PhotoViewer({
     visibilityOverrides.get(current.id) ?? current.visibility ?? "public";
   const canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  // A double tap likes the photo but never unlikes it, so a mistaken second
+  // gesture can't undo the first. The burst plays either way.
+  function tapPhoto(
+    event: React.MouseEvent<HTMLImageElement>,
+    photo: ViewerPhoto,
+  ) {
+    const previous = lastTap.current;
+    if (
+      previous &&
+      event.timeStamp - previous.time < DOUBLE_TAP_MS &&
+      Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <
+        DOUBLE_TAP_PX
+    ) {
+      lastTap.current = null;
+      setBurst((running) => ({
+        key: (running?.key ?? 0) + 1,
+        photoId: photo.id,
+      }));
+      const seed = { liked: photo.likedByViewer, count: photo.likeCount };
+      if (!likes.stateFor(photo.id, seed).liked) {
+        void likes.toggle(photo.id, seed);
+      }
+      return;
+    }
+    lastTap.current = {
+      time: event.timeStamp,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    if (clickedLetterbox(event)) dismiss();
+  }
 
   function hideCurrent() {
     const remaining = visible.length - 1;
@@ -379,7 +421,7 @@ export function PhotoViewer({
             onClick={(event) => {
               if (event.target === event.currentTarget) dismiss();
             }}
-            className="flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
+            className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
           >
             {photo.imageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -387,11 +429,22 @@ export function PhotoViewer({
                 src={photo.imageUrl}
                 alt=""
                 loading="lazy"
-                onClick={(event) => {
-                  if (clickedLetterbox(event)) dismiss();
-                }}
-                className="max-h-full w-full object-contain"
+                onClick={(event) => tapPhoto(event, photo)}
+                className="max-h-full w-full touch-manipulation object-contain"
               />
+            )}
+            {burst?.photoId === photo.id && (
+              <span
+                key={burst.key}
+                aria-hidden
+                onAnimationEnd={() => setBurst(null)}
+                className="heart-burst pointer-events-none absolute"
+              >
+                <HeartIcon
+                  filled
+                  className="h-[92px] w-[92px] text-paper drop-shadow-[0_2px_16px_rgba(27,24,21,0.5)]"
+                />
+              </span>
             )}
           </div>
         ))}

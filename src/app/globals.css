@@ -231,6 +231,37 @@
   animation: heart-pop 220ms cubic-bezier(0.2, 0.8, 0.3, 1.4);
 }
 
+@keyframes heart-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  55% {
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes heart-burst-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.heart-burst {
+  animation: heart-burst 700ms cubic-bezier(0.2, 0.8, 0.3, 1.4) forwards;
+}
+
 @keyframes sheet-in {
   from {
     transform: translateY(100%);
@@ -329,6 +360,11 @@
   .viewer-out,
   .viewer-photo-out {
     animation: none;
+  }
+
+  /* Fades rather than stops: the burst heart leaves on its animation end. */
+  .heart-burst {
+    animation-name: heart-burst-fade;
   }
 
   ::view-transition-old(*),
