@@ -8,7 +8,10 @@ export function useServerAction() {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  async function run(request: () => Promise<Response>): Promise<boolean> {
+  async function run(
+    request: () => Promise<Response>,
+    { refresh = true }: { refresh?: boolean } = {},
+  ): Promise<boolean> {
     setBusy(true);
     setFailed(false);
     const response = await request().catch(() => null);
@@ -17,7 +20,7 @@ export function useServerAction() {
       setFailed(true);
       return false;
     }
-    router.refresh();
+    if (refresh) router.refresh();
     setBusy(false);
     return true;
   }

@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
-import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
-import { PhotoViewer, type ViewerLabels } from "../photo-viewer";
+import {
+  PhotoViewer,
+  type ViewerLabels,
+  type ViewerPhoto,
+} from "../photo-viewer";
 import { useLikes } from "../use-likes";
 
 export type ProfileLabels = {
@@ -171,11 +174,12 @@ export function ProfileView({
   // The viewer swipes through the currently filtered set, mirroring how the
   // main gallery swipes through its current sort order. publicId is unused
   // by the viewer, which never links to an uploader page from here.
-  const viewerPhotos: PublicPhoto[] = shown.map((photo) => ({
+  const viewerPhotos: ViewerPhoto[] = shown.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploadedAt,
     imageUrl: photo.imageUrl,
     downloadUrl: photo.downloadUrl,
+    visibility: photo.visibility,
     likeCount: photo.likeCount,
     likedByViewer: photo.likedByViewer,
     ownedByViewer: true,

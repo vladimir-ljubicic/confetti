@@ -10,6 +10,7 @@ export function viewerLabels(dict: Dictionary): ViewerLabels {
     unlike: dict.gallery.unlike,
     share: dict.viewer.share,
     makePrivate: dict.myPhotos.makePrivate,
+    makePublic: dict.myPhotos.makePublic,
     delete: dict.myPhotos.delete,
     confirmDelete: dict.myPhotos.confirmDelete,
     actionFailed: dict.myPhotos.actionFailed,

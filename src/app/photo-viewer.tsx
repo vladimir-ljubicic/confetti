@@ -1,10 +1,14 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PublicPhoto } from "@/lib/public-photos";
+import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import type { Likes } from "./use-likes";
+
+export type ViewerPhoto = PublicPhoto & { visibility?: Visibility };
 
 export type ViewerLabels = {
   open: string;
@@ -14,6 +18,7 @@ export type ViewerLabels = {
   unlike: string;
   share: string;
   makePrivate: string;
+  makePublic: string;
   delete: string;
   confirmDelete: string;
   actionFailed: string;
@@ -33,16 +38,24 @@ export function PhotoViewer({
   labels,
   onClose,
 }: {
-  photos: PublicPhoto[];
+  photos: ViewerPhoto[];
   startId: string;
   likes: Likes;
   canManageAll: boolean;
   labels: ViewerLabels;
   onClose: () => void;
 }) {
-  // Photos made private or deleted from the viewer vanish here immediately;
+  const router = useRouter();
+  // Photos deleted from the viewer vanish here immediately;
   // router.refresh() catches the server list up in the background.
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  // Visibility flips stay local while the viewer is open — the grid refresh
+  // is deferred to unmount so the current photo doesn't drop out of the feed
+  // (and the viewer off the current slide) mid-view.
+  const [visibilityOverrides, setVisibilityOverrides] = useState<
+    ReadonlyMap<string, Visibility>
+  >(new Map());
+  const visibilityChanged = useRef(false);
   const visible = photos.filter((photo) => !hiddenIds.has(photo.id));
 
   const startIndex = Math.max(
@@ -63,6 +76,13 @@ export function PhotoViewer({
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      if (visibilityChanged.current) router.refresh();
+    },
+    [router],
+  );
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -107,6 +127,8 @@ export function PhotoViewer({
     count: current.likeCount,
   });
   const canManage = canManageAll || current.ownedByViewer;
+  const currentVisibility =
+    visibilityOverrides.get(current.id) ?? current.visibility ?? "public";
   const canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -119,15 +141,21 @@ export function PhotoViewer({
     setHiddenIds(new Set([...hiddenIds, current.id]));
   }
 
-  async function makePrivate() {
-    const ok = await run(() =>
-      fetch(`/api/photos/${current.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ visibility: "private" }),
-      }),
+  async function toggleVisibility() {
+    const next: Visibility = currentVisibility === "private" ? "public" : "private";
+    const ok = await run(
+      () =>
+        fetch(`/api/photos/${current.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ visibility: next }),
+        }),
+      { refresh: false },
     );
-    if (ok) hideCurrent();
+    if (ok) {
+      visibilityChanged.current = true;
+      setVisibilityOverrides(new Map(visibilityOverrides).set(current.id, next));
+    }
   }
 
   async function remove() {
@@ -256,10 +284,10 @@ export function PhotoViewer({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void makePrivate()}
+              onClick={() => void toggleVisibility()}
               className="flex min-h-11 items-center text-[rgba(250,246,238,0.62)] transition active:text-[rgba(250,246,238,0.9)] disabled:opacity-60"
             >
-              {labels.makePrivate}
+              {currentVisibility === "private" ? labels.makePublic : labels.makePrivate}
             </button>
             <button
               type="button"
