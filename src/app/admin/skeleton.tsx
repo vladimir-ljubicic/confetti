@@ -7,19 +7,6 @@ export function SkeletonHeader() {
   );
 }
 
-export function SkeletonTabs() {
-  return (
-    <div
-      aria-hidden
-      className="mx-4 mb-4 flex gap-1 rounded-pill bg-sand-deep p-1"
-    >
-      {[0, 1, 2].map((index) => (
-        <span key={index} className="h-[38px] flex-1 rounded-pill" />
-      ))}
-    </div>
-  );
-}
-
 export function SkeletonChips() {
   return (
     <div aria-hidden className="flex gap-2 px-4 pb-3.5">

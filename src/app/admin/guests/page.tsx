@@ -76,7 +76,6 @@ export default async function AdminGuestsPage() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
         locale={locale}
-        active="guests"
         binCount={binCount}
         title={pluralize(locale, groups.length, {
           one: labels.guestsOne,

@@ -84,7 +84,6 @@ export default async function AdminBinPage() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
         locale={locale}
-        active="bin"
         binCount={photos.length}
         title={labels.title}
         sub={labels.sub.replace("{days}", String(RECYCLE_RETENTION_DAYS))}

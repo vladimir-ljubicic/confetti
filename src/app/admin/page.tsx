@@ -158,7 +158,6 @@ export default async function AdminPage({
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
         locale={locale}
-        active="photos"
         binCount={binCount}
         title={title}
         sub={sub}

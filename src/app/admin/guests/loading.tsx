@@ -1,6 +1,7 @@
 import { getDict, getLocale } from "@/lib/locale";
 import { AdminTopRow, adminChromeLabels } from "../admin-chrome";
-import { SkeletonHeader, SkeletonRows, SkeletonTabs } from "../skeleton";
+import { AdminTabs } from "../admin-tabs";
+import { SkeletonHeader, SkeletonRows } from "../skeleton";
 
 export default async function Loading() {
   const [locale, dict] = await Promise.all([getLocale(), getDict()]);
@@ -9,7 +10,7 @@ export default async function Loading() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminTopRow locale={locale} labels={adminChromeLabels(dict)} />
       <SkeletonHeader />
-      <SkeletonTabs />
+      <AdminTabs labels={adminChromeLabels(dict)} />
       <SkeletonRows />
     </main>
   );
