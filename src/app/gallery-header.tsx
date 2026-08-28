@@ -91,6 +91,8 @@ export function GalleryHeader({
   useEffect(() => {
     const begin = () => {
       if (coachMarkSeen()) return;
+      // Persisted up front: leaving mid-animation must not replay the arrival.
+      persistCoachMarkSeen();
       setArrival(true);
       setCoachMark(true);
     };
@@ -107,7 +109,6 @@ export function GalleryHeader({
   }, [displayName]);
 
   const dismissCoachMark = useCallback(() => {
-    persistCoachMarkSeen();
     setCoachMark(false);
   }, []);
 

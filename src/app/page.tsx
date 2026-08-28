@@ -51,7 +51,8 @@ export default async function GalleryPage({
       <EmptyGallery
         dict={dict}
         locale={locale}
-        uploadsFrozen={uploadsFrozen || uploadsBlocked}
+        uploadsFrozen={uploadsFrozen}
+        uploadsBlocked={uploadsBlocked}
         needsProfile={!profile}
         limits={{
           maxBatch: uploadLimits.maxBatch,

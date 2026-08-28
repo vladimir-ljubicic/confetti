@@ -8,7 +8,6 @@ const en = {
   },
   gallery: {
     eyebrow: "Wedding",
-    date: "September 20, 2026",
     empty: "No photos yet — be the first!",
     emptyLine1: "The gallery is still empty.",
     emptyLine2: "The first photo is yours.",
@@ -245,7 +244,6 @@ const sr: Dictionary = {
   },
   gallery: {
     eyebrow: "Венчање",
-    date: "20. 09. 2026.",
     empty: "Још нема фотографија — будите први!",
     emptyLine1: "Галерија је још празна.",
     emptyLine2: "Прва фотографија је ваша.",

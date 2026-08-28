@@ -9,6 +9,7 @@ export function EmptyGallery({
   dict,
   locale,
   uploadsFrozen,
+  uploadsBlocked,
   needsProfile,
   limits,
   limitsExempt,
@@ -16,6 +17,7 @@ export function EmptyGallery({
   dict: Dictionary;
   locale: Locale;
   uploadsFrozen: boolean;
+  uploadsBlocked: boolean;
   needsProfile: boolean;
   limits: { maxBatch: number; maxFileBytes: number };
   limitsExempt: boolean;
@@ -55,7 +57,7 @@ export function EmptyGallery({
           <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-sm text-ink/70">
             {dict.gallery.uploadsFrozen}
           </p>
-        ) : (
+        ) : uploadsBlocked ? null : (
           <UploadButton
             variant="inline"
             labels={dict.upload}

@@ -19,7 +19,7 @@ export function LocaleToggle({
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center overflow-hidden rounded-pill border border-ink/15 text-[11px] tracking-[0.1em]">
+    <div className="flex items-center rounded-pill border border-ink/15 text-[11px] tracking-[0.1em]">
       {SEGMENTS.map((segment) => {
         const active = segment.locale === locale;
         return (
@@ -30,7 +30,7 @@ export function LocaleToggle({
             aria-current={active ? "true" : undefined}
             disabled={pending || active}
             onClick={() => startTransition(() => setLocale(segment.locale))}
-            className={`px-[11px] py-1.5 transition ${
+            className={`relative px-[11px] py-1.5 transition first:rounded-l-pill last:rounded-r-pill before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] ${
               active ? "bg-gold-small text-card" : "text-ink/60 hover:text-ink"
             }`}
           >
