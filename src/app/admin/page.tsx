@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { viewerLabels } from "@/app/viewer-labels";
 import { groupPhotosByUploader } from "@/lib/admin-photos";
 import { isAdmin } from "@/lib/admin-session";
@@ -12,7 +11,12 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { AdminChrome, AdminTopRow, adminChromeLabels } from "./admin-chrome";
 import { AdminDownloadRow } from "./download-row";
-import { AdminPhotoGrid, type AdminPhoto } from "./admin-photo-grid";
+import {
+  AdminPhotoGrid,
+  type AdminFilter,
+  type AdminFilterChip,
+  type AdminPhoto,
+} from "./admin-photo-grid";
 import { FreezeToggle } from "./freeze-toggle";
 import { AdminLoginForm } from "./login-form";
 
@@ -122,13 +126,30 @@ export default async function AdminPage({
 
   const exportSizeBytes = exportJob?.zip_size_bytes ?? totalBytes;
   const groups = groupPhotosByUploader(photos);
-  const namedGroups = groups.filter((group) => group.uploader !== null);
   const privateCount = photos.filter((photo) => photo.visibility === "private").length;
-  const shown = privateFilter
-    ? photos.filter((photo) => photo.visibility === "private")
+  const initialFilter: AdminFilter = privateFilter
+    ? { kind: "private" }
     : uploaderFilter
-      ? photos.filter((photo) => photo.uploader?.publicId === uploaderFilter)
-      : photos;
+      ? { kind: "uploader", publicId: uploaderFilter }
+      : { kind: "all" };
+  const chips: AdminFilterChip[] = [
+    { kind: "all", label: labels.filterAll },
+    {
+      kind: "private",
+      label: labels.filterPrivate.replace("{count}", String(privateCount)),
+    },
+    ...groups.flatMap((group) =>
+      group.uploader
+        ? [
+            {
+              kind: "uploader" as const,
+              publicId: group.uploader.publicId,
+              label: `${group.uploader.displayName} ${group.photos.length}`,
+            },
+          ]
+        : [],
+    ),
+  ];
 
   const count = (total: number, forms: { one: string; few: string; many: string }) =>
     pluralize(locale, total, forms);
@@ -147,13 +168,6 @@ export default async function AdminPage({
     many: labels.privateMany,
   })}`;
 
-  const chipClass = (active: boolean) =>
-    `shrink-0 rounded-pill px-3.5 py-[9px] text-[13px] whitespace-nowrap transition ${
-      active
-        ? "bg-gold-small text-card"
-        : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
-    }`;
-
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
@@ -168,29 +182,10 @@ export default async function AdminPage({
         <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
       ) : (
         <>
-          <div className="flex gap-2 overflow-x-auto px-4 pb-3.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <Link href="/admin" className={chipClass(!privateFilter && !uploaderFilter)}>
-              {labels.filterAll}
-            </Link>
-            <Link href="/admin?filter=private" className={chipClass(privateFilter)}>
-              {labels.filterPrivate.replace("{count}", String(privateCount))}
-            </Link>
-            {namedGroups.map(
-              (group) =>
-                group.uploader && (
-                  <Link
-                    key={group.uploader.publicId}
-                    href={`/admin?uploader=${group.uploader.publicId}`}
-                    className={chipClass(uploaderFilter === group.uploader.publicId)}
-                  >
-                    {`${group.uploader.displayName} ${group.photos.length}`}
-                  </Link>
-                ),
-            )}
-          </div>
-
           <AdminPhotoGrid
-            photos={shown}
+            photos={photos}
+            chips={chips}
+            initialFilter={initialFilter}
             privateBadge={labels.privateBadge}
             locale={locale}
             viewerLabels={viewerLabels(dict)}
