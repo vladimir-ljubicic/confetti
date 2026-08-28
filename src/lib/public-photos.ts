@@ -108,7 +108,9 @@ export async function loadPublicPhotos({
       viewerDeviceId,
       rows.map((row) => row.id),
     ),
-    loadPublicUploaderPhotoCounts(),
+    // Scoped to one uploader, every row is theirs, so the row count is the
+    // count and the gallery-wide roll-up is not worth its round trip.
+    uploaderId ? null : loadPublicUploaderPhotoCounts(),
     galleryImageUrls(rows),
   ]);
   return rows.map((photo, index) => ({
@@ -124,7 +126,9 @@ export async function loadPublicPhotos({
       ? {
           displayName: photo.uploaders.display_name,
           publicId: photo.uploaders.public_id,
-          photoCount: uploaderCounts.get(photo.uploader_id ?? "") ?? 0,
+          photoCount: uploaderCounts
+            ? (uploaderCounts.get(photo.uploader_id ?? "") ?? 0)
+            : rows.length,
         }
       : null,
   }));
