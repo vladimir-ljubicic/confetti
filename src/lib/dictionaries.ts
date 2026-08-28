@@ -90,8 +90,11 @@ const en = {
     actionFailed: "That didn't work — try again",
   },
   uploaderPage: {
-    backToGallery: "Back to gallery",
+    backToGallery: "Gallery",
     empty: "No public photos yet.",
+    photosOne: "{count} photo",
+    photosFew: "{count} photos",
+    photosMany: "{count} photos",
   },
   upload: {
     add: "Add photos",
@@ -326,8 +329,11 @@ const sr: Dictionary = {
     actionFailed: "Није успело — покушајте поново",
   },
   uploaderPage: {
-    backToGallery: "Назад на галерију",
+    backToGallery: "Галерија",
     empty: "Још нема јавних фотографија.",
+    photosOne: "{count} фотографија",
+    photosFew: "{count} фотографије",
+    photosMany: "{count} фотографија",
   },
   upload: {
     add: "Додај фотографије",

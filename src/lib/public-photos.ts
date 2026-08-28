@@ -42,6 +42,26 @@ export async function loadViewerLikes(
   return new Set((data as { photo_id: string }[]).map((row) => row.photo_id));
 }
 
+export type PublicPhotoStats = { photoCount: number; likeTotal: number };
+
+export async function loadPublicPhotoStats(
+  uploaderId: string,
+): Promise<PublicPhotoStats> {
+  const { data, error } = await supabaseAdmin()
+    .from("photos")
+    .select("like_count")
+    .eq("visibility", "public")
+    .eq("uploader_id", uploaderId)
+    .not("uploaded_at", "is", null)
+    .is("deleted_at", null);
+  if (error) throw new Error(`Loading uploader stats failed: ${error.message}`);
+  const rows = data as { like_count: number }[];
+  return {
+    photoCount: rows.length,
+    likeTotal: rows.reduce((sum, row) => sum + row.like_count, 0),
+  };
+}
+
 export async function loadPublicPhotos({
   sort,
   uploaderId,
