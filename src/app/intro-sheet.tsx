@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { DISPLAY_NAME_MAX_LENGTH, type Visibility } from "@/lib/uploader-profile";
 import { ConfettiMark } from "./confetti-mark";
+import { useSheetDismiss } from "./use-sheet-dismiss";
 
 // Fired on window when a guest saves their profile, with { displayName } as
 // detail — chrome elsewhere on the page (e.g. the header) can react to it.
@@ -57,6 +58,7 @@ export function IntroSheet({
   onCancel: () => void;
 }) {
   const titleId = useId();
+  const { sheetProps, backdropStyle } = useSheetDismiss(onCancel);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
@@ -100,6 +102,7 @@ export function IntroSheet({
         type="button"
         aria-label={labels.cancel}
         onClick={onCancel}
+        style={backdropStyle}
         className="absolute inset-0 cursor-default bg-ink/[0.42] [backdrop-filter:blur(3px)_opacity(0.5)]"
       />
 
@@ -108,6 +111,7 @@ export function IntroSheet({
         aria-modal="true"
         aria-labelledby={titleId}
         onSubmit={save}
+        {...sheetProps}
         className="absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
       >
         <span className="h-1 w-[38px] self-center rounded-full bg-ink/15" />
@@ -137,7 +141,7 @@ export function IntroSheet({
               value={firstName}
               maxLength={FIELD_MAX_LENGTH}
               onChange={(event) => setFirstName(event.target.value)}
-              className="w-full rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none focus:border-gold focus:bg-paper"
+              className="w-full touch-auto rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none focus:border-gold focus:bg-paper"
             />
           </label>
           <label className="flex min-w-0 flex-1 flex-col gap-[7px]">
@@ -152,7 +156,7 @@ export function IntroSheet({
               value={lastName}
               maxLength={FIELD_MAX_LENGTH}
               onChange={(event) => setLastName(event.target.value)}
-              className="w-full rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none placeholder:text-ink/50 focus:border-gold focus:bg-paper"
+              className="w-full touch-auto rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none placeholder:text-ink/50 focus:border-gold focus:bg-paper"
             />
           </label>
         </div>

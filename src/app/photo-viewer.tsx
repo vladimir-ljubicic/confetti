@@ -9,6 +9,7 @@ import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import type { Likes } from "./use-likes";
+import { useSheetDismiss } from "./use-sheet-dismiss";
 
 export type ViewerPhoto = PublicPhoto & { visibility?: Visibility };
 
@@ -35,6 +36,58 @@ function formatDateTime(iso: string): string {
   const date = new Date(iso);
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} · ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function ShareSheet({
+  state,
+  labels,
+  onShare,
+  onCancel,
+}: {
+  state: { status: "preparing" } | { status: "ready"; payload: ShareData };
+  labels: Pick<ViewerLabels, "share" | "sharePreparing" | "shareCancel">;
+  onShare: (payload: ShareData) => void;
+  onCancel: () => void;
+}) {
+  const { sheetProps, backdropStyle } = useSheetDismiss(onCancel);
+
+  return (
+    <div
+      style={backdropStyle}
+      className="fixed inset-0 z-[60] flex flex-col justify-end bg-ink/42"
+    >
+      <div
+        {...sheetProps}
+        className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
+      >
+        <span className="mx-auto h-1 w-[38px] rounded-pill bg-ink/15" />
+        {state.status === "preparing" ? (
+          <div className="flex items-center justify-center gap-3 py-2">
+            <span
+              aria-hidden
+              className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
+            />
+            <p className="text-body text-ink/70">{labels.sharePreparing}</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onShare(state.payload)}
+            className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep"
+          >
+            {labels.share}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="-mt-2 min-h-11 text-sm text-ink/60"
+        >
+          {labels.shareCancel}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function PhotoViewer({
@@ -396,35 +449,12 @@ export function PhotoViewer({
       </div>
 
       {shareState && (
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-ink/42">
-          <div className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet">
-            <span className="mx-auto h-1 w-[38px] rounded-pill bg-ink/15" />
-            {shareState.status === "preparing" ? (
-              <div className="flex items-center justify-center gap-3 py-2">
-                <span
-                  aria-hidden
-                  className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
-                />
-                <p className="text-body text-ink/70">{labels.sharePreparing}</p>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void presentShare(shareState.payload)}
-                className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep"
-              >
-                {labels.share}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={cancelShare}
-              className="-mt-2 min-h-11 text-sm text-ink/60"
-            >
-              {labels.shareCancel}
-            </button>
-          </div>
-        </div>
+        <ShareSheet
+          state={shareState}
+          labels={labels}
+          onShare={(payload) => void presentShare(payload)}
+          onCancel={cancelShare}
+        />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import {
 } from "@/lib/export";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
+import { useSheetDismiss } from "./use-sheet-dismiss";
 
 export type DownloadSheetLabels = {
   title: string;
@@ -256,9 +257,17 @@ export function ExportSheet({
   onDownload: () => void;
   onCancel: () => void;
 }) {
+  const { sheetProps, backdropStyle } = useSheetDismiss(onCancel);
+
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col justify-end bg-ink/42">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet">
+    <div
+      style={backdropStyle}
+      className="pointer-events-auto fixed inset-0 z-50 flex flex-col justify-end bg-ink/42"
+    >
+      <div
+        {...sheetProps}
+        className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
+      >
         <span className="mx-auto h-1 w-[38px] rounded-pill bg-ink/15" />
 
         <div className="flex flex-col items-center gap-2 text-center">
