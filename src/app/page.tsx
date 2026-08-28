@@ -105,6 +105,7 @@ export default async function GalleryPage({
             emptyLabel={dict.gallery.empty}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
             viewer={{ canManageAll: admin, labels: viewerLabels(dict) }}
+            showUploader
           />
 
           {uploadsFrozen ? (

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { PublicPhoto } from "@/lib/public-photos";
+import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
@@ -12,6 +13,27 @@ import { useUploadQueue, type UploadTile } from "./upload-queue";
 type GridEntry =
   | { kind: "tile"; tile: UploadTile }
   | { kind: "photo"; photo: PublicPhoto };
+
+function UploaderLabel({
+  uploader,
+}: {
+  uploader: { displayName: string; publicId: string };
+}) {
+  const label = shortUploaderName(uploader.displayName);
+  if (label === "") return null;
+  return (
+    // The 44px flex box is an enlarged tap target; only the text is visible.
+    <Link
+      href={`/uploader/${uploader.publicId}`}
+      onClick={(event) => event.stopPropagation()}
+      className="absolute bottom-0 left-0 flex min-h-11 min-w-11 max-w-[60%] items-end"
+    >
+      <span className="mb-2.5 ml-2.5 min-w-0 truncate text-[11px] tracking-[0.04em] text-card [text-shadow:0_1px_4px_rgba(27,24,21,0.65)]">
+        {label}
+      </span>
+    </Link>
+  );
+}
 
 export function PhotoGrid({
   photos,
@@ -114,12 +136,7 @@ export function PhotoGrid({
                     <div className="aspect-3/4" />
                   )}
                   {showUploader && entry.photo.uploader && (
-                    <Link
-                      href={`/uploader/${entry.photo.uploader.publicId}`}
-                      className="absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-ink/60 to-transparent px-2.5 pt-8 pb-2 text-left text-xs text-white hover:underline"
-                    >
-                      {entry.photo.uploader.displayName}
-                    </Link>
+                    <UploaderLabel uploader={entry.photo.uploader} />
                   )}
                   {likeLabels && (
                     <LikePill

@@ -58,6 +58,7 @@ export default async function UploaderPage({
         emptyLabel={dict.uploaderPage.empty}
         likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
         viewer={{ canManageAll: await isAdmin(), labels: viewerLabels(dict) }}
+        showUploader
       />
     </main>
   );
