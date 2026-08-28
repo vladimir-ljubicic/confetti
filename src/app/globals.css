@@ -249,6 +249,52 @@
   animation: fade 200ms ease-out backwards;
 }
 
+/* Opening a photo: the stage rises around it as the photo settles in.
+   The exit runs its own keyframes — reusing the entrance's name would
+   retarget the finished animation instead of starting a new one. */
+@keyframes photo-in {
+  from {
+    transform: scale(0.88);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes photo-out {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.92);
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.viewer-in {
+  animation: fade 300ms ease-out backwards;
+}
+
+.viewer-photo-in {
+  animation: photo-in 320ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+
+.viewer-out {
+  animation: fade-out 200ms ease-in forwards;
+}
+
+.viewer-photo-out {
+  animation: photo-out 200ms ease-in forwards;
+}
+
 ::view-transition {
   pointer-events: none;
 }
@@ -272,12 +318,16 @@
   animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
-/* Tiles, hearts and sheets land in their resting state at once. */
+/* Tiles, hearts, sheets and the viewer land in their resting state at once. */
 @media (prefers-reduced-motion: reduce) {
   .tile-in,
   .heart-pop,
   .sheet-in,
-  .scrim-in {
+  .scrim-in,
+  .viewer-in,
+  .viewer-photo-in,
+  .viewer-out,
+  .viewer-photo-out {
     animation: none;
   }
 

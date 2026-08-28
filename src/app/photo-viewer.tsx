@@ -32,6 +32,9 @@ export type ViewerLabels = {
   photosMany: string;
 };
 
+// How long the viewer holds itself on screen while it fades away.
+const CLOSE_MS = 200;
+
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -124,6 +127,8 @@ export function PhotoViewer({
     ReadonlyMap<string, Visibility>
   >(new Map());
   const visibilityChanged = useRef(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<number | null>(null);
   const visible = photos.filter((photo) => !hiddenIds.has(photo.id));
 
   const startIndex = Math.max(
@@ -166,13 +171,27 @@ export function PhotoViewer({
 
   useEffect(() => () => shareAbort.current?.abort(), []);
 
+  useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+
+  // Closing runs the exit animation first; the viewer leaves once it has.
+  const dismiss = useCallback(() => {
+    if (closeTimer.current !== null) return;
+    setClosing(true);
+    closeTimer.current = window.setTimeout(onClose, CLOSE_MS);
+  }, [onClose]);
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [dismiss]);
 
   // Snap-scroll position is the source of truth for `index` while the user
   // swipes; it must be re-imposed instantly whenever the slide list changes
@@ -223,7 +242,7 @@ export function PhotoViewer({
   function hideCurrent() {
     const remaining = visible.length - 1;
     if (remaining === 0) {
-      onClose();
+      dismiss();
       return;
     }
     setHiddenIds(new Set([...hiddenIds, current.id]));
@@ -313,12 +332,14 @@ export function PhotoViewer({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex flex-col bg-stage"
+      className={`fixed inset-0 z-50 flex flex-col bg-stage ${
+        closing ? "viewer-out pointer-events-none" : "viewer-in"
+      }`}
     >
       <div className="flex items-center justify-between px-[18px] pt-[18px]">
         <button
           type="button"
-          onClick={onClose}
+          onClick={dismiss}
           aria-label={labels.close}
           className="-m-2 flex h-10 w-10 items-center justify-center rounded-full text-[17px] text-[rgba(250,246,238,0.85)]"
         >
@@ -333,7 +354,9 @@ export function PhotoViewer({
       <div
         ref={trackRef}
         onScroll={onScroll}
-        className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          closing ? "viewer-photo-out" : "viewer-photo-in"
+        }`}
       >
         {visible.map((photo) => (
           <div
