@@ -4,7 +4,7 @@ import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
 import { LocaleToggle } from "./locale-toggle";
 
-export function DeadLinkScreen({
+export function ErrorScreen({
   locale,
   labels,
 }: {
@@ -40,7 +40,7 @@ export function DeadLinkScreen({
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="flex min-h-12 items-center justify-center rounded-pill border border-ink/18 bg-card px-6 text-[15px] text-gold-small"
+          className="flex min-h-12 items-center justify-center rounded-pill border border-ink/18 bg-card px-6 text-[15px] text-gold-small transition active:bg-gold-tint"
         >
           {labels.retry}
         </button>

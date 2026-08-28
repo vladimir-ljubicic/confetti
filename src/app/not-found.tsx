@@ -1,12 +1,12 @@
 import { getDict, getLocale } from "@/lib/locale";
-import { DeadLinkScreen } from "./dead-link-screen";
+import { ErrorScreen } from "./error-screen";
 
 export default async function NotFound() {
   const locale = await getLocale();
   const dict = await getDict();
 
   return (
-    <DeadLinkScreen
+    <ErrorScreen
       locale={locale}
       labels={{
         titleLine1: dict.deadLink.titleLine1,
