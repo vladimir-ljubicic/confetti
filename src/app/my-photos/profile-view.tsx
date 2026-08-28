@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
+import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
+import { PhotoViewer, type ViewerLabels } from "../photo-viewer";
+import { useLikes } from "../use-likes";
 
 export type ProfileLabels = {
   title: string;
@@ -41,9 +44,12 @@ export type ProfileLabels = {
 
 export type OwnPhoto = {
   id: string;
+  uploadedAt: string;
   imageUrl: string | null;
+  downloadUrl: string | null;
   visibility: Visibility;
   likeCount: number;
+  likedByViewer: boolean;
 };
 
 type Filter = "all" | Visibility;
@@ -120,16 +126,22 @@ function DefaultVisibilityCard({
 export function ProfileView({
   photos,
   defaultVisibility,
+  displayName,
   locale,
   labels,
+  viewerLabels,
 }: {
   photos: OwnPhoto[];
   defaultVisibility: Visibility | null;
+  displayName: string | null;
   locale: Locale;
   labels: ProfileLabels;
+  viewerLabels: ViewerLabels;
 }) {
   const router = useRouter();
+  const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
+  const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -155,6 +167,20 @@ export function ProfileView({
   const shown = filter === "all" ? all : all.filter((photo) => photo.visibility === filter);
   const selectedPhotos = all.filter((photo) => selectedIds.has(photo.id));
   const likeTotal = all.reduce((sum, photo) => sum + photo.likeCount, 0);
+
+  // The viewer swipes through the currently filtered set, mirroring how the
+  // main gallery swipes through its current sort order. publicId is unused
+  // by the viewer, which never links to an uploader page from here.
+  const viewerPhotos: PublicPhoto[] = shown.map((photo) => ({
+    id: photo.id,
+    uploadedAt: photo.uploadedAt,
+    imageUrl: photo.imageUrl,
+    downloadUrl: photo.downloadUrl,
+    likeCount: photo.likeCount,
+    likedByViewer: photo.likedByViewer,
+    ownedByViewer: true,
+    uploader: displayName ? { displayName, publicId: "" } : null,
+  }));
 
   function clearPress() {
     if (pressTimer.current !== null) {
@@ -188,7 +214,10 @@ export function ProfileView({
       suppressClick.current = false;
       return;
     }
-    if (!selectMode) return;
+    if (!selectMode) {
+      setViewerStartId(id);
+      return;
+    }
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -427,6 +456,17 @@ export function ProfileView({
             </div>
           </div>
         </div>
+      )}
+
+      {viewerStartId !== null && (
+        <PhotoViewer
+          photos={viewerPhotos}
+          startId={viewerStartId}
+          likes={likes}
+          canManageAll={false}
+          labels={viewerLabels}
+          onClose={() => setViewerStartId(null)}
+        />
       )}
     </>
   );

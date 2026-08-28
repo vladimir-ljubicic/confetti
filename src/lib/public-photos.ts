@@ -28,7 +28,7 @@ export type PublicPhoto = {
   uploader: { displayName: string; publicId: string } | null;
 };
 
-async function loadViewerLikes(
+export async function loadViewerLikes(
   viewerDeviceId: string | null,
   photoIds: string[],
 ): Promise<Set<string>> {
