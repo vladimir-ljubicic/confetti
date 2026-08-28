@@ -103,7 +103,7 @@ export function IntroSheet({
         aria-label={labels.cancel}
         onClick={onCancel}
         style={backdropStyle}
-        className="absolute inset-0 cursor-default bg-ink/[0.42] [backdrop-filter:blur(3px)_opacity(0.5)]"
+        className="scrim-in absolute inset-0 cursor-default bg-ink/[0.42] [backdrop-filter:blur(3px)_opacity(0.5)]"
       />
 
       <form
@@ -112,7 +112,7 @@ export function IntroSheet({
         aria-labelledby={titleId}
         onSubmit={save}
         {...sheetProps}
-        className="absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
+        className="sheet-in absolute inset-x-0 bottom-0 mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
       >
         <span className="h-1 w-[38px] self-center rounded-full bg-ink/15" />
 

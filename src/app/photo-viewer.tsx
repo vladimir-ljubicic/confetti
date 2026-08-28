@@ -54,11 +54,11 @@ function ShareSheet({
   return (
     <div
       style={backdropStyle}
-      className="fixed inset-0 z-[60] flex flex-col justify-end bg-ink/42"
+      className="scrim-in fixed inset-0 z-[60] flex flex-col justify-end bg-ink/42"
     >
       <div
         {...sheetProps}
-        className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
+        className="sheet-in mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet"
       >
         <span className="mx-auto h-1 w-[38px] rounded-pill bg-ink/15" />
         {state.status === "preparing" ? (
