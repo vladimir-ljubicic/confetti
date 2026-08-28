@@ -103,7 +103,12 @@ export default async function UploaderPage({
           feed={{ sort, nextCursor: page.nextCursor, uploaderPublicId: publicId }}
           emptyLabel={dict.uploaderPage.empty}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
-          viewer={{ canManageAll: admin, labels: viewerLabels(dict), locale }}
+          viewer={{
+            canManageAll: admin,
+            labels: viewerLabels(dict),
+            locale,
+            galleryCount: stats.photoCount,
+          }}
           showUploader
         />
       </div>

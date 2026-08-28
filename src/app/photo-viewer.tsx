@@ -97,6 +97,7 @@ export function PhotoViewer({
   canManageAll,
   locale,
   labels,
+  galleryCount,
   onNearEnd,
   onClose,
 }: {
@@ -106,6 +107,9 @@ export function PhotoViewer({
   canManageAll: boolean;
   locale: Locale;
   labels: ViewerLabels;
+  // Size of the gallery being swiped through: the feed is paged, so `photos`
+  // holds only what has been loaded so far.
+  galleryCount?: number;
   onNearEnd?: () => void;
   onClose: () => void;
 }) {
@@ -129,6 +133,11 @@ export function PhotoViewer({
   const [index, setIndex] = useState(startIndex);
   const currentIndex = Math.min(index, visible.length - 1);
   const current = visible[currentIndex];
+
+  const total = Math.max(
+    (galleryCount ?? visible.length) - hiddenIds.size,
+    visible.length,
+  );
 
   const trackRef = useRef<HTMLDivElement>(null);
   const { busy, failed, run } = useServerAction();
@@ -316,7 +325,7 @@ export function PhotoViewer({
           ✕
         </button>
         <span className="text-[11px] tracking-[0.18em] text-[rgba(250,246,238,0.55)]">
-          {currentIndex + 1} / {visible.length}
+          {currentIndex + 1} / {total}
         </span>
         <span className="w-6" />
       </div>

@@ -102,7 +102,12 @@ export function PhotoGrid({
   emptyLabel: string;
   downloadLabel?: string;
   likeLabels?: { like: string; unlike: string };
-  viewer?: { labels: ViewerLabels; canManageAll: boolean; locale: Locale };
+  viewer?: {
+    labels: ViewerLabels;
+    canManageAll: boolean;
+    locale: Locale;
+    galleryCount?: number;
+  };
   showUploader?: boolean;
 }) {
   const queue = useUploadQueue();
@@ -272,6 +277,7 @@ export function PhotoGrid({
           canManageAll={viewer.canManageAll}
           locale={viewer.locale}
           labels={viewer.labels}
+          galleryCount={viewer.galleryCount}
           onNearEnd={loadMore}
           onClose={() => setViewerStartId(null)}
         />

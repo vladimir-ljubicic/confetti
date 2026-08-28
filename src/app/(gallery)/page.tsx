@@ -133,7 +133,12 @@ export default async function GalleryPage({
             feed={{ sort, nextCursor: page.nextCursor }}
             emptyLabel={dict.gallery.empty}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
-            viewer={{ canManageAll: admin, labels: viewerLabels(dict), locale }}
+            viewer={{
+              canManageAll: admin,
+              labels: viewerLabels(dict),
+              locale,
+              galleryCount: photoCount,
+            }}
             showUploader
           />
 
