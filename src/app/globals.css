@@ -189,3 +189,30 @@
     display: none;
   }
 }
+
+/* Language-switch cross-fade. */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.locale-fade) {
+  animation: 130ms ease-out both locale-fade reverse;
+}
+::view-transition-new(.locale-fade) {
+  animation: 190ms ease-in 90ms both locale-fade;
+}
+@keyframes locale-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

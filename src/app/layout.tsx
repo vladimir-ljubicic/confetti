@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
+import { ViewTransition } from "react";
+import { LOCALE_TRANSITION_TYPE } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import "./globals.css";
 
@@ -31,7 +33,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang={locale}
       className={`${jost.variable} ${cormorant.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-paper text-ink">{children}</body>
+      <body className="flex min-h-full flex-col bg-paper text-ink">
+        <ViewTransition
+          update={{ [LOCALE_TRANSITION_TYPE]: "locale-fade", default: "none" }}
+          default="none"
+        >
+          {children}
+        </ViewTransition>
+      </body>
     </html>
   );
 }

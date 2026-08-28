@@ -5,6 +5,10 @@ export const DEFAULT_LOCALE: Locale = "sr";
 
 export const LOCALE_COOKIE = "confetti_locale";
 
+// React transition type tagged by the locale toggle; the layout's
+// <ViewTransition> cross-fades only on transitions carrying it.
+export const LOCALE_TRANSITION_TYPE = "locale-switch";
+
 // BCP-47 tags for Intl formatters.
 export const INTL_LOCALES: Record<Locale, string> = { sr: "sr-RS", en: "en-GB" };
 
