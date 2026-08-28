@@ -19,9 +19,22 @@ const TOP_ROW_FALLBACK_HEIGHT_PX = 57;
 
 const COMPACT_BAR_FALLBACK_HEIGHT_PX = 60;
 
-const COACH_MARK_SEEN_KEY = "confetti:coach-mark-seen";
+const COACH_MARK_SEEN_KEY = "confetti:coach-mark-seen:v2";
+
+// The intro sheet still covers the header when the profile saves, and the
+// mobile keyboard is still collapsing behind it.
+const COACH_MARK_DELAY_MS = 700;
+
+// Lets the avatar finish popping before the mark points at it. Mounting the
+// mark late rather than delaying its animation keeps the TTL below in step with
+// how long it is actually on screen.
+const COACH_MARK_ARRIVAL_LEAD_MS = 750;
 
 const COACH_MARK_TTL_MS = 6000;
+
+// Smaller shifts are the viewport settling (keyboard collapse, browser chrome),
+// not the guest scrolling away.
+const COACH_MARK_SCROLL_DISMISS_PX = 24;
 
 // Vectors biased left/down so no fleck clips the viewport edge.
 const BURST_FLECKS = [
@@ -85,6 +98,7 @@ export function GalleryHeader({
   );
   const [pastMasthead, setPastMasthead] = useState(false);
   const [savedName, setSavedName] = useState<string | null>(null);
+  const [armed, setArmed] = useState(false);
   const [arrival, setArrival] = useState(false);
   const [coachMark, setCoachMark] = useState(false);
 
@@ -93,10 +107,7 @@ export function GalleryHeader({
   useEffect(() => {
     const begin = () => {
       if (coachMarkSeen()) return;
-      // Persisted up front: leaving mid-animation must not replay the arrival.
-      persistCoachMarkSeen();
-      setArrival(true);
-      setCoachMark(true);
+      setArmed(true);
     };
     // The first upload can happen from the empty gallery, where this header
     // does not exist yet; it then mounts with the avatar already present.
@@ -110,17 +121,41 @@ export function GalleryHeader({
     return () => window.removeEventListener(PROFILE_SAVED_EVENT, onProfileSaved);
   }, [displayName]);
 
+  // Each stage waits on its own state so that a re-render mid-sequence — the
+  // name landing from the server while the upload runs — cannot cancel a
+  // pending timer.
+  useEffect(() => {
+    if (!armed) return;
+    const timer = window.setTimeout(() => setArrival(true), COACH_MARK_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [armed]);
+
+  useEffect(() => {
+    if (!arrival) return;
+    const timer = window.setTimeout(() => setCoachMark(true), COACH_MARK_ARRIVAL_LEAD_MS);
+    return () => window.clearTimeout(timer);
+  }, [arrival]);
+
+  // Persisted on dismissal rather than on show, so a mark that never made it
+  // onto the screen is offered again on the next visit.
   const dismissCoachMark = useCallback(() => {
     setCoachMark(false);
+    persistCoachMarkSeen();
   }, []);
 
   useEffect(() => {
     if (!coachMark) return;
     const timer = window.setTimeout(dismissCoachMark, COACH_MARK_TTL_MS);
-    window.addEventListener("scroll", dismissCoachMark, { passive: true });
+    const origin = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - origin) > COACH_MARK_SCROLL_DISMISS_PX) {
+        dismissCoachMark();
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.clearTimeout(timer);
-      window.removeEventListener("scroll", dismissCoachMark);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [coachMark, dismissCoachMark]);
 

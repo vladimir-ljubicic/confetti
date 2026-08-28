@@ -176,7 +176,7 @@
 }
 
 .coach-mark-in {
-  animation: hint-in 0.5s ease 0.75s both;
+  animation: hint-in 0.5s ease both;
 }
 
 /* Avatar just appears; the coach mark still shows, statically. */
