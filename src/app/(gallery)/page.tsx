@@ -13,14 +13,14 @@ import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
-import { DownloadAllButton } from "./download-all-button";
-import { EmptyGallery } from "./empty-gallery";
-import { GalleryHeader } from "./gallery-header";
-import { PhotoGrid } from "./photo-grid";
-import { SortProvider } from "./sort-context";
-import { UploadButton } from "./upload-button";
-import { UploadQueueProvider } from "./upload-queue";
-import { viewerLabels } from "./viewer-labels";
+import { DownloadAllButton } from "../download-all-button";
+import { EmptyGallery } from "../empty-gallery";
+import { GalleryHeader } from "../gallery-header";
+import { PhotoGrid } from "../photo-grid";
+import { SortProvider } from "../sort-context";
+import { UploadButton } from "../upload-button";
+import { UploadQueueProvider } from "../upload-queue";
+import { viewerLabels } from "../viewer-labels";
 
 // The gallery reads the database directly; without this the page would be
 // statically prerendered at build time and serve stale rows.
