@@ -7,9 +7,9 @@ import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
-import { useSort } from "./sort-context";
 import { UploadTileView } from "./upload-tile";
 import { useLikes } from "./use-likes";
+import { usePhotoFeed, type PhotoFeedSource } from "./use-photo-feed";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
 type GridEntry =
@@ -90,6 +90,7 @@ function UploaderLabel({
 
 export function PhotoGrid({
   photos,
+  feed,
   emptyLabel,
   downloadLabel,
   likeLabels,
@@ -97,6 +98,7 @@ export function PhotoGrid({
   showUploader = false,
 }: {
   photos: PublicPhoto[];
+  feed?: PhotoFeedSource;
   emptyLabel: string;
   downloadLabel?: string;
   likeLabels?: { like: string; unlike: string };
@@ -105,24 +107,17 @@ export function PhotoGrid({
 }) {
   const queue = useUploadQueue();
   const likes = useLikes();
-  const sortContext = useSort();
+  const {
+    photos: loadedPhotos,
+    loading,
+    loadMore,
+    sentinelRef,
+  } = usePhotoFeed(photos, feed);
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const tiles = useMemo(() => queue?.tiles ?? [], [queue]);
-  // Reordering is client-side: the server sorts the initial render, and
-  // toggling re-sorts the rows already in the browser.
-  const sortedPhotos = useMemo(() => {
-    if (!sortContext) return photos;
-    const byNewest = (a: PublicPhoto, b: PublicPhoto) =>
-      Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt);
-    return [...photos].sort(
-      sortContext.sort === "popular"
-        ? (a, b) => b.likeCount - a.likeCount || byNewest(a, b)
-        : byNewest,
-    );
-  }, [photos, sortContext]);
   const photoIds = useMemo(
-    () => new Set(photos.map((photo) => photo.id)),
-    [photos],
+    () => new Set(loadedPhotos.map((photo) => photo.id)),
+    [loadedPhotos],
   );
 
   // Once the refreshed feed contains an uploaded photo, its optimistic tile
@@ -153,7 +148,7 @@ export function PhotoGrid({
     (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
   );
 
-  if (photos.length === 0 && visibleTiles.length === 0) {
+  if (loadedPhotos.length === 0 && visibleTiles.length === 0) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
   }
 
@@ -168,7 +163,7 @@ export function PhotoGrid({
 
   const entries: GridEntry[] = [
     ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
-    ...sortedPhotos.map((photo): GridEntry => ({ kind: "photo", photo })),
+    ...loadedPhotos.map((photo): GridEntry => ({ kind: "photo", photo })),
   ];
   const columns = [
     entries.filter((_, index) => index % 2 === 0),
@@ -176,7 +171,7 @@ export function PhotoGrid({
   ];
   return (
     <>
-      <div className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26">
+      <div className="grid w-full grid-cols-2 items-start gap-2 px-3">
         {columns.map((column, columnIndex) => (
           <ul key={columnIndex} className="flex flex-col gap-2">
             {column.map((entry) =>
@@ -250,14 +245,26 @@ export function PhotoGrid({
           </ul>
         ))}
       </div>
+      <div
+        ref={sentinelRef}
+        className="flex items-center justify-center pt-5 pb-26"
+      >
+        {loading && (
+          <span
+            aria-hidden
+            className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
+          />
+        )}
+      </div>
       {viewer && viewerStartId !== null && (
         <PhotoViewer
-          photos={sortedPhotos}
+          photos={loadedPhotos}
           startId={viewerStartId}
           likes={likes}
           canManageAll={viewer.canManageAll}
           locale={viewer.locale}
           labels={viewer.labels}
+          onNearEnd={loadMore}
           onClose={() => setViewerStartId(null)}
         />
       )}

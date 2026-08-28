@@ -1,9 +1,14 @@
 import "server-only";
+import {
+  encodeGalleryCursor,
+  galleryCursorFilter,
+  type GalleryCursor,
+} from "./gallery-cursor";
 import { galleryImageUrls } from "./photo-urls";
 import type { SortMode } from "./sort-mode";
 import { supabaseAdmin } from "./supabase-server";
 
-const GALLERY_PAGE_SIZE = 200;
+const GALLERY_PAGE_SIZE = 30;
 
 type PublicPhotoRow = {
   id: string;
@@ -17,6 +22,12 @@ type PublicPhotoRow = {
   uploaders: { display_name: string | null; public_id: string } | null;
 };
 
+export type PublicPhotoPage = {
+  photos: PublicPhoto[];
+  // Opaque key for the next page; null once the gallery is exhausted.
+  nextCursor: string | null;
+};
+
 export type PublicPhoto = {
   id: string;
   uploadedAt: string;
@@ -25,7 +36,11 @@ export type PublicPhoto = {
   likeCount: number;
   likedByViewer: boolean;
   ownedByViewer: boolean;
-  uploader: { displayName: string; publicId: string; photoCount: number } | null;
+  uploader: {
+    displayName: string;
+    publicId: string;
+    photoCount: number;
+  } | null;
 };
 
 export async function loadViewerLikes(
@@ -76,15 +91,29 @@ export async function loadPublicUploaderPhotoCounts(): Promise<
   return new Map(rows.map((row) => [row.uploader_id, Number(row.photo_count)]));
 }
 
+export async function countPublicPhotos(): Promise<number> {
+  const { count, error } = await supabaseAdmin()
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("visibility", "public")
+    .not("uploaded_at", "is", null)
+    .is("deleted_at", null);
+  if (error)
+    throw new Error(`Counting gallery photos failed: ${error.message}`);
+  return count ?? 0;
+}
+
 export async function loadPublicPhotos({
   sort,
   uploaderId,
   viewerDeviceId = null,
+  cursor = null,
 }: {
   sort: SortMode;
   uploaderId?: string;
   viewerDeviceId?: string | null;
-}): Promise<PublicPhoto[]> {
+  cursor?: GalleryCursor | null;
+}): Promise<PublicPhotoPage> {
   let query = supabaseAdmin()
     .from("photos")
     .select(
@@ -94,12 +123,18 @@ export async function loadPublicPhotos({
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
   if (uploaderId) query = query.eq("uploader_id", uploaderId);
+  if (cursor) query = query.or(galleryCursorFilter(sort, cursor));
+  // Every sort ends on the id so its key is unique: without it, rows sharing a
+  // timestamp or a like count could straddle a page boundary and be skipped.
   query =
     sort === "popular"
       ? query
           .order("like_count", { ascending: false })
           .order("uploaded_at", { ascending: false })
-      : query.order("uploaded_at", { ascending: false });
+          .order("id", { ascending: false })
+      : query
+          .order("uploaded_at", { ascending: false })
+          .order("id", { ascending: false });
   const { data, error } = await query.limit(GALLERY_PAGE_SIZE);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
@@ -108,28 +143,42 @@ export async function loadPublicPhotos({
       viewerDeviceId,
       rows.map((row) => row.id),
     ),
-    // Scoped to one uploader, every row is theirs, so the row count is the
-    // count and the gallery-wide roll-up is not worth its round trip.
-    uploaderId ? null : loadPublicUploaderPhotoCounts(),
+    // Scoped to one uploader, every row is theirs, so one count covers the
+    // page and the gallery-wide roll-up is not worth its round trip.
+    uploaderId
+      ? loadPublicPhotoStats(uploaderId).then((stats) => stats.photoCount)
+      : loadPublicUploaderPhotoCounts(),
     galleryImageUrls(rows),
   ]);
-  return rows.map((photo, index) => ({
-    id: photo.id,
-    uploadedAt: photo.uploaded_at,
-    imageUrl: imageUrls[index],
-    originalFilename: photo.original_filename,
-    likeCount: photo.like_count,
-    likedByViewer: viewerLikes.has(photo.id),
-    ownedByViewer:
-      viewerDeviceId !== null && photo.uploader_id === viewerDeviceId,
-    uploader: photo.uploaders?.display_name
-      ? {
-          displayName: photo.uploaders.display_name,
-          publicId: photo.uploaders.public_id,
-          photoCount: uploaderCounts
-            ? (uploaderCounts.get(photo.uploader_id ?? "") ?? 0)
-            : rows.length,
-        }
-      : null,
-  }));
+  const last = rows.at(-1);
+  return {
+    photos: rows.map((photo, index) => ({
+      id: photo.id,
+      uploadedAt: photo.uploaded_at,
+      imageUrl: imageUrls[index],
+      originalFilename: photo.original_filename,
+      likeCount: photo.like_count,
+      likedByViewer: viewerLikes.has(photo.id),
+      ownedByViewer:
+        viewerDeviceId !== null && photo.uploader_id === viewerDeviceId,
+      uploader: photo.uploaders?.display_name
+        ? {
+            displayName: photo.uploaders.display_name,
+            publicId: photo.uploaders.public_id,
+            photoCount:
+              typeof uploaderCounts === "number"
+                ? uploaderCounts
+                : (uploaderCounts.get(photo.uploader_id ?? "") ?? 0),
+          }
+        : null,
+    })),
+    nextCursor:
+      last && rows.length === GALLERY_PAGE_SIZE
+        ? encodeGalleryCursor({
+            likeCount: last.like_count,
+            uploadedAt: last.uploaded_at,
+            id: last.id,
+          })
+        : null,
+  };
 }

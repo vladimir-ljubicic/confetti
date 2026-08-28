@@ -32,7 +32,7 @@ export default async function UploaderPage({
   if (!uploader) notFound();
 
   const deviceId = await getDeviceId();
-  const [photos, stats, viewerProfile, admin] = await Promise.all([
+  const [page, stats, viewerProfile, admin] = await Promise.all([
     loadPublicPhotos({
       sort,
       uploaderId: uploader.uploaderId,
@@ -87,7 +87,7 @@ export default async function UploaderPage({
               {stats.likeTotal} ♥
             </span>
           </div>
-          {photos.length > 0 && (
+          {stats.photoCount > 0 && (
             <div className="ml-auto">
               <SortToggle
                 labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
@@ -99,7 +99,8 @@ export default async function UploaderPage({
 
       <div className="flex flex-1 flex-col pt-3.5">
         <PhotoGrid
-          photos={photos}
+          photos={page.photos}
+          feed={{ sort, nextCursor: page.nextCursor, uploaderPublicId: publicId }}
           emptyLabel={dict.uploaderPage.empty}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
           viewer={{ canManageAll: admin, labels: viewerLabels(dict), locale }}

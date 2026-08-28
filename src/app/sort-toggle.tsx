@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { SortMode } from "@/lib/sort-mode";
 import { useSort } from "./sort-context";
 
@@ -8,6 +9,7 @@ export function SortToggle({
 }: {
   labels: { latest: string; popular: string };
 }) {
+  const router = useRouter();
   const sortContext = useSort();
   if (!sortContext) return null;
   const { sort, setSort } = sortContext;
@@ -18,12 +20,13 @@ export function SortToggle({
   ] as const;
 
   function select(mode: SortMode) {
+    if (mode === sort) return;
+    // The pressed state moves at once; the order itself comes back with the
+    // re-rendered page, since only the server can sort past the first page.
     setSort(mode);
-    // Keep the URL shareable and correct on reload; the server sorts the
-    // initial render from this param.
     const url = new URL(window.location.href);
     url.searchParams.set("sort", mode);
-    window.history.replaceState(null, "", url);
+    router.replace(`${url.pathname}${url.search}`);
   }
 
   return (

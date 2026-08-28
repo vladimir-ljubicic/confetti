@@ -8,7 +8,7 @@ import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { loadPublicPhotos } from "@/lib/public-photos";
+import { countPublicPhotos, loadPublicPhotos } from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
@@ -37,8 +37,9 @@ export default async function GalleryPage({
   const sort = resolveSortMode(Array.isArray(sortParam) ? sortParam[0] : sortParam);
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
-  const [photos, profile, settings, admin] = await Promise.all([
+  const [page, photoCount, profile, settings, admin] = await Promise.all([
     loadPublicPhotos({ sort, viewerDeviceId: deviceId }),
+    countPublicPhotos(),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     getEventSettings().catch(() => ({
@@ -67,7 +68,7 @@ export default async function GalleryPage({
     ? await getExportJob("public").catch(() => null)
     : null;
 
-  if (photos.length === 0) {
+  if (page.photos.length === 0) {
     return (
       <EmptyGallery
         dict={dict}
@@ -99,7 +100,7 @@ export default async function GalleryPage({
       >
         <GalleryHeader
           displayName={profile?.displayName ?? null}
-          photoCount={photos.length}
+          photoCount={photoCount}
           locale={locale}
           eventDateIso={settings.eventDateIso}
           uploadWindowLine={uploadWindowLine}
@@ -128,7 +129,8 @@ export default async function GalleryPage({
 
         <div className="flex flex-1 flex-col pt-3.5">
           <PhotoGrid
-            photos={photos}
+            photos={page.photos}
+            feed={{ sort, nextCursor: page.nextCursor }}
             emptyLabel={dict.gallery.empty}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
             viewer={{ canManageAll: admin, labels: viewerLabels(dict), locale }}
@@ -140,7 +142,7 @@ export default async function GalleryPage({
               buttonLabel={dict.gallery.downloadAll}
               labels={dict.downloadSheet}
               locale={locale}
-              photoCount={exportJob?.total_count ?? photos.length}
+              photoCount={exportJob?.total_count ?? photoCount}
               sizeBytes={exportJob?.zip_size_bytes ?? null}
               initialStatus={exportJob ? exportJobStatus(exportJob) : null}
             />

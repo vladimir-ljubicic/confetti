@@ -8,8 +8,9 @@ const SortContext = createContext<{
   setSort: (sort: SortMode) => void;
 } | null>(null);
 
-// Sorting happens client-side: the full photo page is already in the
-// browser, so toggling must not pay a server round-trip.
+// The server owns the order, so the toggle navigates; this holds the chosen
+// mode meanwhile, and follows the server again once the new page arrives (or
+// the viewer goes back to one sorted the other way).
 export function SortProvider({
   initial,
   children,
@@ -17,9 +18,11 @@ export function SortProvider({
   initial: SortMode;
   children: ReactNode;
 }) {
-  const [sort, setSort] = useState<SortMode>(initial);
+  const [state, setState] = useState({ server: initial, sort: initial });
+  if (state.server !== initial) setState({ server: initial, sort: initial });
+  const setSort = (sort: SortMode) => setState({ server: initial, sort });
   return (
-    <SortContext.Provider value={{ sort, setSort }}>
+    <SortContext.Provider value={{ sort: state.sort, setSort }}>
       {children}
     </SortContext.Provider>
   );

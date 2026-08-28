@@ -97,6 +97,7 @@ export function PhotoViewer({
   canManageAll,
   locale,
   labels,
+  onNearEnd,
   onClose,
 }: {
   photos: ViewerPhoto[];
@@ -105,6 +106,7 @@ export function PhotoViewer({
   canManageAll: boolean;
   locale: Locale;
   labels: ViewerLabels;
+  onNearEnd?: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -176,6 +178,12 @@ export function PhotoViewer({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideCount]);
+
+  // Swiping is its own way through the feed, so it pulls the next page in
+  // before the last slide the same way scrolling the grid does.
+  useEffect(() => {
+    if (currentIndex >= slideCount - 3) onNearEnd?.();
+  }, [currentIndex, slideCount, onNearEnd]);
 
   const onScroll = useCallback(() => {
     const track = trackRef.current;

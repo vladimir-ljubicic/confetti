@@ -4,7 +4,22 @@
 
 **Blocked by:** 07 — Sort modes: live feed / chronological + EXIF capture.
 
-**Status:** needs-triage
+**Status:** done
 
-- [ ] All public photos reachable in both sort modes
-- [ ] Per-view signed-URL count stays bounded
+- [x] All public photos reachable in both sort modes
+- [x] Per-view signed-URL count stays bounded
+
+## Comments
+
+Keyset cursor pagination, 30 photos per page, appended by an IntersectionObserver
+sentinel below the grid and by swiping near the end of the photo viewer. The cursor is
+`(like_count, uploaded_at, id)`; each sort orders by its own prefix of that key and ends
+on the id so pages can't overlap or skip. `GET /api/photos?sort&cursor&uploader` serves
+the pages after the server-rendered first one.
+
+Sorting moved back to the server (the toggle navigates): re-sorting one page in the
+browser was wrong once the gallery outgrew a page. The masthead count is now an exact
+gallery-wide count rather than the number of rows rendered.
+
+Verified against 130 seeded photos: both sorts walk 3 pages, 130 unique rows, in the
+same order the sort key defines.
