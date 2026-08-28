@@ -215,6 +215,22 @@
   animation: tile-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
 }
 
+@keyframes heart-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.heart-pop {
+  animation: heart-pop 220ms cubic-bezier(0.2, 0.8, 0.3, 1.4);
+}
+
 ::view-transition {
   pointer-events: none;
 }
@@ -227,9 +243,10 @@
   animation: 190ms ease-in 90ms both fade;
 }
 
-/* Tiles land in their resting state at once. */
+/* Tiles and hearts land in their resting state at once. */
 @media (prefers-reduced-motion: reduce) {
-  .tile-in {
+  .tile-in,
+  .heart-pop {
     animation: none;
   }
 

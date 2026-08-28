@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
-import { HeartIcon } from "./like-pill";
+import { LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
@@ -406,8 +406,8 @@ export function PhotoViewer({
             aria-label={like.liked ? labels.unlike : labels.like}
             className="flex h-[50px] items-center justify-center gap-[7px] rounded-pill border border-[rgba(250,246,238,0.28)] px-[18px] text-[15px] transition active:bg-[rgba(250,246,238,0.12)]"
           >
-            <HeartIcon
-              filled={like.liked}
+            <LikeHeart
+              liked={like.liked}
               className={`h-[17px] w-[17px] ${like.liked ? "text-gold-light" : "text-paper"}`}
             />
             {like.count > 0 && (

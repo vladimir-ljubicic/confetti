@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { LikeState } from "./use-likes";
 
 // Drawn as SVG: the ♥/♡ text glyphs come from font fallback (Jost has no
@@ -27,6 +28,30 @@ export function HeartIcon({
   );
 }
 
+// The heart swells the moment it fills. Each pop remounts the icon, so a
+// second like lands its own beat instead of joining the one still running.
+export function LikeHeart({
+  liked,
+  className,
+}: {
+  liked: boolean;
+  className?: string;
+}) {
+  const [pops, setPops] = useState(0);
+  const [wasLiked, setWasLiked] = useState(liked);
+  if (wasLiked !== liked) {
+    setWasLiked(liked);
+    if (liked) setPops((count) => count + 1);
+  }
+  return (
+    <HeartIcon
+      key={pops}
+      filled={liked}
+      className={`${className ?? ""} ${pops > 0 ? "heart-pop" : ""}`}
+    />
+  );
+}
+
 export function LikePill({
   state,
   onToggle,
@@ -45,8 +70,8 @@ export function LikePill({
       className="absolute right-2 bottom-2 -mb-[5px] flex min-h-11 items-end pb-[5px]"
     >
       <span className="box-border flex h-[34px] min-w-[34px] items-center justify-center gap-1.5 rounded-full bg-[rgba(27,24,21,0.58)] px-2.5 backdrop-blur-[6px]">
-        <HeartIcon
-          filled={state.liked}
+        <LikeHeart
+          liked={state.liked}
           className={`h-4 w-4 ${state.liked ? "text-gold-light" : "text-card"}`}
         />
         {state.count > 0 && (
