@@ -10,6 +10,7 @@ import {
   type ViewerLabels,
   type ViewerPhoto,
 } from "../photo-viewer";
+import { useImageSrc } from "../use-image-src";
 import { useLikes } from "../use-likes";
 
 export type ProfileLabels = {
@@ -31,6 +32,7 @@ export type ProfileLabels = {
   filterPublic: string;
   filterPrivate: string;
   privateBadge: string;
+  photoAlt: string;
   exitSelect: string;
   selectAll: string;
   selectedOne: string;
@@ -60,6 +62,29 @@ type Filter = "all" | Visibility;
 const LONG_PRESS_MS = 450;
 
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
+
+function TileImage({
+  photoId,
+  src,
+  alt,
+}: {
+  photoId: string;
+  src: string;
+  alt: string;
+}) {
+  const image = useImageSrc(photoId, src);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={image.src}
+      alt={alt}
+      loading="lazy"
+      draggable={false}
+      onError={image.onError}
+      className="h-full w-full object-cover"
+    />
+  );
+}
 
 function DefaultVisibilityCard({
   value,
@@ -397,13 +422,10 @@ export function ProfileView({
                     className="relative block aspect-square w-full touch-manipulation overflow-hidden rounded-tile bg-sand select-none [-webkit-touch-callout:none]"
                   >
                     {photo.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <TileImage
+                        photoId={photo.id}
                         src={photo.imageUrl}
-                        alt=""
-                        loading="lazy"
-                        draggable={false}
-                        className="h-full w-full object-cover"
+                        alt={labels.photoAlt}
                       />
                     )}
                     {selected && <span className="absolute inset-0 bg-gold/30" />}

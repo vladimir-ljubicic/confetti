@@ -1,5 +1,10 @@
 import type { Dictionary } from "@/lib/dictionaries";
+import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { ViewerLabels } from "./photo-viewer";
+
+export function photoAltLabels(dict: Dictionary): PhotoAltLabels {
+  return { photo: dict.gallery.photoAlt, photoBy: dict.gallery.photoAltBy };
+}
 
 export function viewerLabels(dict: Dictionary): ViewerLabels {
   return {
@@ -19,5 +24,6 @@ export function viewerLabels(dict: Dictionary): ViewerLabels {
     photosOne: dict.uploaderPage.photosOne,
     photosFew: dict.uploaderPage.photosFew,
     photosMany: dict.uploaderPage.photosMany,
+    alt: photoAltLabels(dict),
   };
 }

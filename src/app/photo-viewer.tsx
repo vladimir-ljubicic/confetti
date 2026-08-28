@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
+import { useImageSrc } from "./use-image-src";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 
@@ -30,6 +32,7 @@ export type ViewerLabels = {
   photosOne: string;
   photosFew: string;
   photosMany: string;
+  alt: PhotoAltLabels;
 };
 
 // How long the viewer holds itself on screen while it fades away.
@@ -58,6 +61,31 @@ function clickedLetterbox(event: React.MouseEvent<HTMLImageElement>): boolean {
   const x = event.clientX - rect.left - (clientWidth - drawnWidth) / 2;
   const y = event.clientY - rect.top - (clientHeight - drawnHeight) / 2;
   return x < 0 || y < 0 || x > drawnWidth || y > drawnHeight;
+}
+
+function ViewerImage({
+  photoId,
+  src,
+  alt,
+  onClick,
+}: {
+  photoId: string;
+  src: string;
+  alt: string;
+  onClick: (event: React.MouseEvent<HTMLImageElement>) => void;
+}) {
+  const image = useImageSrc(photoId, src);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={image.src}
+      alt={alt}
+      loading="lazy"
+      onError={image.onError}
+      onClick={onClick}
+      className="max-h-full w-full touch-manipulation object-contain"
+    />
+  );
 }
 
 function ShareSheet({
@@ -424,13 +452,11 @@ export function PhotoViewer({
             className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
           >
             {photo.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <ViewerImage
+                photoId={photo.id}
                 src={photo.imageUrl}
-                alt=""
-                loading="lazy"
+                alt={photoAltText(labels.alt, photo.uploader)}
                 onClick={(event) => tapPhoto(event, photo)}
-                className="max-h-full w-full touch-manipulation object-contain"
               />
             )}
             {burst?.photoId === photo.id && (

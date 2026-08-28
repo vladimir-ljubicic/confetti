@@ -11,7 +11,7 @@ import { LocaleToggle } from "../../locale-toggle";
 import { PhotoGrid } from "../../photo-grid";
 import { SortProvider } from "../../sort-context";
 import { SortToggle } from "../../sort-toggle";
-import { viewerLabels } from "../../viewer-labels";
+import { photoAltLabels, viewerLabels } from "../../viewer-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +106,7 @@ export default async function UploaderPage({
             nextCursor: page.nextCursor,
           }}
           emptyLabel={dict.uploaderPage.empty}
+          altLabels={photoAltLabels(dict)}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
           viewer={{
             canManageAll: admin,

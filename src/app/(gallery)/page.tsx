@@ -20,7 +20,7 @@ import { PhotoGrid } from "../photo-grid";
 import { SortProvider } from "../sort-context";
 import { UploadButton } from "../upload-button";
 import { UploadQueueProvider } from "../upload-queue";
-import { viewerLabels } from "../viewer-labels";
+import { photoAltLabels, viewerLabels } from "../viewer-labels";
 
 // The gallery reads the database directly; without this the page would be
 // statically prerendered at build time and serve stale rows.
@@ -137,6 +137,7 @@ export default async function GalleryPage({
               nextCursor: page.nextCursor,
             }}
             emptyLabel={dict.gallery.empty}
+            altLabels={photoAltLabels(dict)}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
             viewer={{
               canManageAll: admin,

@@ -25,6 +25,8 @@ const en = {
     unlike: "Remove like",
     coachMark: "Your photos are here",
     coachMarkDismiss: "Dismiss",
+    photoAlt: "Photo",
+    photoAltBy: "Photo — {name}",
     uploadWindowToday:
       "Photo uploads are open through today — after that, download the full gallery.",
     uploadWindowOne:
@@ -83,6 +85,7 @@ const en = {
     filterPublic: "Public {count}",
     filterPrivate: "Private {count}",
     privateBadge: "Private",
+    photoAlt: "Photo",
     exitSelect: "Exit selection",
     selectAll: "Select all",
     selectedOne: "{count} selected",
@@ -275,6 +278,8 @@ const sr: Dictionary = {
     unlike: "Уклони свиђање",
     coachMark: "Ваше фотографије су овде",
     coachMarkDismiss: "Затвори",
+    photoAlt: "Фотографија",
+    photoAltBy: "Фотографија — {name}",
     uploadWindowToday:
       "Додавање фотографија је отворено још само данас — после тога преузмите целу галерију.",
     uploadWindowOne:
@@ -333,6 +338,7 @@ const sr: Dictionary = {
     filterPublic: "Јавне {count}",
     filterPrivate: "Приватне {count}",
     privateBadge: "Приватна",
+    photoAlt: "Фотографија",
     exitSelect: "Изађи из избора",
     selectAll: "Изабери све",
     selectedOne: "{count} изабрана",

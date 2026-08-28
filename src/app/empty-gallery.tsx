@@ -9,6 +9,7 @@ import { LocaleToggle } from "./locale-toggle";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
 import { UploadQueueProvider, useUploadQueue } from "./upload-queue";
+import { photoAltLabels } from "./viewer-labels";
 
 type EmptyGalleryProps = {
   dict: Dictionary;
@@ -76,6 +77,7 @@ function EmptyGalleryBody({
         <PhotoGrid
           photos={[]}
           emptyLabel={dict.gallery.empty}
+          altLabels={photoAltLabels(dict)}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
         />
       ) : (

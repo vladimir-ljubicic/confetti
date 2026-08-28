@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
+import { useImageSrc } from "./use-image-src";
 import { useLikes } from "./use-likes";
 import { usePhotoFeed, type PhotoFeedSource } from "./use-photo-feed";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
@@ -20,14 +22,19 @@ type GridEntry =
 // loaded, so a freshly uploaded photo keeps its pixels and height during the
 // swap instead of collapsing and re-growing as the real image arrives.
 function GalleryImage({
+  photoId,
   src,
+  alt,
   previewUrl,
   onSettled,
 }: {
+  photoId: string;
   src: string;
+  alt: string;
   previewUrl?: string;
   onSettled?: () => void;
 }) {
+  const image = useImageSrc(photoId, src);
   // Captured once: the tile (and its object URL) goes away after settling,
   // and the prop change must not restructure the tree and remount the image.
   const [preview] = useState(previewUrl);
@@ -40,8 +47,16 @@ function GalleryImage({
     onSettled?.();
   };
   if (preview === undefined) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" loading="lazy" className="w-full" />;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image.src}
+        alt={alt}
+        loading="lazy"
+        onError={image.onError}
+        className="w-full"
+      />
+    );
   }
   return (
     <div className="relative">
@@ -51,10 +66,13 @@ function GalleryImage({
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
-        alt=""
+        src={image.src}
+        alt={alt}
         onLoad={settle}
-        onError={settle}
+        onError={() => {
+          settle();
+          image.onError();
+        }}
         ref={(img) => {
           // A cached image can be complete before onLoad ever fires.
           if (img?.complete) settle();
@@ -92,6 +110,7 @@ export function PhotoGrid({
   photos,
   feed,
   emptyLabel,
+  altLabels,
   downloadLabel,
   likeLabels,
   viewer,
@@ -100,6 +119,7 @@ export function PhotoGrid({
   photos: PublicPhoto[];
   feed?: PhotoFeedSource;
   emptyLabel: string;
+  altLabels: PhotoAltLabels;
   downloadLabel?: string;
   likeLabels?: { like: string; unlike: string };
   viewer?: {
@@ -213,13 +233,17 @@ export function PhotoGrid({
                         className="block w-full"
                       >
                         <GalleryImage
+                          photoId={entry.photo.id}
                           src={entry.photo.imageUrl}
+                          alt={photoAltText(altLabels, entry.photo.uploader)}
                           {...absorbProps(entry.photo)}
                         />
                       </button>
                     ) : (
                       <GalleryImage
+                        photoId={entry.photo.id}
                         src={entry.photo.imageUrl}
+                        alt={photoAltText(altLabels, entry.photo.uploader)}
                         {...absorbProps(entry.photo)}
                       />
                     )
