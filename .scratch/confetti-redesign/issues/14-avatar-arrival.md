@@ -9,10 +9,10 @@ nothing clips), then coach mark "Ваше фотографије су овде" 
 
 **Status:** done
 
-- [ ] Keyframes/timings/vectors verbatim from README motion section
-- [ ] Coach mark dismissed on tap, on scroll, or after 6s; `coachMarkSeen` flag persisted —
+- [x] Keyframes/timings/vectors verbatim from README motion section
+- [x] Coach mark dismissed on tap, on scroll, or after 6s; `coachMarkSeen` flag persisted —
       never shown again
-- [ ] `prefers-reduced-motion` → skip animations, avatar just appears (coach mark may still
+- [x] `prefers-reduced-motion` → skip animations, avatar just appears (coach mark may still
       show statically)
 
 ## Comments

@@ -9,9 +9,9 @@ hint). On finish it becomes the 6c summary card ("97 фотографија от
 
 **Status:** done
 
-- [ ] Mini-bar geometry/styles per 6b spec; fully non-blocking (scroll, like, open photos)
-- [ ] `navigator.wakeLock` requested for the duration of the batch, released after
-- [ ] Gallery refreshes incrementally, roughly every 10 completions — not once at the end
-- [ ] 6c retry re-attempts only the failures
+- [x] Mini-bar geometry/styles per 6b spec; fully non-blocking (scroll, like, open photos)
+- [x] `navigator.wakeLock` requested for the duration of the batch, released after
+- [x] Gallery refreshes incrementally, roughly every 10 completions — not once at the end
+- [x] 6c retry re-attempts only the failures
 
 ## Comments

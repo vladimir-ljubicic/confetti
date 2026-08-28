@@ -8,9 +8,9 @@ upload pill sticky at `bottom: 24px` ("+ Додај фотографије"), gr
 
 **Status:** done
 
-- [ ] 2-column staggered layout, `align-items: start`, varying tile heights
-- [ ] Tile tap opens viewer (12), avatar tap opens profile (13) — wire once those exist
-- [ ] Floating button: `pointer-events: none` wrapper / `auto` button, gold `#b08d3c`,
+- [x] 2-column staggered layout, `align-items: start`, varying tile heights
+- [x] Tile tap opens viewer (12), avatar tap opens profile (13) — wire once those exist
+- [x] Floating button: `pointer-events: none` wrapper / `auto` button, gold `#b08d3c`,
       16px/500 label, `16px 28px` padding, 999px radius
 
 ## Comments

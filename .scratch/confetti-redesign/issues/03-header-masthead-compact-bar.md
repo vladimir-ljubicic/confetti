@@ -9,15 +9,15 @@ language pill, avatar when named), scrolling ceremonial masthead (eyebrow, stack
 
 **Status:** done
 
-- [ ] Sticky top row per 1a spec (`top: 0; z-index: 4`, `#faf6ee`, padding `14px 18px 12px`)
-- [ ] Avatar: 32px circle, `#f1eadb` fill, Cormorant 16px `#7a5f24` initial; only when guest
+- [x] Sticky top row per 1a spec (`top: 0; z-index: 4`, `#faf6ee`, padding `14px 18px 12px`)
+- [x] Avatar: 32px circle, `#f1eadb` fill, Cormorant 16px `#7a5f24` initial; only when guest
       has a name
-- [ ] Masthead scrolls away; compact bar sticks at the top row's rendered height (measure,
+- [x] Masthead scrolls away; compact bar sticks at the top row's rendered height (measure,
       don't hard-code 57px)
-- [ ] Compact bar name/date block fades opacity 0→1 over 0.22s once `scrollTop > 140`
-- [ ] Sort segmented control restyled (track `#f1eadb`, active `#fffdf8` + `#8a6d2c`),
+- [x] Compact bar name/date block fades opacity 0→1 over 0.22s once `scrollTop > 140`
+- [x] Sort segmented control restyled (track `#f1eadb`, active `#fffdf8` + `#8a6d2c`),
       labels "Уживо" / "Хронолошки" — semantics map to existing sort modes (Уживо = newest)
-- [ ] Language pill restyled per §11 (active `#8a6d2c` ivory label, hairline pill), same
+- [x] Language pill restyled per §11 (active `#8a6d2c` ivory label, hairline pill), same
       component reused on admin
 
 ## Comments

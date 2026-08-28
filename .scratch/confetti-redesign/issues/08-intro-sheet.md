@@ -8,14 +8,14 @@ scrim. Sheet `#fffdf8`, radius `28px 28px 36px 36px`, grab handle.
 
 **Status:** done
 
-- [ ] Heading block: static 22px mark, "Представите се" 30px Cormorant, explainer with the
+- [x] Heading block: static 22px mark, "Представите се" 30px Cormorant, explainer with the
       deliberate `<br>`
-- [ ] Side-by-side name fields: "ИМЕ" (required) / "ПРЕЗИМЕ · необавезно"; focused state
+- [x] Side-by-side name fields: "ИМЕ" (required) / "ПРЕЗИМЕ · необавезно"; focused state
       1px `#b08d3c` + `#faf6ee` fill
-- [ ] Visibility as two selectable cards ("Сви гости" / "Само младенци"); selected =
+- [x] Visibility as two selectable cards ("Сви гости" / "Само младенци"); selected =
       1.5px `#b08d3c` + `#f7f0df`
-- [ ] Primary "Сачувај и отпреми N фотографије" with interpolated count; "Откажи" 44px
-- [ ] On save: persist name locally, close, start upload, trigger avatar arrival (issue 14)
-- [ ] Shown only on first upload; later uploads go straight to 6a/6b
+- [x] Primary "Сачувај и отпреми N фотографије" with interpolated count; "Откажи" 44px
+- [x] On save: persist name locally, close, start upload, trigger avatar arrival (issue 14)
+- [x] Shown only on first upload; later uploads go straight to 6a/6b
 
 ## Comments

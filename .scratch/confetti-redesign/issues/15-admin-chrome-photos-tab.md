@@ -8,13 +8,13 @@ static mark + "АДМИНИСТРАЦИЈА", language pill), three-tab bar (tra
 
 **Status:** done
 
-- [ ] Tab bar + chrome per §9; language pill present on admin
-- [ ] 9a: title "N фотографије" + sub; horizontally scrollable filter chips ("Сви",
+- [x] Tab bar + chrome per §9; language pill present on admin
+- [x] 9a: title "N фотографије" + sub; horizontally scrollable filter chips ("Сви",
       "Приватне N", one per guest — dozens possible; hidden scrollbar, momentum scroll)
-- [ ] 3-column grid with "Приватна" chips + tap hint line
-- [ ] Pinned settings block: "Отпремање гостију" with "Отворено / Замрзнуто" segmented
+- [x] 3-column grid with "Приватна" chips + tap hint line
+- [x] Pinned settings block: "Отпремање гостију" with "Отворено / Замрзнуто" segmented
       control (existing freeze flag); "Преузми све · ZIP →" opens issue 18's sheet
-- [ ] Admin tile tap opens the shared viewer (issue 12) with admin actions
+- [x] Admin tile tap opens the shared viewer (issue 12) with admin actions
 
 ## Comments
 

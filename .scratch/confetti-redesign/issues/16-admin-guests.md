@@ -8,18 +8,18 @@ detail page, including the new per-guest upload block.
 **Status:** done
 
 9b:
-- [ ] One `#fffdf8` row per guest: 40px avatar, name + "N фотографија · M приватне",
+- [x] One `#fffdf8` row per guest: 40px avatar, name + "N фотографија · M приватне",
       "Преименуј" pill, "›" chevron; row navigates to 9d
-- [ ] Inline rename state: 1.5px `#b08d3c` row border, text input, gold "Сачувај";
+- [x] Inline rename state: 1.5px `#b08d3c` row border, text input, gold "Сачувај";
       only changes the display name (existing rename API)
 
 9d:
-- [ ] Header: 52px avatar, name 28px Cormorant, "N фотографија · M лајкова" (nowrap),
+- [x] Header: 52px avatar, name 28px Cormorant, "N фотографија · M лајкова" (nowrap),
       "Преименуј" pill
-- [ ] "Све / Јавне / Приватне" chips + 3-column grid of that guest's photos
-- [ ] Pinned settings, two rows: per-guest upload "Дозволи / Забрани" control;
+- [x] "Све / Јавне / Приватне" chips + 3-column grid of that guest's photos
+- [x] Pinned settings, two rows: per-guest upload "Дозволи / Забрани" control;
       "Сакриј све од овог госта · N →" (per-guest ZIP export dropped — see issue 18)
-- [ ] **New server-side:** `uploads_blocked` per uploader (migration) — Забрани removes the
+- [x] **New server-side:** `uploads_blocked` per uploader (migration) — Забрани removes the
       upload button for that guest only; existing photos stay visible and untouched;
       ticket issuance rejects blocked guests server-side
 

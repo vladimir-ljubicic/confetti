@@ -9,7 +9,7 @@ body capped at 270px (scan the QR / ask the couple), secondary "Пробај п�
 
 **Status:** done
 
-- [ ] Shown for invalid/expired gallery links; never a raw error string
-- [ ] Copy in both locales
+- [x] Shown for invalid/expired gallery links; never a raw error string
+- [x] Copy in both locales
 
 ## Comments
