@@ -61,8 +61,10 @@ export async function loadPublicPhotos({
     .is("deleted_at", null);
   if (uploaderId) query = query.eq("uploader_id", uploaderId);
   query =
-    sort === "chrono"
-      ? query.order("effective_taken_at", { ascending: true })
+    sort === "popular"
+      ? query
+          .order("like_count", { ascending: false })
+          .order("uploaded_at", { ascending: false })
       : query.order("uploaded_at", { ascending: false });
   const { data, error } = await query.limit(GALLERY_PAGE_SIZE);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);

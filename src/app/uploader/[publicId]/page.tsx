@@ -23,10 +23,7 @@ export default async function UploaderPage({
   const dict = await getDict();
   const { publicId } = await params;
   const { sort: sortParam } = await searchParams;
-  const sort = resolveSortMode(
-    Array.isArray(sortParam) ? sortParam[0] : sortParam,
-    new Date(),
-  );
+  const sort = resolveSortMode(Array.isArray(sortParam) ? sortParam[0] : sortParam);
 
   const uploader = await getUploaderByPublicId(publicId);
   if (!uploader) notFound();
@@ -51,7 +48,7 @@ export default async function UploaderPage({
         <SortToggle
           sort={sort}
           basePath={`/uploader/${publicId}`}
-          labels={{ live: dict.gallery.sortLive, chrono: dict.gallery.sortChrono }}
+          labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
         />
       )}
 

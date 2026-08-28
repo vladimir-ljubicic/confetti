@@ -66,8 +66,8 @@ export function GalleryHeader({
   labels: {
     eyebrow: string;
     myPhotos: string;
-    sortLive: string;
-    sortChrono: string;
+    sortLatest: string;
+    sortPopular: string;
     localeAriaLabel: string;
     coachMark: string;
     coachMarkDismiss: string;
@@ -243,7 +243,7 @@ export function GalleryHeader({
             <SortToggle
               sort={sort}
               basePath="/"
-              labels={{ live: labels.sortLive, chrono: labels.sortChrono }}
+              labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}
             />
           </div>
         )}

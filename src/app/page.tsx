@@ -27,10 +27,7 @@ export default async function GalleryPage({
   const locale = await getLocale();
   const dict = await getDict();
   const { sort: sortParam } = await searchParams;
-  const sort = resolveSortMode(
-    Array.isArray(sortParam) ? sortParam[0] : sortParam,
-    new Date(),
-  );
+  const sort = resolveSortMode(Array.isArray(sortParam) ? sortParam[0] : sortParam);
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
   const [photos, profile, uploadsFrozen, admin] = await Promise.all([
@@ -82,8 +79,8 @@ export default async function GalleryPage({
           labels={{
             eyebrow: dict.gallery.eyebrow,
             myPhotos: dict.gallery.myPhotos,
-            sortLive: dict.gallery.sortLive,
-            sortChrono: dict.gallery.sortChrono,
+            sortLatest: dict.gallery.sortLatest,
+            sortPopular: dict.gallery.sortPopular,
             localeAriaLabel: dict.localeToggle.ariaLabel,
             coachMark: dict.gallery.coachMark,
             coachMarkDismiss: dict.gallery.coachMarkDismiss,

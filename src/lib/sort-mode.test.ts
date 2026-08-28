@@ -2,23 +2,24 @@ import { describe, expect, it } from "vitest";
 import { resolveSortMode } from "./sort-mode";
 
 describe("resolveSortMode", () => {
-  it("honors an explicit live choice", () => {
-    expect(resolveSortMode("live", new Date("2027-01-01T00:00:00Z"))).toBe("live");
+  it("honors an explicit latest choice", () => {
+    expect(resolveSortMode("latest")).toBe("latest");
   });
 
-  it("honors an explicit chrono choice", () => {
-    expect(resolveSortMode("chrono", new Date("2026-01-01T00:00:00Z"))).toBe("chrono");
+  it("honors an explicit popular choice", () => {
+    expect(resolveSortMode("popular")).toBe("popular");
   });
 
-  it("defaults to live before the wedding day ends", () => {
-    expect(resolveSortMode(undefined, new Date("2026-09-20T21:59:59Z"))).toBe("live");
-  });
-
-  it("defaults to chrono once the wedding day is over (midnight in Belgrade)", () => {
-    expect(resolveSortMode(undefined, new Date("2026-09-20T22:00:00Z"))).toBe("chrono");
+  it("defaults to latest when unset", () => {
+    expect(resolveSortMode(undefined)).toBe("latest");
   });
 
   it("treats an unknown param as unset", () => {
-    expect(resolveSortMode("newest", new Date("2026-01-01T00:00:00Z"))).toBe("live");
+    expect(resolveSortMode("newest")).toBe("latest");
+  });
+
+  it("falls back to latest for legacy params", () => {
+    expect(resolveSortMode("live")).toBe("latest");
+    expect(resolveSortMode("chrono")).toBe("latest");
   });
 });

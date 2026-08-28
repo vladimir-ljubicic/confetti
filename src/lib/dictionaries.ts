@@ -14,8 +14,8 @@ const en = {
     emptyFootnote: "Photos are visible to all guests, unless you choose otherwise.",
     download: "Download",
     myPhotos: "My photos",
-    sortLive: "Latest",
-    sortChrono: "Oldest",
+    sortLatest: "Latest",
+    sortPopular: "Popular",
     uploadsFrozen: "Uploads are paused for now — enjoy the gallery!",
     frozenTitle: "Thank you!",
     frozenBody:
@@ -250,8 +250,8 @@ const sr: Dictionary = {
     emptyFootnote: "Фотографије виде сви гости, осим ако не изаберете другачије.",
     download: "Преузми",
     myPhotos: "Моје фотографије",
-    sortLive: "Уживо",
-    sortChrono: "Хронолошки",
+    sortLatest: "Најновије",
+    sortPopular: "Популарно",
     uploadsFrozen: "Отпремање је тренутно паузирано — уживајте у галерији!",
     frozenTitle: "Хвала вам!",
     frozenBody:

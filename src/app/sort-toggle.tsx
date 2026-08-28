@@ -8,11 +8,11 @@ export function SortToggle({
 }: {
   sort: SortMode;
   basePath: string;
-  labels: { live: string; chrono: string };
+  labels: { latest: string; popular: string };
 }) {
   const options = [
-    { mode: "live", label: labels.live },
-    { mode: "chrono", label: labels.chrono },
+    { mode: "latest", label: labels.latest },
+    { mode: "popular", label: labels.popular },
   ] as const;
 
   return (
