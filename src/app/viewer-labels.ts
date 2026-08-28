@@ -9,6 +9,8 @@ export function viewerLabels(dict: Dictionary): ViewerLabels {
     like: dict.gallery.like,
     unlike: dict.gallery.unlike,
     share: dict.viewer.share,
+    sharePreparing: dict.viewer.sharePreparing,
+    shareCancel: dict.downloadSheet.cancel,
     makePrivate: dict.myPhotos.makePrivate,
     makePublic: dict.myPhotos.makePublic,
     delete: dict.myPhotos.delete,

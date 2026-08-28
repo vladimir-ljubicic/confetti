@@ -38,6 +38,7 @@ const en = {
     open: "Open photo",
     close: "Close",
     share: "Share",
+    sharePreparing: "Preparing photo…",
   },
   downloadSheet: {
     title: "Download all",
@@ -287,6 +288,7 @@ const sr: Dictionary = {
     open: "Отвори фотографију",
     close: "Затвори",
     share: "Подели",
+    sharePreparing: "Припрема фотографије…",
   },
   downloadSheet: {
     title: "Преузми све",

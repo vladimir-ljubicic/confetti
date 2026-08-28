@@ -19,6 +19,8 @@ export type ViewerLabels = {
   like: string;
   unlike: string;
   share: string;
+  sharePreparing: string;
+  shareCancel: string;
   makePrivate: string;
   makePublic: string;
   delete: string;
@@ -75,7 +77,13 @@ export function PhotoViewer({
 
   const trackRef = useRef<HTMLDivElement>(null);
   const { busy, failed, run } = useServerAction();
-  const [sharing, setSharing] = useState(false);
+  const [shareState, setShareState] = useState<
+    { status: "preparing" } | { status: "ready"; payload: ShareData } | null
+  >(null);
+  // null marks a photo whose original couldn't be fetched or shared as a file,
+  // so retries fall straight back to link sharing.
+  const shareFiles = useRef(new Map<string, File | null>());
+  const shareAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -91,6 +99,8 @@ export function PhotoViewer({
     },
     [router],
   );
+
+  useEffect(() => () => shareAbort.current?.abort(), []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -174,29 +184,59 @@ export function PhotoViewer({
     if (ok) hideCurrent();
   }
 
-  // Shares the untouched original as a file where the browser supports it;
-  // otherwise shares a gallery link that opens this photo.
-  async function share() {
-    let payload: ShareData = {
-      url: `${window.location.origin}/?photo=${current.id}`,
-    };
-    if (typeof navigator.canShare === "function") {
-      setSharing(true);
-      const file = await fetch(`/api/photos/${current.id}/download`)
-        .then(async (response) => {
-          if (!response.ok) return null;
-          const blob = await response.blob();
-          return new File([blob], current.originalFilename, { type: blob.type });
-        })
-        .catch(() => null);
-      setSharing(false);
-      if (file && navigator.canShare({ files: [file] })) payload = { files: [file] };
-    }
+  async function presentShare(payload: ShareData) {
+    setShareState(null);
     try {
       await navigator.share(payload);
-    } catch {
-      // Cancelled share sheet.
+    } catch (error) {
+      // The share call must run within a few seconds of a tap; when the
+      // download outlives that window the browser rejects it, so hold the
+      // payload behind a button and let the next tap hand it off directly.
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        setShareState({ status: "ready", payload });
+      }
+      // Otherwise: cancelled share sheet.
     }
+  }
+
+  // Shares the untouched original as a file where the browser supports it;
+  // otherwise shares a gallery link that opens this photo. The original is
+  // fetched behind a "preparing" sheet so the tap gets instant feedback.
+  async function share() {
+    const photo = current;
+    const linkPayload: ShareData = {
+      url: `${window.location.origin}/?photo=${photo.id}`,
+    };
+    if (typeof navigator.canShare !== "function") {
+      await presentShare(linkPayload);
+      return;
+    }
+    const cached = shareFiles.current.get(photo.id);
+    if (cached !== undefined) {
+      await presentShare(cached ? { files: [cached] } : linkPayload);
+      return;
+    }
+    const controller = new AbortController();
+    shareAbort.current = controller;
+    setShareState({ status: "preparing" });
+    const file = await fetch(`/api/photos/${photo.id}/download`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new File([blob], photo.originalFilename, { type: blob.type });
+      })
+      .catch(() => null);
+    if (controller.signal.aborted) return;
+    const shareable = file && navigator.canShare({ files: [file] }) ? file : null;
+    shareFiles.current.set(photo.id, shareable);
+    await presentShare(shareable ? { files: [shareable] } : linkPayload);
+  }
+
+  function cancelShare() {
+    shareAbort.current?.abort();
+    setShareState(null);
   }
 
   return (
@@ -318,10 +358,9 @@ export function PhotoViewer({
           {canShare && (
             <button
               type="button"
-              disabled={sharing}
               onClick={() => void share()}
               aria-label={labels.share}
-              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper transition active:bg-[rgba(250,246,238,0.12)] disabled:opacity-60"
+              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper transition active:bg-[rgba(250,246,238,0.12)]"
             >
               ↗
             </button>
@@ -355,6 +394,38 @@ export function PhotoViewer({
           </p>
         )}
       </div>
+
+      {shareState && (
+        <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-ink/42">
+          <div className="mx-auto flex w-full max-w-md flex-col gap-5 rounded-sheet bg-card px-[22px] pt-3 pb-[26px] shadow-sheet">
+            <span className="mx-auto h-1 w-[38px] rounded-pill bg-ink/15" />
+            {shareState.status === "preparing" ? (
+              <div className="flex items-center justify-center gap-3 py-2">
+                <span
+                  aria-hidden
+                  className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
+                />
+                <p className="text-body text-ink/70">{labels.sharePreparing}</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void presentShare(shareState.payload)}
+                className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep"
+              >
+                {labels.share}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={cancelShare}
+              className="-mt-2 min-h-11 text-sm text-ink/60"
+            >
+              {labels.shareCancel}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
