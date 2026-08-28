@@ -9,8 +9,6 @@ function required(name: string): string {
 export const env = {
   supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
   supabaseServiceRoleKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
-  // Image transforms need Supabase Pro; off = serve signed original URLs (dev).
-  imageTransformsEnabled: () => process.env.SUPABASE_IMAGE_TRANSFORMS === "true",
   adminPasscode: () => required("ADMIN_PASSCODE"),
   cronSecret: () => required("CRON_SECRET"),
   uploadLimits: () => parseUploadLimits(process.env),

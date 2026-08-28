@@ -22,7 +22,7 @@ export async function GET(
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "storage_path, thumbnail_path, size_bytes, original_filename, visibility, uploader_id, uploaded_at, deleted_at",
+      "storage_path, thumbnail_path, original_filename, visibility, uploader_id, uploaded_at, deleted_at",
     )
     .eq("id", id)
     .maybeSingle();

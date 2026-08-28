@@ -54,6 +54,9 @@ const QUERIES = [
 // Pexels caps a page at 80 results.
 const PER_QUERY = 60;
 
+// Keep in step with GALLERY_IMAGE_WIDTH in src/lib/thumbnail.ts.
+const THUMBNAIL_WIDTH = 800;
+
 const CACHE_DIR = fileURLToPath(new URL("./.cache/pexels/", import.meta.url));
 
 // Deterministic PRNG so re-runs produce the same photo counts and likes.
@@ -127,7 +130,25 @@ async function search(query) {
   return body.photos.map((photo) => ({
     id: String(photo.id),
     url: photo.src.large2x,
+    thumbnailUrl: renditionUrl(photo.src.large2x, THUMBNAIL_WIDTH),
   }));
+}
+
+// Pexels renders any size from the same URL; the width and height carried in
+// the query string give the rendition's aspect ratio to scale by.
+function renditionUrl(url, width) {
+  const parsed = new URL(url);
+  const sourceWidth = Number(parsed.searchParams.get("w"));
+  const sourceHeight = Number(parsed.searchParams.get("h"));
+  parsed.searchParams.set("dpr", "1");
+  parsed.searchParams.set("w", String(width));
+  if (sourceWidth && sourceHeight) {
+    parsed.searchParams.set(
+      "h",
+      String(Math.round((width * sourceHeight) / sourceWidth)),
+    );
+  }
+  return parsed.href;
 }
 
 // One pool of unique photos for the whole run, ordered so that a re-run pairs
@@ -147,12 +168,12 @@ async function loadPool() {
   return pool;
 }
 
-async function fetchImage(photo) {
-  const cached = `${CACHE_DIR}${photo.id}.jpg`;
+async function fetchImage(url, cacheKey) {
+  const cached = `${CACHE_DIR}${cacheKey}.jpg`;
   if (existsSync(cached)) return readFileSync(cached);
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const response = await fetch(photo.url, { redirect: "follow" });
+      const response = await fetch(url, { redirect: "follow" });
       if (response.ok) {
         const image = Buffer.from(await response.arrayBuffer());
         writeFileSync(cached, image);
@@ -218,7 +239,7 @@ async function seed() {
 
     for (let i = 0; i < photos; i++) {
       const source = pool[taken++ % pool.length];
-      const image = await fetchImage(source);
+      const image = await fetchImage(source.url, source.id);
       if (!image) {
         console.warn(`  skipped (download failed after retries): ${source.url}`);
         continue;
@@ -229,12 +250,25 @@ async function seed() {
       const uploadError = await upload(path, image);
       if (uploadError) fail(`storage upload failed for ${path}:`, uploadError);
 
+      // Guests' browsers generate this on upload; seeded photos take a smaller
+      // Pexels rendition instead.
+      let thumbPath = `${guest.id}/${photoId}.thumb.jpg`;
+      const thumbnail = await fetchImage(source.thumbnailUrl, `${source.id}.thumb`);
+      if (thumbnail) {
+        const thumbError = await upload(thumbPath, thumbnail);
+        if (thumbError) fail(`storage upload failed for ${thumbPath}:`, thumbError);
+      } else {
+        console.warn(`  no thumbnail (download failed): ${source.thumbnailUrl}`);
+        thumbPath = null;
+      }
+
       const uploadedAt = new Date(now - randInt(0, 72) * 3_600_000 - randInt(0, 3_600_000));
       const takenAt = new Date(uploadedAt.getTime() - randInt(0, 6) * 3_600_000);
       const { error: photoError } = await supabase.from("photos").insert({
         id: photoId,
         uploader_id: guest.id,
         storage_path: path,
+        thumbnail_path: thumbPath,
         original_filename: `IMG_${fileNumber++}.jpg`,
         content_type: "image/jpeg",
         size_bytes: image.byteLength,

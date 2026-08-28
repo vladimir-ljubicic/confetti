@@ -15,7 +15,6 @@ type OwnPhotoRow = {
   storage_path: string;
   thumbnail_path: string | null;
   original_filename: string;
-  size_bytes: number;
   visibility: Visibility;
   like_count: number;
   uploaded_at: string;
@@ -25,7 +24,7 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, visibility, like_count, uploaded_at",
+      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at",
     )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)

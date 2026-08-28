@@ -25,7 +25,6 @@ type AdminPhotoRow = {
   storage_path: string;
   thumbnail_path: string | null;
   original_filename: string;
-  size_bytes: number;
   visibility: Visibility;
   like_count: number;
   uploaded_at: string;
@@ -49,7 +48,7 @@ export async function loadAdminPhotos({
     // The join is inner so that filtering on the uploader narrows the photos
     // rather than blanking the embedded row.
     .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, visibility, like_count, uploaded_at, uploader_id, uploaders!inner (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, uploader_id, uploaders!inner (display_name, public_id)",
     )
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);

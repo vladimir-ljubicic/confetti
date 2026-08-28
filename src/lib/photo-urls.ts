@@ -1,6 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { env, PHOTOS_BUCKET } from "./env";
-import { GALLERY_IMAGE_WIDTH, imageSource } from "./image-source";
+import { PHOTOS_BUCKET } from "./env";
 import { supabaseAdmin } from "./supabase-server";
 
 // URLs are cached for half their signed lifetime, so a served URL always has
@@ -12,7 +11,6 @@ const GALLERY_URL_CACHE_SECONDS = GALLERY_URL_TTL_SECONDS / 2;
 export type PhotoForUrl = {
   storage_path: string;
   thumbnail_path: string | null;
-  size_bytes: number;
   original_filename: string;
 };
 
@@ -29,8 +27,7 @@ async function signedUrl(path: string, options?: SignOptions): Promise<string | 
 
 // Signing costs one request per call, and a page of tiles asks for a whole
 // grid's worth at once. Paths raised in the same tick are signed together;
-// paths already in the cache below never get here. Transformed URLs are absent
-// because the batch endpoint takes no transform.
+// paths already in the cache below never get here.
 type PendingSign = { path: string; settle: (url: string | null) => void };
 
 let pendingSigns: PendingSign[] = [];
@@ -87,36 +84,14 @@ async function stableSignedUrl(
   }
 }
 
-// The rendering source for a photo: an image transform (JPEG/WebP out,
-// required for HEIC to render in Chrome/Firefox) when enabled, the
-// client-generated thumbnail for files above the transform source limit, the
-// signed original otherwise.
-function gallerySource(photo: PhotoForUrl) {
-  return imageSource({
-    sizeBytes: photo.size_bytes,
-    transformsEnabled: env.imageTransformsEnabled(),
-    hasThumbnail: photo.thumbnail_path !== null,
-  });
-}
-
-function galleryPath(photo: PhotoForUrl): string {
-  return gallerySource(photo).kind === "thumbnail" && photo.thumbnail_path
-    ? photo.thumbnail_path
-    : photo.storage_path;
-}
-
-// Signed rendering URLs for a batch of photos, in input order.
+// Signed rendering URLs for a batch of photos, in input order. Photos render
+// from the thumbnail their uploader's browser generated; the original stands in
+// only when that failed, and browsers that cannot decode it will show nothing.
 export async function galleryImageUrls(
   photos: PhotoForUrl[],
 ): Promise<(string | null)[]> {
   return Promise.all(
-    photos.map((photo) =>
-      gallerySource(photo).kind === "transform"
-        ? stableSignedUrl(photo.storage_path, {
-            transform: { width: GALLERY_IMAGE_WIDTH, resize: "contain" },
-          })
-        : stableSignedUrl(galleryPath(photo)),
-    ),
+    photos.map((photo) => stableSignedUrl(photo.thumbnail_path ?? photo.storage_path)),
   );
 }
 

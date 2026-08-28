@@ -17,7 +17,6 @@ type BinPhotoRow = {
   storage_path: string;
   thumbnail_path: string | null;
   original_filename: string;
-  size_bytes: number;
   deleted_at: string;
   uploaders: { display_name: string | null } | null;
 };
@@ -26,7 +25,7 @@ async function loadDeletedPhotos() {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, deleted_at, uploaders (display_name)",
+      "id, storage_path, thumbnail_path, original_filename, deleted_at, uploaders (display_name)",
     )
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false });

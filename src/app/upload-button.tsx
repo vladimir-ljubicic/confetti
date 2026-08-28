@@ -175,9 +175,7 @@ async function uploadFile(
     (await response.json()) as UploadTicket;
   if (control?.isCancelled()) throw new UploadCancelledError();
 
-  const thumbnailUpload = thumbnailUploadUrl
-    ? uploadThumbnail(file, thumbnailUploadUrl)
-    : null;
+  const thumbnailUpload = uploadThumbnail(file, thumbnailUploadUrl);
 
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(file, {
@@ -204,7 +202,7 @@ async function uploadFile(
     upload.start();
   });
 
-  if (thumbnailUpload) await thumbnailUpload;
+  await thumbnailUpload;
   const complete = await fetch(`/api/uploads/${photoId}/complete`, { method: "POST" });
   if (!complete.ok) throw new Error(`Completing upload failed (${complete.status})`);
   return photoId;

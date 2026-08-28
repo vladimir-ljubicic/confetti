@@ -4,7 +4,6 @@ import { getDeviceId } from "@/lib/device";
 import { env, PHOTOS_BUCKET } from "@/lib/env";
 import { areUploadsFrozen } from "@/lib/event-settings";
 import { jsonError } from "@/lib/http";
-import { needsThumbnail } from "@/lib/image-source";
 import { storagePath, thumbnailPath } from "@/lib/storage-path";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
@@ -97,17 +96,13 @@ export async function POST(request: Request) {
     .createSignedUploadUrl(path);
   if (signError || !signed) return jsonError("Could not authorize upload", 500);
 
-  // Files too large for image transforms render from a client-generated
-  // thumbnail instead; sign a second upload slot for it.
-  const thumbPath = needsThumbnail(body.size) ? thumbnailPath(deviceId, photoId) : null;
-  let thumbnailUploadUrl: string | null = null;
-  if (thumbPath) {
-    const { data: signedThumb, error: thumbError } = await supabase.storage
-      .from(PHOTOS_BUCKET)
-      .createSignedUploadUrl(thumbPath);
-    if (thumbError || !signedThumb) return jsonError("Could not authorize upload", 500);
-    thumbnailUploadUrl = signedThumb.signedUrl;
-  }
+  // Galleries render from a client-generated thumbnail, never the original;
+  // sign a second upload slot for it.
+  const thumbPath = thumbnailPath(deviceId, photoId);
+  const { data: signedThumb, error: thumbError } = await supabase.storage
+    .from(PHOTOS_BUCKET)
+    .createSignedUploadUrl(thumbPath);
+  if (thumbError || !signedThumb) return jsonError("Could not authorize upload", 500);
 
   const { error: insertError } = await supabase.from("photos").insert({
     id: photoId,
@@ -127,7 +122,7 @@ export async function POST(request: Request) {
     path,
     token: signed.token,
     storageUrl: env.supabaseUrl(),
-    thumbnailUploadUrl,
+    thumbnailUploadUrl: signedThumb.signedUrl,
   };
   return NextResponse.json(ticket);
 }
