@@ -26,6 +26,11 @@ export type PublicPhotoPage = {
   photos: PublicPhoto[];
   // Opaque key for the next page; null once the gallery is exhausted.
   nextCursor: string | null;
+  // Photos matching the query, ignoring the page limit. Only the first page
+  // carries it; it rides along with the rows at no extra round trip.
+  totalCount: number | null;
+  // Totals for the uploader a page is scoped to; null for the whole gallery.
+  uploaderStats: PublicPhotoStats | null;
 };
 
 export type PublicPhoto = {
@@ -59,48 +64,37 @@ export async function loadViewerLikes(
 
 export type PublicPhotoStats = { photoCount: number; likeTotal: number };
 
+const NO_STATS: PublicPhotoStats = { photoCount: 0, likeTotal: 0 };
+
+// Gallery-wide totals for the given uploaders, keyed by uploader id. Aggregated
+// in the database and scoped to the ids asked for, so the cost follows the page
+// on screen rather than the size of the gallery.
+export async function loadPublicUploaderStats(
+  uploaderIds: string[],
+): Promise<Map<string, PublicPhotoStats>> {
+  if (uploaderIds.length === 0) return new Map();
+  const { data, error } = await supabaseAdmin().rpc("public_uploader_stats", {
+    uploader_ids: uploaderIds,
+  });
+  if (error) throw new Error(`Loading uploader stats failed: ${error.message}`);
+  const rows = data as {
+    uploader_id: string;
+    photo_count: number;
+    like_total: number;
+  }[];
+  return new Map(
+    rows.map((row) => [
+      row.uploader_id,
+      { photoCount: Number(row.photo_count), likeTotal: Number(row.like_total) },
+    ]),
+  );
+}
+
 export async function loadPublicPhotoStats(
   uploaderId: string,
 ): Promise<PublicPhotoStats> {
-  const { data, error } = await supabaseAdmin()
-    .from("photos")
-    .select("like_count")
-    .eq("visibility", "public")
-    .eq("uploader_id", uploaderId)
-    .not("uploaded_at", "is", null)
-    .is("deleted_at", null);
-  if (error) throw new Error(`Loading uploader stats failed: ${error.message}`);
-  const rows = data as { like_count: number }[];
-  return {
-    photoCount: rows.length,
-    likeTotal: rows.reduce((sum, row) => sum + row.like_count, 0),
-  };
-}
-
-// Public photo count per uploader id, across the whole gallery (not just the
-// current page of rows).
-export async function loadPublicUploaderPhotoCounts(): Promise<
-  Map<string, number>
-> {
-  const { data, error } = await supabaseAdmin().rpc(
-    "public_uploader_photo_counts",
-  );
-  if (error)
-    throw new Error(`Counting uploader photos failed: ${error.message}`);
-  const rows = data as { uploader_id: string; photo_count: number }[];
-  return new Map(rows.map((row) => [row.uploader_id, Number(row.photo_count)]));
-}
-
-export async function countPublicPhotos(): Promise<number> {
-  const { count, error } = await supabaseAdmin()
-    .from("photos")
-    .select("id", { count: "exact", head: true })
-    .eq("visibility", "public")
-    .not("uploaded_at", "is", null)
-    .is("deleted_at", null);
-  if (error)
-    throw new Error(`Counting gallery photos failed: ${error.message}`);
-  return count ?? 0;
+  const stats = await loadPublicUploaderStats([uploaderId]);
+  return stats.get(uploaderId) ?? NO_STATS;
 }
 
 export async function loadPublicPhotos({
@@ -114,10 +108,14 @@ export async function loadPublicPhotos({
   viewerDeviceId?: string | null;
   cursor?: GalleryCursor | null;
 }): Promise<PublicPhotoPage> {
+  // A cursor page counts only what is left below it, and the count is shown
+  // once, on the first page. Scoped to an uploader their stats already carry it.
+  const wantsCount = cursor === null && uploaderId === undefined;
   let query = supabaseAdmin()
     .from("photos")
     .select(
       "id, storage_path, thumbnail_path, original_filename, size_bytes, uploaded_at, like_count, uploader_id, uploaders (display_name, public_id)",
+      wantsCount ? ({ count: "exact" } as const) : undefined,
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
@@ -135,19 +133,20 @@ export async function loadPublicPhotos({
       : query
           .order("uploaded_at", { ascending: false })
           .order("id", { ascending: false });
-  const { data, error } = await query.limit(GALLERY_PAGE_SIZE);
+  const { data, count, error } = await query.limit(GALLERY_PAGE_SIZE);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
-  const [viewerLikes, uploaderCounts, imageUrls] = await Promise.all([
+  // Scoped to one uploader every row is theirs, so their stats stand in for
+  // the per-uploader lookup and are what the page header shows.
+  const statsIds = uploaderId
+    ? [uploaderId]
+    : [...new Set(rows.flatMap((row) => row.uploader_id ?? []))];
+  const [viewerLikes, uploaderStats, imageUrls] = await Promise.all([
     loadViewerLikes(
       viewerDeviceId,
       rows.map((row) => row.id),
     ),
-    // Scoped to one uploader, every row is theirs, so one count covers the
-    // page and the gallery-wide roll-up is not worth its round trip.
-    uploaderId
-      ? loadPublicPhotoStats(uploaderId).then((stats) => stats.photoCount)
-      : loadPublicUploaderPhotoCounts(),
+    loadPublicUploaderStats(statsIds),
     galleryImageUrls(rows),
   ]);
   const last = rows.at(-1);
@@ -166,9 +165,7 @@ export async function loadPublicPhotos({
             displayName: photo.uploaders.display_name,
             publicId: photo.uploaders.public_id,
             photoCount:
-              typeof uploaderCounts === "number"
-                ? uploaderCounts
-                : (uploaderCounts.get(photo.uploader_id ?? "") ?? 0),
+              uploaderStats.get(photo.uploader_id ?? "")?.photoCount ?? 0,
           }
         : null,
     })),
@@ -180,5 +177,9 @@ export async function loadPublicPhotos({
             id: last.id,
           })
         : null,
+    totalCount: count ?? null,
+    uploaderStats: uploaderId
+      ? (uploaderStats.get(uploaderId) ?? NO_STATS)
+      : null,
   };
 }

@@ -8,7 +8,7 @@ import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { countPublicPhotos, loadPublicPhotos } from "@/lib/public-photos";
+import { loadPublicPhotos } from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { resolveSortMode } from "@/lib/sort-mode";
@@ -37,9 +37,8 @@ export default async function GalleryPage({
   const sort = resolveSortMode(Array.isArray(sortParam) ? sortParam[0] : sortParam);
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
-  const [page, photoCount, profile, settings, admin] = await Promise.all([
+  const [page, profile, settings, admin, job] = await Promise.all([
     loadPublicPhotos({ sort, viewerDeviceId: deviceId }),
-    countPublicPhotos(),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     getEventSettings().catch(() => ({
@@ -48,8 +47,12 @@ export default async function GalleryPage({
       freezeOffsetDays: DEFAULT_FREEZE_OFFSET_DAYS,
     })),
     isAdmin(),
+    // Only the frozen gallery shows it, but asking alongside the rest keeps it
+    // off the critical path once frozen — which is where the gallery stays.
+    getExportJob("public").catch(() => null),
   ]);
   const uploadsFrozen = settings.uploadsFrozen;
+  const photoCount = page.totalCount ?? 0;
 
   const uploadDaysLeft = daysUntilFreeze(settings, new Date());
   const uploadWindowLine =
@@ -64,9 +67,7 @@ export default async function GalleryPage({
           });
 
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
-  const exportJob = uploadsFrozen
-    ? await getExportJob("public").catch(() => null)
-    : null;
+  const exportJob = uploadsFrozen ? job : null;
 
   if (page.photos.length === 0) {
     return (
@@ -130,7 +131,11 @@ export default async function GalleryPage({
         <div className="flex flex-1 flex-col pt-3.5">
           <PhotoGrid
             photos={page.photos}
-            feed={{ sort, nextCursor: page.nextCursor }}
+            feed={{
+              endpoint: "/api/photos",
+              search: `sort=${sort}`,
+              nextCursor: page.nextCursor,
+            }}
             emptyLabel={dict.gallery.empty}
             likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
             viewer={{

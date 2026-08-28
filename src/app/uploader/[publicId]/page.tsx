@@ -4,7 +4,7 @@ import { isAdmin } from "@/lib/admin-session";
 import { getDeviceId } from "@/lib/device";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { loadPublicPhotos, loadPublicPhotoStats } from "@/lib/public-photos";
+import { loadPublicPhotos } from "@/lib/public-photos";
 import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderByPublicId, getUploaderProfile } from "@/lib/uploaders";
 import { LocaleToggle } from "../../locale-toggle";
@@ -32,16 +32,16 @@ export default async function UploaderPage({
   if (!uploader) notFound();
 
   const deviceId = await getDeviceId();
-  const [page, stats, viewerProfile, admin] = await Promise.all([
+  const [page, viewerProfile, admin] = await Promise.all([
     loadPublicPhotos({
       sort,
       uploaderId: uploader.uploaderId,
       viewerDeviceId: deviceId,
     }),
-    loadPublicPhotoStats(uploader.uploaderId),
     deviceId ? getUploaderProfile(deviceId) : null,
     isAdmin(),
   ]);
+  const stats = page.uploaderStats ?? { photoCount: 0, likeTotal: 0 };
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
@@ -100,7 +100,11 @@ export default async function UploaderPage({
       <div className="flex flex-1 flex-col pt-3.5">
         <PhotoGrid
           photos={page.photos}
-          feed={{ sort, nextCursor: page.nextCursor, uploaderPublicId: publicId }}
+          feed={{
+            endpoint: "/api/photos",
+            search: `sort=${sort}&uploader=${publicId}`,
+            nextCursor: page.nextCursor,
+          }}
           emptyLabel={dict.uploaderPage.empty}
           likeLabels={{ like: dict.gallery.like, unlike: dict.gallery.unlike }}
           viewer={{
