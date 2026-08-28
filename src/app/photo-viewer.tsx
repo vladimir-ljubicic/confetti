@@ -75,6 +75,7 @@ export function PhotoViewer({
 
   const trackRef = useRef<HTMLDivElement>(null);
   const { busy, failed, run } = useServerAction();
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -173,11 +174,26 @@ export function PhotoViewer({
     if (ok) hideCurrent();
   }
 
+  // Shares the untouched original as a file where the browser supports it;
+  // otherwise shares a gallery link that opens this photo.
   async function share() {
-    const url = current.imageUrl;
-    if (!url) return;
+    let payload: ShareData = {
+      url: `${window.location.origin}/?photo=${current.id}`,
+    };
+    if (typeof navigator.canShare === "function") {
+      setSharing(true);
+      const file = await fetch(`/api/photos/${current.id}/download`)
+        .then(async (response) => {
+          if (!response.ok) return null;
+          const blob = await response.blob();
+          return new File([blob], current.originalFilename, { type: blob.type });
+        })
+        .catch(() => null);
+      setSharing(false);
+      if (file && navigator.canShare({ files: [file] })) payload = { files: [file] };
+    }
     try {
-      await navigator.share({ url });
+      await navigator.share(payload);
     } catch {
       // Cancelled share sheet.
     }
@@ -302,9 +318,10 @@ export function PhotoViewer({
           {canShare && (
             <button
               type="button"
+              disabled={sharing}
               onClick={() => void share()}
               aria-label={labels.share}
-              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper transition active:bg-[rgba(250,246,238,0.12)]"
+              className="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[rgba(250,246,238,0.28)] text-[15px] text-paper transition active:bg-[rgba(250,246,238,0.12)] disabled:opacity-60"
             >
               ↗
             </button>

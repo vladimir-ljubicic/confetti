@@ -44,6 +44,7 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
     id: photo.id,
     uploadedAt: photo.uploaded_at,
     imageUrl: imageUrls[index],
+    originalFilename: photo.original_filename,
     visibility: photo.visibility,
     likeCount: photo.like_count,
     likedByViewer: viewerLikes.has(photo.id),

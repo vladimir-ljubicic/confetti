@@ -21,6 +21,7 @@ export type PublicPhoto = {
   id: string;
   uploadedAt: string;
   imageUrl: string | null;
+  originalFilename: string;
   likeCount: number;
   likedByViewer: boolean;
   ownedByViewer: boolean;
@@ -114,6 +115,7 @@ export async function loadPublicPhotos({
     id: photo.id,
     uploadedAt: photo.uploaded_at,
     imageUrl: imageUrls[index],
+    originalFilename: photo.original_filename,
     likeCount: photo.like_count,
     likedByViewer: viewerLikes.has(photo.id),
     ownedByViewer:

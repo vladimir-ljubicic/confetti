@@ -86,6 +86,19 @@ export function PhotoGrid({
     removeTiles(absorbedKey.split(",").map(Number));
   }, [removeTiles, absorbedKey]);
 
+  // A shared /?photo=<id> link opens the viewer on that photo. The param is
+  // consumed immediately so closing the viewer or reloading doesn't reopen it.
+  useEffect(() => {
+    if (!viewer) return;
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get("photo");
+    if (id === null) return;
+    url.searchParams.delete("photo");
+    window.history.replaceState(null, "", url);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (photoIds.has(id)) setViewerStartId(id);
+  }, [viewer, photoIds]);
+
   const visibleTiles = tiles.filter((tile) => !absorbedIds.includes(tile.id));
 
   if (photos.length === 0 && visibleTiles.length === 0) {

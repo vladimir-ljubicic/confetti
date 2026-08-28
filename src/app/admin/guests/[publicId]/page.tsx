@@ -68,6 +68,7 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
     id: photo.id,
     uploadedAt: photo.uploaded_at,
     imageUrl: imageUrls[index],
+    originalFilename: photo.original_filename,
     likeCount: photo.like_count,
     likedByViewer: false,
     ownedByViewer: false,
