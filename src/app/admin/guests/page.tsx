@@ -1,69 +1,30 @@
 import { redirect } from "next/navigation";
-import { groupPhotosByUploader } from "@/lib/admin-photos";
+import { loadAdminSummary, type AdminPhotoCounts } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { supabaseAdmin } from "@/lib/supabase-server";
-import type { Visibility } from "@/lib/uploader-profile";
 import { AdminChrome, adminChromeLabels } from "../admin-chrome";
 import { GuestRow } from "./guest-row";
 
 export const dynamic = "force-dynamic";
 
-type GuestPhotoRow = {
-  id: string;
-  visibility: Visibility;
-  uploaders: { display_name: string | null; public_id: string } | null;
-};
-
-async function loadGuestGroups() {
-  const { data, error } = await supabaseAdmin()
-    .from("photos")
-    .select("id, visibility, uploaders (display_name, public_id)")
-    .not("uploaded_at", "is", null)
-    .is("deleted_at", null);
-  if (error) throw new Error(`Loading photos failed: ${error.message}`);
-  return groupPhotosByUploader(
-    (data as unknown as GuestPhotoRow[]).map((photo) => ({
-      id: photo.id,
-      visibility: photo.visibility,
-      uploader: photo.uploaders?.display_name
-        ? {
-            displayName: photo.uploaders.display_name,
-            publicId: photo.uploaders.public_id,
-          }
-        : null,
-    })),
-  );
-}
-
-async function countBinPhotos(): Promise<number> {
-  const { count, error } = await supabaseAdmin()
-    .from("photos")
-    .select("id", { count: "exact", head: true })
-    .not("deleted_at", "is", null);
-  if (error) throw new Error(`Counting deleted photos failed: ${error.message}`);
-  return count ?? 0;
-}
-
 export default async function AdminGuestsPage() {
   if (!(await isAdmin())) redirect("/admin");
 
-  const [locale, dict, groups, binCount] = await Promise.all([
+  const [locale, dict, summary] = await Promise.all([
     getLocale(),
     getDict(),
-    loadGuestGroups(),
-    countBinPhotos(),
+    loadAdminSummary(),
   ]);
   const labels = dict.admin;
+  const guestCount = summary.uploaders.length + (summary.unnamed ? 1 : 0);
 
-  const countsLine = (photos: { visibility: Visibility }[]) => {
-    const total = pluralize(locale, photos.length, {
+  const countsLine = ({ photoCount, privateCount }: AdminPhotoCounts) => {
+    const total = pluralize(locale, photoCount, {
       one: labels.photosOne,
       few: labels.photosFew,
       many: labels.photosMany,
     });
-    const privateCount = photos.filter((photo) => photo.visibility === "private").length;
     if (privateCount === 0) return total;
     return `${total} · ${pluralize(locale, privateCount, {
       one: labels.privateOne,
@@ -76,8 +37,8 @@ export default async function AdminGuestsPage() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
         locale={locale}
-        binCount={binCount}
-        title={pluralize(locale, groups.length, {
+        binCount={summary.binCount}
+        title={pluralize(locale, guestCount, {
           one: labels.guestsOne,
           few: labels.guestsFew,
           many: labels.guestsMany,
@@ -86,35 +47,31 @@ export default async function AdminGuestsPage() {
         labels={adminChromeLabels(dict)}
       />
 
-      {groups.length === 0 ? (
+      {guestCount === 0 ? (
         <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
       ) : (
         <ul className="flex flex-col gap-2 px-3.5 pb-8">
-          {groups.map((group) =>
-            group.uploader ? (
-              <GuestRow
-                key={group.uploader.publicId}
-                publicId={group.uploader.publicId}
-                name={group.uploader.displayName}
-                countsLine={countsLine(group.photos)}
-                labels={{
-                  rename: labels.rename,
-                  renameSave: labels.renameSave,
-                  renameCancel: labels.renameCancel,
-                  actionFailed: labels.actionFailed,
-                }}
-              />
-            ) : (
-              <li
-                key="unknown"
-                className="flex items-center justify-between gap-3 rounded-card bg-card px-3.5 py-3"
-              >
-                <span className="text-[15px] text-ink">{labels.unknownUploader}</span>
-                <span className="text-meta whitespace-nowrap text-ink/55">
-                  {countsLine(group.photos)}
-                </span>
-              </li>
-            ),
+          {summary.uploaders.map((uploader) => (
+            <GuestRow
+              key={uploader.publicId}
+              publicId={uploader.publicId}
+              name={uploader.displayName}
+              countsLine={countsLine(uploader)}
+              labels={{
+                rename: labels.rename,
+                renameSave: labels.renameSave,
+                renameCancel: labels.renameCancel,
+                actionFailed: labels.actionFailed,
+              }}
+            />
+          ))}
+          {summary.unnamed && (
+            <li className="flex items-center justify-between gap-3 rounded-card bg-card px-3.5 py-3">
+              <span className="text-[15px] text-ink">{labels.unknownUploader}</span>
+              <span className="text-meta whitespace-nowrap text-ink/55">
+                {countsLine(summary.unnamed)}
+              </span>
+            </li>
           )}
         </ul>
       )}

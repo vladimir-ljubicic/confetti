@@ -1,89 +1,19 @@
 import { viewerLabels } from "@/app/viewer-labels";
-import { groupPhotosByUploader } from "@/lib/admin-photos";
+import { parseAdminFilter } from "@/lib/admin-filter";
+import { loadAdminPhotos, loadAdminSummary } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { getEventSettings } from "@/lib/event-settings";
 import { formatSize } from "@/lib/export";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrls } from "@/lib/photo-urls";
-import { supabaseAdmin } from "@/lib/supabase-server";
-import type { Visibility } from "@/lib/uploader-profile";
 import { AdminChrome, AdminTopRow, adminChromeLabels } from "./admin-chrome";
 import { AdminDownloadRow } from "./download-row";
-import {
-  AdminPhotoGrid,
-  type AdminFilter,
-  type AdminFilterChip,
-  type AdminPhoto,
-} from "./admin-photo-grid";
+import { AdminPhotoGrid, type AdminFilterChip } from "./admin-photo-grid";
 import { FreezeToggle } from "./freeze-toggle";
 import { AdminLoginForm } from "./login-form";
 
 export const dynamic = "force-dynamic";
-
-type AdminPhotoRow = {
-  id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
-  original_filename: string;
-  size_bytes: number;
-  visibility: Visibility;
-  like_count: number;
-  uploaded_at: string;
-  uploaders: { display_name: string | null; public_id: string } | null;
-};
-
-async function loadAllPhotos(): Promise<{ photos: AdminPhoto[]; totalBytes: number }> {
-  const { data, error } = await supabaseAdmin()
-    .from("photos")
-    .select(
-      "id, storage_path, thumbnail_path, original_filename, size_bytes, visibility, like_count, uploaded_at, uploaders (display_name, public_id)",
-    )
-    .not("uploaded_at", "is", null)
-    .is("deleted_at", null)
-    .order("uploaded_at", { ascending: false });
-  if (error) throw new Error(`Loading photos failed: ${error.message}`);
-  const rows = data as unknown as AdminPhotoRow[];
-  const totalBytes = rows.reduce((sum, photo) => sum + photo.size_bytes, 0);
-  // The viewer's uploader pill shows the guest's public photo count, matching
-  // their public gallery page.
-  const publicCounts = new Map<string, number>();
-  for (const row of rows) {
-    const publicId = row.uploaders?.public_id;
-    if (publicId && row.visibility === "public") {
-      publicCounts.set(publicId, (publicCounts.get(publicId) ?? 0) + 1);
-    }
-  }
-  const imageUrls = await galleryImageUrls(rows);
-  const photos = rows.map((photo, index) => ({
-    id: photo.id,
-    uploadedAt: photo.uploaded_at,
-    imageUrl: imageUrls[index],
-    originalFilename: photo.original_filename,
-    likeCount: photo.like_count,
-    likedByViewer: false,
-    ownedByViewer: false,
-    visibility: photo.visibility,
-    uploader: photo.uploaders?.display_name
-      ? {
-          displayName: photo.uploaders.display_name,
-          publicId: photo.uploaders.public_id,
-          photoCount: publicCounts.get(photo.uploaders.public_id) ?? 0,
-        }
-      : null,
-  }));
-  return { photos, totalBytes };
-}
-
-async function countBinPhotos(): Promise<number> {
-  const { count, error } = await supabaseAdmin()
-    .from("photos")
-    .select("id", { count: "exact", head: true })
-    .not("deleted_at", "is", null);
-  if (error) throw new Error(`Counting deleted photos failed: ${error.message}`);
-  return count ?? 0;
-}
 
 export default async function AdminPage({
   searchParams,
@@ -110,59 +40,43 @@ export default async function AdminPage({
     );
   }
 
-  const [{ photos, totalBytes }, binCount, settings, exportJob, params] =
-    await Promise.all([
-      loadAllPhotos(),
-      countBinPhotos(),
-      getEventSettings(),
-      getExportJob("admin").catch(() => null),
-      searchParams,
-    ]);
-  const uploaderFilter = Array.isArray(params.uploader)
-    ? params.uploader[0]
-    : params.uploader;
-  const privateFilter =
-    (Array.isArray(params.filter) ? params.filter[0] : params.filter) === "private";
+  const filter = parseAdminFilter(await searchParams);
+  const [summary, page, settings, exportJob] = await Promise.all([
+    loadAdminSummary(),
+    loadAdminPhotos({ filter }),
+    getEventSettings(),
+    getExportJob("admin").catch(() => null),
+  ]);
 
-  const exportSizeBytes = exportJob?.zip_size_bytes ?? totalBytes;
-  const groups = groupPhotosByUploader(photos);
-  const privateCount = photos.filter((photo) => photo.visibility === "private").length;
-  const initialFilter: AdminFilter = privateFilter
-    ? { kind: "private" }
-    : uploaderFilter
-      ? { kind: "uploader", publicId: uploaderFilter }
-      : { kind: "all" };
+  const exportSizeBytes = exportJob?.zip_size_bytes ?? summary.totalBytes;
+  const guestCount = summary.uploaders.length + (summary.unnamed ? 1 : 0);
   const chips: AdminFilterChip[] = [
-    { kind: "all", label: labels.filterAll },
+    { kind: "all", label: labels.filterAll, count: summary.totalCount },
     {
       kind: "private",
-      label: labels.filterPrivate.replace("{count}", String(privateCount)),
+      label: labels.filterPrivate.replace("{count}", String(summary.privateCount)),
+      count: summary.privateCount,
     },
-    ...groups.flatMap((group) =>
-      group.uploader
-        ? [
-            {
-              kind: "uploader" as const,
-              publicId: group.uploader.publicId,
-              label: `${group.uploader.displayName} ${group.photos.length}`,
-            },
-          ]
-        : [],
-    ),
+    ...summary.uploaders.map((uploader) => ({
+      kind: "uploader" as const,
+      publicId: uploader.publicId,
+      label: `${uploader.displayName} ${uploader.photoCount}`,
+      count: uploader.photoCount,
+    })),
   ];
 
   const count = (total: number, forms: { one: string; few: string; many: string }) =>
     pluralize(locale, total, forms);
-  const title = count(photos.length, {
+  const title = count(summary.totalCount, {
     one: labels.photosOne,
     few: labels.photosFew,
     many: labels.photosMany,
   });
-  const sub = `${count(groups.length, {
+  const sub = `${count(guestCount, {
     one: labels.guestsOne,
     few: labels.guestsFew,
     many: labels.guestsMany,
-  })} · ${count(privateCount, {
+  })} · ${count(summary.privateCount, {
     one: labels.privateOne,
     few: labels.privateFew,
     many: labels.privateMany,
@@ -172,20 +86,21 @@ export default async function AdminPage({
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
         locale={locale}
-        binCount={binCount}
+        binCount={summary.binCount}
         title={title}
         sub={sub}
         labels={adminChromeLabels(dict)}
       />
 
-      {photos.length === 0 ? (
+      {summary.totalCount === 0 ? (
         <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
       ) : (
         <>
           <AdminPhotoGrid
-            photos={photos}
+            photos={page.photos}
+            nextCursor={page.nextCursor}
             chips={chips}
-            initialFilter={initialFilter}
+            initialFilter={filter}
             privateBadge={labels.privateBadge}
             locale={locale}
             viewerLabels={viewerLabels(dict)}
@@ -218,8 +133,8 @@ export default async function AdminPage({
           }
           labels={dict.downloadSheet}
           locale={locale}
-          photoCount={exportJob?.total_count ?? photos.length}
-          privateCount={privateCount}
+          photoCount={exportJob?.total_count ?? summary.totalCount}
+          privateCount={summary.privateCount}
           sizeBytes={exportSizeBytes > 0 ? exportSizeBytes : null}
           initialStatus={exportJob ? exportJobStatus(exportJob) : null}
         />

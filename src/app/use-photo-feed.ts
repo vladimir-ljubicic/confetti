@@ -1,27 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PublicPhoto, PublicPhotoPage } from "@/lib/public-photos";
-import type { SortMode } from "@/lib/sort-mode";
 
-// Where the pages after the server-rendered first one come from.
+// Where the pages after the first one come from. The search also identifies
+// the feed: a different one is a different order or a different set of photos,
+// so nothing fetched under it carries over.
 export type PhotoFeedSource = {
-  sort: SortMode;
+  endpoint: string;
+  search: string;
   nextCursor: string | null;
-  uploaderPublicId?: string;
 };
 
-export type PhotoFeed = {
-  photos: PublicPhoto[];
+export type FeedPage<T> = {
+  photos: T[];
+  nextCursor: string | null;
+};
+
+export type PhotoFeed<T> = {
+  photos: T[];
   // Place in the page a photo arrived with, for staggering its entrance;
-  // absent for the photos rendered on the server.
+  // absent for the photos the feed started with.
   enterOrder: ReadonlyMap<string, number>;
   loading: boolean;
   loadMore: () => void;
   sentinelRef: (node: HTMLDivElement | null) => void;
 };
 
-const NO_PAGES: PublicPhotoPage[] = [];
+const NO_PAGES: never[] = [];
 
 // Starts loading a page while the bottom of the gallery is still this far off,
 // so the grid keeps growing ahead of a fast scroll.
@@ -31,17 +36,17 @@ const PREFETCH_MARGIN = "800px";
 // waiting its turn would trail far behind the scroll.
 const MAX_STAGGERED_TILES = 8;
 
-export function usePhotoFeed(
-  serverPhotos: PublicPhoto[],
+export function usePhotoFeed<T extends { id: string }>(
+  serverPhotos: T[],
   source?: PhotoFeedSource,
-): PhotoFeed {
-  const key = `${source?.sort ?? ""}|${source?.uploaderPublicId ?? ""}`;
+): PhotoFeed<T> {
+  const key = source ? `${source.endpoint}?${source.search}` : "";
   const [fetched, setFetched] = useState<{
     key: string;
-    pages: PublicPhotoPage[];
+    pages: FeedPage<T>[];
   }>({ key, pages: NO_PAGES });
   const [loading, setLoading] = useState(false);
-  // Switching sort re-renders the page server-side under the new order, so
+  // The photos the feed starts from come back with the new search, so
   // everything fetched under the old one has to go.
   if (fetched.key !== key) setFetched({ key, pages: NO_PAGES });
   const pages = fetched.key === key ? fetched.pages : NO_PAGES;
@@ -51,7 +56,7 @@ export function usePhotoFeed(
     // A refreshed first page can overlap what was fetched below it (an upload
     // pushes rows down), so the first copy of a photo wins.
     const seen = new Set<string>();
-    const merged: PublicPhoto[] = [];
+    const merged: T[] = [];
     for (const photo of [serverPhotos, ...pages.map((page) => page.photos)].flat()) {
       if (seen.has(photo.id)) continue;
       seen.add(photo.id);
@@ -72,20 +77,20 @@ export function usePhotoFeed(
 
   const cursor =
     pages.length === 0 ? (source?.nextCursor ?? null) : (pages.at(-1)?.nextCursor ?? null);
-  const sort = source?.sort;
-  const uploaderPublicId = source?.uploaderPublicId;
+  const endpoint = source?.endpoint;
+  const search = source?.search;
 
   // Two triggers can land in the same tick (the sentinel and a swipe to the
   // end of the viewer), before any state has been re-rendered.
   const inFlight = useRef(false);
   const loadMore = useCallback(() => {
-    if (sort === undefined || cursor === null || inFlight.current) return;
+    if (endpoint === undefined || cursor === null || inFlight.current) return;
     inFlight.current = true;
     setLoading(true);
-    const params = new URLSearchParams({ sort, cursor });
-    if (uploaderPublicId) params.set("uploader", uploaderPublicId);
-    void fetch(`/api/photos?${params}`)
-      .then((response) => (response.ok ? (response.json() as Promise<PublicPhotoPage>) : null))
+    const params = new URLSearchParams(search);
+    params.set("cursor", cursor);
+    void fetch(`${endpoint}?${params}`)
+      .then((response) => (response.ok ? (response.json() as Promise<FeedPage<T>>) : null))
       .catch(() => null)
       .then((page) => {
         inFlight.current = false;
@@ -98,7 +103,7 @@ export function usePhotoFeed(
             : current,
         );
       });
-  }, [sort, uploaderPublicId, cursor, key]);
+  }, [endpoint, search, cursor, key]);
 
   // Held in a ref so the observer is set up once: re-observing a sentinel that
   // is already on screen fires again immediately, which after a failed page

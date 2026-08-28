@@ -1,39 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
 import { useLikes } from "@/app/use-likes";
+import { usePhotoFeed, type FeedPage } from "@/app/use-photo-feed";
+import {
+  adminFilterKey,
+  adminFilterSearch,
+  adminFilterUrl,
+  type AdminFilter,
+} from "@/lib/admin-filter";
+import type { AdminPhoto } from "@/lib/admin-gallery";
 import type { Locale } from "@/lib/i18n";
-import type { PublicPhoto } from "@/lib/public-photos";
-import type { Visibility } from "@/lib/uploader-profile";
 
-export type AdminPhoto = PublicPhoto & { visibility: Visibility };
+export type { AdminFilter, AdminPhoto };
 
-export type AdminFilter =
-  | { kind: "all" }
-  | { kind: "private" }
-  | { kind: "uploader"; publicId: string };
+export type AdminFilterChip = AdminFilter & { label: string; count: number };
 
-export type AdminFilterChip = AdminFilter & { label: string };
-
-function filterKey(filter: AdminFilter): string {
-  return filter.kind === "uploader" ? `uploader:${filter.publicId}` : filter.kind;
-}
-
-function filterUrl(filter: AdminFilter): string {
-  if (filter.kind === "private") return "/admin?filter=private";
-  if (filter.kind === "uploader") return `/admin?uploader=${filter.publicId}`;
-  return "/admin";
-}
-
-function matches(photo: AdminPhoto, filter: AdminFilter): boolean {
-  if (filter.kind === "all") return true;
-  if (filter.kind === "private") return photo.visibility === "private";
-  return photo.uploader?.publicId === filter.publicId;
-}
+const ADMIN_FEED = "/api/admin/photos";
 
 export function AdminPhotoGrid({
   photos,
+  nextCursor = null,
   chips,
   initialFilter,
   privateBadge,
@@ -41,7 +29,8 @@ export function AdminPhotoGrid({
   viewerLabels,
 }: {
   photos: AdminPhoto[];
-  // Without chips the grid shows what it is given, unfiltered.
+  nextCursor?: string | null;
+  // Without chips the grid shows what it is given, unfiltered and unpaged.
   chips?: AdminFilterChip[];
   initialFilter?: AdminFilter;
   privateBadge: string;
@@ -50,26 +39,71 @@ export function AdminPhotoGrid({
 }) {
   const likes = useLikes();
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<AdminFilter>(
-    initialFilter ?? { kind: "all" },
-  );
-  const shown = photos.filter((photo) => matches(photo, filter));
-  const activeKey = filterKey(filter);
+  // What the grid is showing, and what the pressed chip promises it will show
+  // — the two differ only while the new first page is on its way.
+  const [shown, setShown] = useState({
+    filter: initialFilter ?? ({ kind: "all" } as AdminFilter),
+    photos,
+    nextCursor,
+  });
+  const [active, setActive] = useState(shown.filter);
+  const [switching, setSwitching] = useState(false);
+  const wanted = useRef(adminFilterKey(shown.filter));
 
-  // The page holds every photo, so narrowing to one guest is local work. The
-  // address is rewritten in place — no navigation — so the view survives a
+  const {
+    photos: loaded,
+    loading,
+    loadMore,
+    sentinelRef,
+  } = usePhotoFeed(
+    shown.photos,
+    chips && {
+      endpoint: ADMIN_FEED,
+      search: adminFilterSearch(shown.filter),
+      nextCursor: shown.nextCursor,
+    },
+  );
+
+  // The address is rewritten in place — no navigation — so the view survives a
   // reload and can still be handed on as a link.
   function select(next: AdminFilter) {
-    setFilter(next);
-    window.history.replaceState(null, "", filterUrl(next));
+    const key = adminFilterKey(next);
+    if (key === wanted.current) return;
+    wanted.current = key;
+    window.history.replaceState(null, "", adminFilterUrl(next));
+    setActive(next);
+    setSwitching(true);
+    void fetch(`${ADMIN_FEED}?${adminFilterSearch(next)}`)
+      .then((response) =>
+        response.ok ? (response.json() as Promise<FeedPage<AdminPhoto>>) : null,
+      )
+      .catch(() => null)
+      .then((page) => {
+        // A slower earlier switch must not overwrite a later one.
+        if (key !== wanted.current) return;
+        setSwitching(false);
+        if (!page) {
+          wanted.current = adminFilterKey(shown.filter);
+          setActive(shown.filter);
+          return;
+        }
+        setShown({ filter: next, photos: page.photos, nextCursor: page.nextCursor });
+      });
   }
+
+  const activeKey = adminFilterKey(active);
+  // The viewer counts the whole filtered set, not just the pages loaded so far.
+  const shownKey = adminFilterKey(shown.filter);
+  const galleryCount = chips?.find(
+    (chip) => adminFilterKey(chip) === shownKey,
+  )?.count;
 
   return (
     <>
       {chips && (
         <div className="flex gap-2 overflow-x-auto px-4 pb-3.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {chips.map((chip) => {
-            const key = filterKey(chip);
+            const key = adminFilterKey(chip);
             return (
               <button
                 key={key}
@@ -89,8 +123,13 @@ export function AdminPhotoGrid({
         </div>
       )}
 
-      <ul className="grid grid-cols-3 gap-1.5 px-3.5">
-        {shown.map((photo) => (
+      <ul
+        aria-busy={switching}
+        className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
+          switching ? "opacity-45" : ""
+        }`}
+      >
+        {loaded.map((photo) => (
           <li key={photo.id} className="relative">
             <button
               type="button"
@@ -116,14 +155,26 @@ export function AdminPhotoGrid({
           </li>
         ))}
       </ul>
+      {chips && (
+        <div ref={sentinelRef} className="flex items-center justify-center pt-4">
+          {(loading || switching) && (
+            <span
+              aria-hidden
+              className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
+            />
+          )}
+        </div>
+      )}
       {viewerStartId !== null && (
         <PhotoViewer
-          photos={shown}
+          photos={loaded}
           startId={viewerStartId}
           likes={likes}
           canManageAll
           locale={locale}
           labels={viewerLabels}
+          galleryCount={galleryCount}
+          onNearEnd={loadMore}
           onClose={() => setViewerStartId(null)}
         />
       )}
