@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
@@ -15,6 +15,57 @@ import { useUploadQueue, type UploadTile } from "./upload-queue";
 type GridEntry =
   | { kind: "tile"; tile: UploadTile }
   | { kind: "photo"; photo: PublicPhoto };
+
+// Renders the local preview at full size until the signed image has actually
+// loaded, so a freshly uploaded photo keeps its pixels and height during the
+// swap instead of collapsing and re-growing as the real image arrives.
+function GalleryImage({
+  src,
+  previewUrl,
+  onSettled,
+}: {
+  src: string;
+  previewUrl?: string;
+  onSettled?: () => void;
+}) {
+  // Captured once: the tile (and its object URL) goes away after settling,
+  // and the prop change must not restructure the tree and remount the image.
+  const [preview] = useState(previewUrl);
+  const [settled, setSettled] = useState(preview === undefined);
+  const settledRef = useRef(settled);
+  const settle = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
+    setSettled(true);
+    onSettled?.();
+  };
+  if (preview === undefined) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" loading="lazy" className="w-full" />;
+  }
+  return (
+    <div className="relative">
+      {!settled && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={preview} alt="" className="w-full" />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        onLoad={settle}
+        onError={settle}
+        ref={(img) => {
+          // A cached image can be complete before onLoad ever fires.
+          if (img?.complete) settle();
+        }}
+        className={
+          settled ? "w-full" : "absolute inset-0 h-full w-full object-cover opacity-0"
+        }
+      />
+    </div>
+  );
+}
 
 function UploaderLabel({
   uploader,
@@ -75,16 +126,15 @@ export function PhotoGrid({
   );
 
   // Once the refreshed feed contains an uploaded photo, its optimistic tile
-  // is redundant and is dropped (which also revokes its preview URL).
-  const absorbedIds = tiles
-    .filter((tile) => tile.photoId !== null && photoIds.has(tile.photoId))
-    .map((tile) => tile.id);
-  const absorbedKey = absorbedIds.join(",");
+  // is hidden and its preview is handed to the photo entry, which drops the
+  // tile (revoking the preview URL) after the signed image has loaded.
+  const absorbedTiles = new Map<string, UploadTile>();
+  for (const tile of tiles) {
+    if (tile.photoId !== null && photoIds.has(tile.photoId)) {
+      absorbedTiles.set(tile.photoId, tile);
+    }
+  }
   const removeTiles = queue?.removeTiles;
-  useEffect(() => {
-    if (!removeTiles || absorbedKey === "") return;
-    removeTiles(absorbedKey.split(",").map(Number));
-  }, [removeTiles, absorbedKey]);
 
   // A shared /?photo=<id> link opens the viewer on that photo. The param is
   // consumed immediately so closing the viewer or reloading doesn't reopen it.
@@ -99,11 +149,22 @@ export function PhotoGrid({
     if (photoIds.has(id)) setViewerStartId(id);
   }, [viewer, photoIds]);
 
-  const visibleTiles = tiles.filter((tile) => !absorbedIds.includes(tile.id));
+  const visibleTiles = tiles.filter(
+    (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
+  );
 
   if (photos.length === 0 && visibleTiles.length === 0) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
   }
+
+  const absorbProps = (photo: PublicPhoto) => {
+    const tile = absorbedTiles.get(photo.id);
+    return {
+      previewUrl: tile?.previewUrl,
+      onSettled:
+        tile && removeTiles ? () => removeTiles([tile.id]) : undefined,
+    };
+  };
 
   const entries: GridEntry[] = [
     ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
@@ -143,21 +204,15 @@ export function PhotoGrid({
                         onClick={() => setViewerStartId(entry.photo.id)}
                         className="block w-full"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <GalleryImage
                           src={entry.photo.imageUrl}
-                          alt=""
-                          loading="lazy"
-                          className="w-full"
+                          {...absorbProps(entry.photo)}
                         />
                       </button>
                     ) : (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <GalleryImage
                         src={entry.photo.imageUrl}
-                        alt=""
-                        loading="lazy"
-                        className="w-full"
+                        {...absorbProps(entry.photo)}
                       />
                     )
                   ) : (
