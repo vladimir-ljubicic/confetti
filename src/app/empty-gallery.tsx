@@ -1,3 +1,4 @@
+import { COUPLE_NAMES } from "@/lib/couple";
 import type { Dictionary } from "@/lib/dictionaries";
 import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
@@ -34,11 +35,11 @@ export function EmptyGallery({
           {dict.gallery.eyebrow}
         </span>
         <h1 className="font-serif text-[48px] leading-[1.02] font-medium text-gold-small">
-          Јелена
+          {COUPLE_NAMES[locale].first}
           <br />
-          <span className="text-[32px] text-gold italic">и</span>
+          <span className="text-[32px] text-gold italic">{COUPLE_NAMES[locale].and}</span>
           <br />
-          Владимир
+          {COUPLE_NAMES[locale].second}
         </h1>
         <div className="flex items-center gap-2.5 text-ink/35">
           <span className="block h-px w-[34px] bg-current" />

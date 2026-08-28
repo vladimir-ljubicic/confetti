@@ -15,8 +15,8 @@ const en = {
     emptyFootnote: "Photos are visible to all guests, unless you choose otherwise.",
     download: "Download",
     myPhotos: "My photos",
-    sortLive: "Live feed",
-    sortChrono: "Chronological",
+    sortLive: "Latest",
+    sortChrono: "Oldest",
     uploadsFrozen: "Uploads are paused for now — enjoy the gallery!",
     frozenTitle: "Thank you!",
     frozenBody:
@@ -137,19 +137,19 @@ const en = {
   },
   introSheet: {
     title: "Introduce yourself",
-    explainerLine1: "Your name appears next to your photos.",
-    explainerLine2: "We only ask the first time.",
+    explainerLine1: "Your name is shown with your photos.",
+    explainerLine2: "We only ask once.",
     firstNameLabel: "First name",
     lastNameLabel: "Surname",
     lastNameOptional: "optional",
-    visibilityLabel: "Who sees your photos",
+    visibilityLabel: "Who can see your photos",
     visibilityPublicTitle: "All guests",
-    visibilityPublicSub: "In the gallery for everyone",
-    visibilityPrivateTitle: "Just the newlyweds",
-    visibilityPrivateSub: "Private, you and us",
-    submitOne: "Save & upload {count} photo",
-    submitFew: "Save & upload {count} photos",
-    submitMany: "Save & upload {count} photos",
+    visibilityPublicSub: "In the shared gallery",
+    visibilityPrivateTitle: "Couple only",
+    visibilityPrivateSub: "Private, just us",
+    submitOne: "Save and upload {count} photo",
+    submitFew: "Save and upload {count} photos",
+    submitMany: "Save and upload {count} photos",
     cancel: "Cancel",
     saveFailed: "Saving failed — try again",
   },
@@ -240,7 +240,7 @@ export type Dictionary = {
 
 const sr: Dictionary = {
   meta: {
-    title: "Јелена & Владимир",
+    title: "Јелена и Владимир",
     description: "Фотографије са венчања — поделите своје!",
   },
   gallery: {

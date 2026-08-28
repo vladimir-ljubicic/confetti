@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { COUPLE_NAMES } from "@/lib/couple";
 import type { Locale } from "@/lib/i18n";
 import type { SortMode } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
@@ -206,11 +207,11 @@ export function GalleryHeader({
       <header className="flex flex-col items-center gap-[11px] px-7 pt-4 pb-[26px] text-center">
         <span className="text-[11px] text-gold uppercase tracking-[0.28em]">{labels.eyebrow}</span>
         <h1 className="font-serif text-masthead font-medium text-gold-small">
-          Јелена
+          {COUPLE_NAMES[locale].first}
           <br />
-          <span className="text-[31px] text-gold italic">и</span>
+          <span className="text-[31px] text-gold italic">{COUPLE_NAMES[locale].and}</span>
           <br />
-          Владимир
+          {COUPLE_NAMES[locale].second}
         </h1>
         <div className="flex items-center gap-2.5 text-ink/30">
           <span className="block h-px w-[34px] bg-current" />
@@ -230,7 +231,7 @@ export function GalleryHeader({
           }`}
         >
           <span className="font-serif text-[19px] leading-[1.15] whitespace-nowrap text-gold-small">
-            Јелена и Владимир
+            {COUPLE_NAMES[locale].oneLine}
           </span>
           <span className="text-[11px] tracking-[0.16em] text-ink/68">
             20.09.2026 · {photoCount}
