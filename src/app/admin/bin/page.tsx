@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-session";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrl } from "@/lib/photo-urls";
+import { galleryImageUrls } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { INTL_LOCALES, pluralize, type Locale } from "@/lib/i18n";
 import { RECYCLE_RETENTION_DAYS } from "@/lib/recycle-bin";
@@ -31,14 +31,14 @@ async function loadDeletedPhotos() {
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false });
   if (error) throw new Error(`Loading deleted photos failed: ${error.message}`);
-  return Promise.all(
-    (data as unknown as BinPhotoRow[]).map(async (photo) => ({
-      id: photo.id,
-      deletedAt: photo.deleted_at,
-      imageUrl: await galleryImageUrl(photo),
-      uploaderName: photo.uploaders?.display_name ?? null,
-    })),
-  );
+  const rows = data as unknown as BinPhotoRow[];
+  const imageUrls = await galleryImageUrls(rows);
+  return rows.map((photo, index) => ({
+    id: photo.id,
+    deletedAt: photo.deleted_at,
+    imageUrl: imageUrls[index],
+    uploaderName: photo.uploaders?.display_name ?? null,
+  }));
 }
 
 function deletedTime(iso: string, locale: Locale): string {

@@ -1,6 +1,6 @@
 import { getDeviceId } from "@/lib/device";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
+import { galleryImageUrls } from "@/lib/photo-urls";
 import { loadViewerLikes } from "@/lib/public-photos";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
@@ -33,21 +33,21 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`Loading own photos failed: ${error.message}`);
   const rows = data as OwnPhotoRow[];
-  const viewerLikes = await loadViewerLikes(
-    deviceId,
-    rows.map((row) => row.id),
-  );
-  return Promise.all(
-    rows.map(async (photo) => ({
-      id: photo.id,
-      uploadedAt: photo.uploaded_at,
-      imageUrl: await galleryImageUrl(photo),
-      downloadUrl: await originalDownloadUrl(photo),
-      visibility: photo.visibility,
-      likeCount: photo.like_count,
-      likedByViewer: viewerLikes.has(photo.id),
-    })),
-  );
+  const [viewerLikes, imageUrls] = await Promise.all([
+    loadViewerLikes(
+      deviceId,
+      rows.map((row) => row.id),
+    ),
+    galleryImageUrls(rows),
+  ]);
+  return rows.map((photo, index) => ({
+    id: photo.id,
+    uploadedAt: photo.uploaded_at,
+    imageUrl: imageUrls[index],
+    visibility: photo.visibility,
+    likeCount: photo.like_count,
+    likedByViewer: viewerLikes.has(photo.id),
+  }));
 }
 
 export default async function MyPhotosPage() {

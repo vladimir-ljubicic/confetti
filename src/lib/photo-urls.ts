@@ -22,24 +22,51 @@ async function signedUrl(path: string, options?: SignOptions): Promise<string | 
   return error ? null : data.signedUrl;
 }
 
-// Signed URL for rendering in the gallery: an image transform (JPEG/WebP out,
+// The rendering source for a photo: an image transform (JPEG/WebP out,
 // required for HEIC to render in Chrome/Firefox) when enabled, the
 // client-generated thumbnail for files above the transform source limit, the
 // signed original otherwise.
-export async function galleryImageUrl(photo: PhotoForUrl): Promise<string | null> {
-  const source = imageSource({
+function gallerySource(photo: PhotoForUrl) {
+  return imageSource({
     sizeBytes: photo.size_bytes,
     transformsEnabled: env.imageTransformsEnabled(),
     hasThumbnail: photo.thumbnail_path !== null,
   });
-  if (source.kind === "thumbnail" && photo.thumbnail_path) {
-    return signedUrl(photo.thumbnail_path);
+}
+
+function galleryPath(photo: PhotoForUrl): string {
+  return gallerySource(photo).kind === "thumbnail" && photo.thumbnail_path
+    ? photo.thumbnail_path
+    : photo.storage_path;
+}
+
+// Signed rendering URLs for a batch of photos, in input order. Plain paths
+// are signed in a single storage request; transform URLs cannot be batched
+// and are signed per photo.
+export async function galleryImageUrls(
+  photos: PhotoForUrl[],
+): Promise<(string | null)[]> {
+  const plainPaths = photos
+    .filter((photo) => gallerySource(photo).kind !== "transform")
+    .map(galleryPath);
+  const signedByPath = new Map<string, string>();
+  if (plainPaths.length > 0) {
+    const { data, error } = await supabaseAdmin()
+      .storage.from(PHOTOS_BUCKET)
+      .createSignedUrls(plainPaths, GALLERY_URL_TTL_SECONDS);
+    if (error) throw new Error(`Signing gallery URLs failed: ${error.message}`);
+    for (const entry of data) {
+      if (entry.signedUrl && entry.path) signedByPath.set(entry.path, entry.signedUrl);
+    }
   }
-  return signedUrl(
-    photo.storage_path,
-    source.kind === "transform"
-      ? { transform: { width: GALLERY_IMAGE_WIDTH, resize: "contain" } }
-      : undefined,
+  return Promise.all(
+    photos.map(async (photo) =>
+      gallerySource(photo).kind === "transform"
+        ? signedUrl(photo.storage_path, {
+            transform: { width: GALLERY_IMAGE_WIDTH, resize: "contain" },
+          })
+        : (signedByPath.get(galleryPath(photo)) ?? null),
+    ),
   );
 }
 

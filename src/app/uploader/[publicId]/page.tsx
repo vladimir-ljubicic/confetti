@@ -9,6 +9,7 @@ import { resolveSortMode } from "@/lib/sort-mode";
 import { getUploaderByPublicId, getUploaderProfile } from "@/lib/uploaders";
 import { LocaleToggle } from "../../locale-toggle";
 import { PhotoGrid } from "../../photo-grid";
+import { SortProvider } from "../../sort-context";
 import { SortToggle } from "../../sort-toggle";
 import { viewerLabels } from "../../viewer-labels";
 
@@ -44,6 +45,7 @@ export default async function UploaderPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
+      <SortProvider initial={sort}>
       <div className="sticky top-0 z-[4]">
         <div className="flex items-center justify-between bg-paper px-[18px] pt-3.5 pb-3">
           <Link
@@ -88,8 +90,6 @@ export default async function UploaderPage({
           {photos.length > 0 && (
             <div className="ml-auto">
               <SortToggle
-                sort={sort}
-                basePath={`/uploader/${publicId}`}
                 labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
               />
             </div>
@@ -106,6 +106,7 @@ export default async function UploaderPage({
           showUploader
         />
       </div>
+      </SortProvider>
     </main>
   );
 }

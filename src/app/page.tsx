@@ -17,6 +17,7 @@ import { DownloadAllButton } from "./download-all-button";
 import { EmptyGallery } from "./empty-gallery";
 import { GalleryHeader } from "./gallery-header";
 import { PhotoGrid } from "./photo-grid";
+import { SortProvider } from "./sort-context";
 import { UploadButton } from "./upload-button";
 import { UploadQueueProvider } from "./upload-queue";
 import { viewerLabels } from "./viewer-labels";
@@ -86,6 +87,7 @@ export default async function GalleryPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
+      <SortProvider initial={sort}>
       <UploadQueueProvider
         labels={{
           retry: dict.upload.retry,
@@ -98,7 +100,6 @@ export default async function GalleryPage({
         <GalleryHeader
           displayName={profile?.displayName ?? null}
           photoCount={photos.length}
-          sort={sort}
           locale={locale}
           eventDateIso={settings.eventDateIso}
           uploadWindowLine={uploadWindowLine}
@@ -158,6 +159,7 @@ export default async function GalleryPage({
           )}
         </div>
       </UploadQueueProvider>
+      </SortProvider>
     </main>
   );
 }

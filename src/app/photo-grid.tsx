@@ -7,6 +7,7 @@ import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
+import { useSort } from "./sort-context";
 import { UploadTileView } from "./upload-tile";
 import { useLikes } from "./use-likes";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
@@ -53,8 +54,21 @@ export function PhotoGrid({
 }) {
   const queue = useUploadQueue();
   const likes = useLikes();
+  const sortContext = useSort();
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const tiles = useMemo(() => queue?.tiles ?? [], [queue]);
+  // Reordering is client-side: the server sorts the initial render, and
+  // toggling re-sorts the rows already in the browser.
+  const sortedPhotos = useMemo(() => {
+    if (!sortContext) return photos;
+    const byNewest = (a: PublicPhoto, b: PublicPhoto) =>
+      Date.parse(b.uploadedAt) - Date.parse(a.uploadedAt);
+    return [...photos].sort(
+      sortContext.sort === "popular"
+        ? (a, b) => b.likeCount - a.likeCount || byNewest(a, b)
+        : byNewest,
+    );
+  }, [photos, sortContext]);
   const photoIds = useMemo(
     () => new Set(photos.map((photo) => photo.id)),
     [photos],
@@ -80,7 +94,7 @@ export function PhotoGrid({
 
   const entries: GridEntry[] = [
     ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
-    ...photos.map((photo): GridEntry => ({ kind: "photo", photo })),
+    ...sortedPhotos.map((photo): GridEntry => ({ kind: "photo", photo })),
   ];
   const columns = [
     entries.filter((_, index) => index % 2 === 0),
@@ -154,9 +168,9 @@ export function PhotoGrid({
                       labels={likeLabels}
                     />
                   )}
-                  {downloadLabel && entry.photo.downloadUrl && (
+                  {downloadLabel && (
                     <a
-                      href={entry.photo.downloadUrl}
+                      href={`/api/photos/${entry.photo.id}/download`}
                       className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
                     >
                       {downloadLabel}
@@ -170,7 +184,7 @@ export function PhotoGrid({
       </div>
       {viewer && viewerStartId !== null && (
         <PhotoViewer
-          photos={photos}
+          photos={sortedPhotos}
           startId={viewerStartId}
           likes={likes}
           canManageAll={viewer.canManageAll}

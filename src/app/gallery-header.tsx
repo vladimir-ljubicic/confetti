@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { COUPLE_NAMES } from "@/lib/couple";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
-import type { SortMode } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
 import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
@@ -54,7 +53,6 @@ function persistCoachMarkSeen() {
 export function GalleryHeader({
   displayName,
   photoCount,
-  sort,
   locale,
   eventDateIso,
   uploadWindowLine,
@@ -64,7 +62,6 @@ export function GalleryHeader({
 }: {
   displayName: string | null;
   photoCount: number;
-  sort: SortMode;
   locale: Locale;
   eventDateIso: string;
   uploadWindowLine?: string | null;
@@ -253,8 +250,6 @@ export function GalleryHeader({
         {photoCount > 0 && (
           <div className="ml-auto">
             <SortToggle
-              sort={sort}
-              basePath="/"
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}
             />
           </div>

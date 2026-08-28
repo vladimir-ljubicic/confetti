@@ -174,7 +174,7 @@ export function PhotoViewer({
   }
 
   async function share() {
-    const url = current.downloadUrl ?? current.imageUrl;
+    const url = current.imageUrl;
     if (!url) return;
     try {
       await navigator.share({ url });
@@ -271,14 +271,12 @@ export function PhotoViewer({
 
       <div className="flex flex-col gap-[13px] px-[18px] pt-5 pb-[26px]">
         <div className="flex gap-[9px]">
-          {current.downloadUrl && (
-            <a
-              href={current.downloadUrl}
-              className="flex flex-1 items-center justify-center rounded-pill bg-paper p-[15px] text-[15px] font-medium text-ink transition active:bg-sand"
-            >
-              {labels.download}
-            </a>
-          )}
+          <a
+            href={`/api/photos/${current.id}/download`}
+            className="flex flex-1 items-center justify-center rounded-pill bg-paper p-[15px] text-[15px] font-medium text-ink transition active:bg-sand"
+          >
+            {labels.download}
+          </a>
           <button
             type="button"
             onClick={() =>

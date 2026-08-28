@@ -7,7 +7,7 @@ import { formatSize } from "@/lib/export";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrl, originalDownloadUrl } from "@/lib/photo-urls";
+import { galleryImageUrls } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { AdminChrome, AdminTopRow, adminChromeLabels } from "./admin-chrome";
@@ -51,25 +51,23 @@ async function loadAllPhotos(): Promise<{ photos: AdminPhoto[]; totalBytes: numb
       publicCounts.set(publicId, (publicCounts.get(publicId) ?? 0) + 1);
     }
   }
-  const photos = await Promise.all(
-    rows.map(async (photo) => ({
-      id: photo.id,
-      uploadedAt: photo.uploaded_at,
-      imageUrl: await galleryImageUrl(photo),
-      downloadUrl: await originalDownloadUrl(photo),
-      likeCount: photo.like_count,
-      likedByViewer: false,
-      ownedByViewer: false,
-      visibility: photo.visibility,
-      uploader: photo.uploaders?.display_name
-        ? {
-            displayName: photo.uploaders.display_name,
-            publicId: photo.uploaders.public_id,
-            photoCount: publicCounts.get(photo.uploaders.public_id) ?? 0,
-          }
-        : null,
-    })),
-  );
+  const imageUrls = await galleryImageUrls(rows);
+  const photos = rows.map((photo, index) => ({
+    id: photo.id,
+    uploadedAt: photo.uploaded_at,
+    imageUrl: imageUrls[index],
+    likeCount: photo.like_count,
+    likedByViewer: false,
+    ownedByViewer: false,
+    visibility: photo.visibility,
+    uploader: photo.uploaders?.display_name
+      ? {
+          displayName: photo.uploaders.display_name,
+          publicId: photo.uploaders.public_id,
+          photoCount: publicCounts.get(photo.uploaders.public_id) ?? 0,
+        }
+      : null,
+  }));
   return { photos, totalBytes };
 }
 
