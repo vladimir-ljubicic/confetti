@@ -18,19 +18,39 @@ type GridEntry =
   | { kind: "tile"; tile: UploadTile }
   | { kind: "photo"; photo: PublicPhoto };
 
-// Renders the local preview at full size until the signed image has actually
-// loaded, so a freshly uploaded photo keeps its pixels and height during the
-// swap instead of collapsing and re-growing as the real image arrives.
+// Tiles this far into the grid are on screen before anything scrolls, so they
+// are fetched at once rather than waiting to be discovered as lazy.
+const EAGER_TILES = 6;
+
+// Stands in for a photo whose pixel size was never recorded, so its tile still
+// reserves a plausible height instead of collapsing to nothing.
+const FALLBACK_ASPECT = "3 / 4";
+
+function tileAspect(photo: PublicPhoto): string {
+  return photo.width && photo.height
+    ? `${photo.width} / ${photo.height}`
+    : FALLBACK_ASPECT;
+}
+
+// Renders the local preview until the signed image has actually loaded, so a
+// freshly uploaded photo keeps its pixels during the swap. Both images fill the
+// tile, whose height its aspect ratio has already reserved.
 function GalleryImage({
   photoId,
   src,
   alt,
+  width,
+  height,
+  eager,
   previewUrl,
   onSettled,
 }: {
   photoId: string;
   src: string;
   alt: string;
+  width: number | null;
+  height: number | null;
+  eager: boolean;
   previewUrl?: string;
   onSettled?: () => void;
 }) {
@@ -46,28 +66,25 @@ function GalleryImage({
     setSettled(true);
     onSettled?.();
   };
-  if (preview === undefined) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={image.src}
-        alt={alt}
-        loading="lazy"
-        onError={image.onError}
-        className="w-full"
-      />
-    );
-  }
   return (
-    <div className="relative">
-      {!settled && (
+    <span className="relative block h-full w-full">
+      {!settled && preview !== undefined && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={preview} alt="" className="w-full" />
+        <img
+          src={preview}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image.src}
         alt={alt}
+        width={width ?? undefined}
+        height={height ?? undefined}
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : "auto"}
+        decoding="async"
         onLoad={settle}
         onError={() => {
           settle();
@@ -77,11 +94,9 @@ function GalleryImage({
           // A cached image can be complete before onLoad ever fires.
           if (img?.complete) settle();
         }}
-        className={
-          settled ? "w-full" : "absolute inset-0 h-full w-full object-cover opacity-0"
-        }
+        className={`h-full w-full object-cover ${settled ? "" : "opacity-0"}`}
       />
-    </div>
+    </span>
   );
 }
 
@@ -200,7 +215,7 @@ export function PhotoGrid({
       <div className="grid w-full grid-cols-2 items-start gap-2 px-3">
         {columns.map((column, columnIndex) => (
           <ul key={columnIndex} className="flex flex-col gap-2">
-            {column.map((entry) =>
+            {column.map((entry, rowIndex) =>
               entry.kind === "tile" ? (
                 queue && (
                   <UploadTileView
@@ -221,6 +236,7 @@ export function PhotoGrid({
                     absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
                   }`}
                   style={{
+                    aspectRatio: tileAspect(entry.photo),
                     animationDelay: `${(enterOrder.get(entry.photo.id) ?? 0) * 40}ms`,
                   }}
                 >
@@ -230,12 +246,15 @@ export function PhotoGrid({
                         type="button"
                         aria-label={viewer.labels.open}
                         onClick={() => setViewerStartId(entry.photo.id)}
-                        className="block w-full"
+                        className="block h-full w-full"
                       >
                         <GalleryImage
                           photoId={entry.photo.id}
                           src={entry.photo.imageUrl}
                           alt={photoAltText(altLabels, entry.photo.uploader)}
+                          width={entry.photo.width}
+                          height={entry.photo.height}
+                          eager={rowIndex * 2 + columnIndex < EAGER_TILES}
                           {...absorbProps(entry.photo)}
                         />
                       </button>
@@ -244,12 +263,13 @@ export function PhotoGrid({
                         photoId={entry.photo.id}
                         src={entry.photo.imageUrl}
                         alt={photoAltText(altLabels, entry.photo.uploader)}
+                        width={entry.photo.width}
+                        height={entry.photo.height}
+                        eager={rowIndex * 2 + columnIndex < EAGER_TILES}
                         {...absorbProps(entry.photo)}
                       />
                     )
-                  ) : (
-                    <div className="aspect-3/4" />
-                  )}
+                  ) : null}
                   {showUploader && entry.photo.uploader && (
                     <UploaderLabel uploader={entry.photo.uploader} />
                   )}
