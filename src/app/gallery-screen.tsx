@@ -2,10 +2,8 @@ import { getDeviceId } from "@/lib/device";
 import {
   DEFAULT_EVENT_DATE_ISO,
   DEFAULT_FREEZE_OFFSET_DAYS,
-  daysUntilFreeze,
 } from "@/lib/event-schedule";
 import { getEventSettings } from "@/lib/event-settings";
-import { pluralize } from "@/lib/i18n";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadPublicPhotos } from "@/lib/public-photos";
@@ -20,6 +18,7 @@ import { GalleryView } from "./gallery-view";
 import { guestBarLabels } from "./guest-labels";
 import { UploadButton } from "./upload-button";
 import { UploadQueueProvider } from "./upload-queue";
+import { uploadWindowLine } from "./upload-window";
 import { photoAltLabels, viewerLabels } from "./viewer-labels";
 
 // Every route that shows the gallery renders this: the whole set of photos,
@@ -55,18 +54,6 @@ export async function GalleryScreen({
   ]);
   const uploadsFrozen = settings.uploadsFrozen;
   const photoCount = page.totalCount;
-
-  const uploadDaysLeft = daysUntilFreeze(settings, new Date());
-  const uploadWindowLine =
-    uploadsFrozen || uploadDaysLeft <= 0
-      ? null
-      : uploadDaysLeft === 1
-        ? dict.gallery.uploadWindowToday
-        : pluralize(locale, uploadDaysLeft, {
-            one: dict.gallery.uploadWindowOne,
-            few: dict.gallery.uploadWindowFew,
-            many: dict.gallery.uploadWindowMany,
-          });
 
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
   const exportJob = uploadsFrozen ? job : null;
@@ -120,7 +107,7 @@ export async function GalleryScreen({
               photoCount={photoCount}
               locale={locale}
               eventDateIso={settings.eventDateIso}
-              uploadWindowLine={uploadWindowLine}
+              uploadWindowLine={uploadWindowLine(dict, locale, settings, new Date())}
               labels={{
                 eyebrow: dict.gallery.eyebrow,
                 myPhotos: dict.gallery.myPhotos,

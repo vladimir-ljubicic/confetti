@@ -1,10 +1,7 @@
 import { getDict } from "@/lib/locale";
 
-const SKELETON_COLUMNS = [
-  ["aspect-3/4", "aspect-square", "aspect-4/5"],
-  ["aspect-square", "aspect-4/5", "aspect-3/4"],
-];
-
+// Only the bar, whose height is fixed. The grid below it has no stand-in: a
+// tile is as tall as its photo, which is not known until the photos are.
 export default async function Loading() {
   const dict = await getDict();
 
@@ -27,22 +24,6 @@ export default async function Loading() {
             <span className="block h-[11px] w-24 animate-pulse rounded-pill bg-sand" />
           </div>
         </div>
-      </div>
-
-      <div
-        aria-hidden
-        className="grid w-full grid-cols-2 items-start gap-2 px-3 pt-3.5 pb-26"
-      >
-        {SKELETON_COLUMNS.map((column, columnIndex) => (
-          <ul key={columnIndex} className="flex flex-col gap-2">
-            {column.map((aspect, index) => (
-              <li
-                key={index}
-                className={`${aspect} animate-pulse rounded-tile bg-sand`}
-              />
-            ))}
-          </ul>
-        ))}
       </div>
     </main>
   );
