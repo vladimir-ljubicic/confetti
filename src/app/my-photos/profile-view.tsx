@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
+import { LocaleToggle } from "../locale-toggle";
 import {
   PhotoViewer,
   type ViewerLabels,
@@ -45,6 +46,7 @@ export type ProfileLabels = {
   confirmDeleteMany: string;
   delete: string;
   actionFailed: string;
+  localeAriaLabel: string;
 };
 
 export type OwnPhoto = {
@@ -353,7 +355,7 @@ export function ProfileView({
           </button>
         </div>
       ) : (
-        <div className="sticky top-0 z-10 flex items-center bg-paper py-3 pr-3 pl-2">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-paper py-3 pr-3 pl-2">
           <Link
             href="/"
             className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink/70 transition hover:text-ink active:text-ink"
@@ -361,6 +363,7 @@ export function ProfileView({
             <span aria-hidden>←</span>
             {labels.backToGallery}
           </Link>
+          <LocaleToggle locale={locale} labels={{ ariaLabel: labels.localeAriaLabel }} />
         </div>
       )}
 

@@ -1,17 +1,23 @@
-import { getDict } from "@/lib/locale";
+import { getDict, getLocale } from "@/lib/locale";
+import { LocaleToggle } from "../locale-toggle";
 
 const SKELETON_TILES = 9;
 
 export default async function Loading() {
   const dict = await getDict();
+  const locale = await getLocale();
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
-      <div className="sticky top-0 z-10 flex items-center bg-paper py-3 pr-3 pl-2">
+      <div className="sticky top-0 z-10 flex items-center justify-between bg-paper py-3 pr-3 pl-2">
         <span className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink/70">
           <span aria-hidden>←</span>
           {dict.myPhotos.backToGallery}
         </span>
+        <LocaleToggle
+          locale={locale}
+          labels={{ ariaLabel: dict.localeToggle.ariaLabel }}
+        />
       </div>
 
       <header className="flex flex-col gap-1 px-5 pt-4 pb-3.5">

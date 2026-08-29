@@ -75,7 +75,7 @@ export default async function MyPhotosPage() {
         defaultVisibility={profile?.defaultVisibility ?? null}
         displayName={profile?.displayName ?? null}
         locale={locale}
-        labels={dict.myPhotos}
+        labels={{ ...dict.myPhotos, localeAriaLabel: dict.localeToggle.ariaLabel }}
         viewerLabels={viewerLabels(dict)}
       />
     </main>
