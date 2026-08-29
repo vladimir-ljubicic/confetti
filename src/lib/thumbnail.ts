@@ -37,9 +37,13 @@ async function decode(file: File): Promise<ImageBitmap | HTMLImageElement> {
   }
 }
 
+export type GeneratedThumbnail = { blob: Blob; width: number; height: number };
+
 // Downscaled JPEG every photo is rendered from, generated on the uploader's
 // device. Returns null when the browser cannot decode the file.
-export async function generateThumbnail(file: File): Promise<Blob | null> {
+export async function generateThumbnail(
+  file: File,
+): Promise<GeneratedThumbnail | null> {
   try {
     const source = await decode(file);
     const width = source instanceof HTMLImageElement ? source.naturalWidth : source.width;
@@ -55,9 +59,11 @@ export async function generateThumbnail(file: File): Promise<Blob | null> {
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
     if (source instanceof ImageBitmap) source.close();
 
-    return await new Promise<Blob | null>((resolve) => {
+    const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", THUMBNAIL_JPEG_QUALITY);
     });
+    if (!blob) return null;
+    return { blob, width: canvas.width, height: canvas.height };
   } catch {
     return null;
   }

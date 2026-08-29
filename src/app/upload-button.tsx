@@ -126,19 +126,27 @@ type UploadControl = {
   onTusStart: (abort: () => void) => void;
 };
 
+type ThumbnailSize = { width: number; height: number };
+
 // Best-effort: failures are swallowed and the upload proceeds without a
-// thumbnail.
-async function uploadThumbnail(file: File, uploadUrl: string): Promise<void> {
+// thumbnail. Returns the size the gallery will render at, or null when there
+// is no thumbnail to render.
+async function uploadThumbnail(
+  file: File,
+  uploadUrl: string,
+): Promise<ThumbnailSize | null> {
   try {
     const thumbnail = await generateThumbnail(file);
-    if (!thumbnail) return;
+    if (!thumbnail) return null;
     await fetch(uploadUrl, {
       method: "PUT",
       headers: { "content-type": "image/jpeg", "cache-control": "max-age=3600" },
-      body: thumbnail,
+      body: thumbnail.blob,
     });
+    return { width: thumbnail.width, height: thumbnail.height };
   } catch (error) {
     console.error("Thumbnail upload failed", error);
+    return null;
   }
 }
 
@@ -202,8 +210,12 @@ async function uploadFile(
     upload.start();
   });
 
-  await thumbnailUpload;
-  const complete = await fetch(`/api/uploads/${photoId}/complete`, { method: "POST" });
+  const thumbnailSize = await thumbnailUpload;
+  const complete = await fetch(`/api/uploads/${photoId}/complete`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ thumbnail: thumbnailSize }),
+  });
   if (!complete.ok) throw new Error(`Completing upload failed (${complete.status})`);
   return photoId;
 }

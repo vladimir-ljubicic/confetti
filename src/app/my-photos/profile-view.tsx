@@ -51,6 +51,8 @@ export type OwnPhoto = {
   id: string;
   uploadedAt: string;
   imageUrl: string | null;
+  width: number | null;
+  height: number | null;
   originalFilename: string;
   visibility: Visibility;
   likeCount: number;
@@ -204,6 +206,8 @@ export function ProfileView({
     id: photo.id,
     uploadedAt: photo.uploadedAt,
     imageUrl: photo.imageUrl,
+    width: photo.width,
+    height: photo.height,
     originalFilename: photo.originalFilename,
     visibility: photo.visibility,
     likeCount: photo.likeCount,

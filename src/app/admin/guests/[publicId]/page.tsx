@@ -45,13 +45,15 @@ type GuestPhotoRow = {
   visibility: Visibility;
   like_count: number;
   uploaded_at: string;
+  image_width: number | null;
+  image_height: number | null;
 };
 
 async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPhoto[]> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at",
+      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
     )
     .eq("uploader_id", guest.id)
     .not("uploaded_at", "is", null)
@@ -67,6 +69,8 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
     id: photo.id,
     uploadedAt: photo.uploaded_at,
     imageUrl: imageUrls[index],
+    width: photo.image_width,
+    height: photo.image_height,
     originalFilename: photo.original_filename,
     likeCount: photo.like_count,
     likedByViewer: false,

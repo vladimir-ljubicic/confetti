@@ -4,13 +4,26 @@ import { PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
+type ImageSize = { width: number; height: number };
+
+function parseThumbnailSize(body: unknown): ImageSize | null {
+  if (typeof body !== "object" || body === null) return null;
+  const { thumbnail } = body as Record<string, unknown>;
+  if (typeof thumbnail !== "object" || thumbnail === null) return null;
+  const { width, height } = thumbnail as Record<string, unknown>;
+  if (!Number.isInteger(width) || !Number.isInteger(height)) return null;
+  if ((width as number) < 1 || (height as number) < 1) return null;
+  return { width: width as number, height: height as number };
+}
+
 export async function POST(
-  _request: Request,
+  request: Request,
   context: RouteContext<"/api/uploads/[id]/complete">,
 ) {
   const { id } = await context.params;
   const deviceId = await getDeviceId();
   if (!deviceId) return jsonError("Unknown device", 403);
+  const thumbnailSize = parseThumbnailSize(await request.json().catch(() => null));
 
   const supabase = supabaseAdmin();
   const { data: photo, error } = await supabase
@@ -40,6 +53,10 @@ export async function POST(
     .update({
       uploaded_at: new Date().toISOString(),
       thumbnail_path: thumbnailPath,
+      // The size describes the thumbnail; without one the gallery falls back to
+      // the original, whose size the client never measured.
+      image_width: thumbnailPath ? (thumbnailSize?.width ?? null) : null,
+      image_height: thumbnailPath ? (thumbnailSize?.height ?? null) : null,
       ...(typeof object.size === "number" ? { size_bytes: object.size } : {}),
     })
     .eq("id", id)

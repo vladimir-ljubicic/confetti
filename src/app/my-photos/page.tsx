@@ -18,13 +18,15 @@ type OwnPhotoRow = {
   visibility: Visibility;
   like_count: number;
   uploaded_at: string;
+  image_width: number | null;
+  image_height: number | null;
 };
 
 async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at",
+      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
     )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)
@@ -43,6 +45,8 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
     id: photo.id,
     uploadedAt: photo.uploaded_at,
     imageUrl: imageUrls[index],
+    width: photo.image_width,
+    height: photo.image_height,
     originalFilename: photo.original_filename,
     visibility: photo.visibility,
     likeCount: photo.like_count,

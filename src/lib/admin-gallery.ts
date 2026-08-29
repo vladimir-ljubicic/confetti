@@ -28,6 +28,8 @@ type AdminPhotoRow = {
   visibility: Visibility;
   like_count: number;
   uploaded_at: string;
+  image_width: number | null;
+  image_height: number | null;
   uploader_id: string;
   uploaders: { display_name: string | null; public_id: string } | null;
 };
@@ -48,7 +50,7 @@ export async function loadAdminPhotos({
     // The join is inner so that filtering on the uploader narrows the photos
     // rather than blanking the embedded row.
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, uploader_id, uploaders!inner (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height, uploader_id, uploaders!inner (display_name, public_id)",
     )
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
@@ -76,6 +78,8 @@ export async function loadAdminPhotos({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
       imageUrl: imageUrls[index],
+      width: photo.image_width,
+      height: photo.image_height,
       originalFilename: photo.original_filename,
       likeCount: photo.like_count,
       likedByViewer: false,

@@ -17,6 +17,8 @@ type PublicPhotoRow = {
   original_filename: string;
   uploaded_at: string;
   like_count: number;
+  image_width: number | null;
+  image_height: number | null;
   uploader_id: string | null;
   uploaders: { display_name: string | null; public_id: string } | null;
 };
@@ -36,6 +38,10 @@ export type PublicPhoto = {
   id: string;
   uploadedAt: string;
   imageUrl: string | null;
+  // Pixel size of the image at `imageUrl`, so a tile can reserve its height
+  // before the image arrives; null when it was never recorded.
+  width: number | null;
+  height: number | null;
   originalFilename: string;
   likeCount: number;
   likedByViewer: boolean;
@@ -113,7 +119,7 @@ export async function loadPublicPhotos({
   let query = supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, uploaded_at, like_count, uploader_id, uploaders (display_name, public_id)",
+      "id, storage_path, thumbnail_path, original_filename, uploaded_at, like_count, image_width, image_height, uploader_id, uploaders (display_name, public_id)",
       wantsCount ? ({ count: "exact" } as const) : undefined,
     )
     .eq("visibility", "public")
@@ -154,6 +160,8 @@ export async function loadPublicPhotos({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
       imageUrl: imageUrls[index],
+      width: photo.image_width,
+      height: photo.image_height,
       originalFilename: photo.original_filename,
       likeCount: photo.like_count,
       likedByViewer: viewerLikes.has(photo.id),

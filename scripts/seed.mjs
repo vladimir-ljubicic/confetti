@@ -168,6 +168,30 @@ async function loadPool() {
   return pool;
 }
 
+// Pixel size from a JPEG's start-of-frame marker: the gallery reserves a tile's
+// height from it before the image loads.
+function jpegSize(image) {
+  let i = 2;
+  while (i + 9 < image.length) {
+    if (image[i] !== 0xff) {
+      i += 1;
+      continue;
+    }
+    const marker = image[i + 1];
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+      i += 2;
+      continue;
+    }
+    const isFrame =
+      marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+    if (isFrame) {
+      return { width: image.readUInt16BE(i + 7), height: image.readUInt16BE(i + 5) };
+    }
+    i += 2 + image.readUInt16BE(i + 2);
+  }
+  return null;
+}
+
 async function fetchImage(url, cacheKey) {
   const cached = `${CACHE_DIR}${cacheKey}.jpg`;
   if (existsSync(cached)) return readFileSync(cached);
@@ -261,6 +285,7 @@ async function seed() {
         console.warn(`  no thumbnail (download failed): ${source.thumbnailUrl}`);
         thumbPath = null;
       }
+      const rendered = jpegSize(thumbnail ?? image);
 
       const uploadedAt = new Date(now - randInt(0, 72) * 3_600_000 - randInt(0, 3_600_000));
       const takenAt = new Date(uploadedAt.getTime() - randInt(0, 6) * 3_600_000);
@@ -272,6 +297,8 @@ async function seed() {
         original_filename: `IMG_${fileNumber++}.jpg`,
         content_type: "image/jpeg",
         size_bytes: image.byteLength,
+        image_width: rendered?.width ?? null,
+        image_height: rendered?.height ?? null,
         visibility: rand() < 0.05 ? "private" : "public",
         media_type: "photo",
         taken_at: takenAt.toISOString(),
