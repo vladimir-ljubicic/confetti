@@ -1,12 +1,18 @@
 // Seeds the database with demo guests, photos, and likes.
 //
-//   node scripts/seed.mjs           # wipe previous seed data, then seed
-//   node scripts/seed.mjs --clean   # wipe previous seed data only
+//   node scripts/seed.mjs           # wipe everything, then seed
+//   node scripts/seed.mjs --clean   # wipe everything only
+//
+// The wipe empties every gallery table and both storage buckets, so whatever a
+// run leaves behind is exactly what it seeded. Event settings are left alone.
 //
 // Photos come from Pexels, searched by wedding-related queries and cached under
 // scripts/.cache/pexels so re-runs don't re-download. Needs PEXELS_API_KEY in
-// .env.local (free key from https://www.pexels.com/api/). Seeded uploaders use
-// ids starting with "5eed", which is how cleanup finds everything it created.
+// .env.local (free key from https://www.pexels.com/api/).
+//
+// Far fewer distinct images are downloaded than photos are seeded: the pool is
+// reused across guests, and each seeded photo still gets its own storage object
+// because storage_path is unique per row.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -24,21 +30,41 @@ const supabase = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
-// uuid columns don't support `like`; seed ids are matched by range instead.
-const SEED_ID_MIN = "5eed0000-0000-0000-0000-000000000000";
-const SEED_ID_MAX = "5eee0000-0000-0000-0000-000000000000";
+const BUCKETS = ["photos", "exports"];
 
-const GUESTS = [
-  { id: "5eed0000-0000-4000-8000-000000000001", name: "Ana Marić" },
-  { id: "5eed0000-0000-4000-8000-000000000002", name: "Marko Jovanović" },
-  { id: "5eed0000-0000-4000-8000-000000000003", name: "Jelena Petrović" },
-  { id: "5eed0000-0000-4000-8000-000000000004", name: "Nikola Ilić" },
-  { id: "5eed0000-0000-4000-8000-000000000005", name: "Milica Stojanović" },
-  { id: "5eed0000-0000-4000-8000-000000000006", name: "Stefan Đorđević" },
-  { id: "5eed0000-0000-4000-8000-000000000007", name: "Ivana Nikolić" },
-  { id: "5eed0000-0000-4000-8000-000000000008", name: "Luka Pavlović" },
-  { id: "5eed0000-0000-4000-8000-000000000009", name: "Teodora Simić" },
-  { id: "5eed0000-0000-4000-8000-000000000010", name: "Vuk Radovanović" },
+// Supabase caps a storage listing at 1000 entries and a removal at 1000 paths.
+const STORAGE_PAGE = 1000;
+
+const GUEST_COUNT = 100;
+
+// Public photos that are not in the bin, which is what the gallery loads. Set
+// to GALLERY_MAX_PHOTOS in src/lib/public-photos.ts so the gallery sits at its
+// cap.
+const GALLERY_PHOTO_COUNT = 2000;
+const PRIVATE_PHOTO_COUNT = 110;
+const DELETED_PHOTO_COUNT = 90;
+const TOTAL_PHOTO_COUNT =
+  GALLERY_PHOTO_COUNT + PRIVATE_PHOTO_COUNT + DELETED_PHOTO_COUNT;
+
+// Devices that like photos without ever having uploaded one.
+const LIKE_DEVICE_COUNT = 200;
+
+const UPLOAD_WINDOW_HOURS = 24 * 7;
+
+const CONCURRENCY = 12;
+const INSERT_BATCH = 500;
+
+const FIRST_NAMES = [
+  "Ana", "Marko", "Jelena", "Nikola", "Milica", "Stefan", "Ivana", "Luka",
+  "Teodora", "Vuk", "Sara", "Filip", "Katarina", "Uroš", "Anđela", "Petar",
+  "Mina", "Dušan", "Tijana", "Lazar",
+];
+
+const LAST_NAMES = [
+  "Marić", "Jovanović", "Petrović", "Ilić", "Stojanović", "Đorđević",
+  "Nikolić", "Pavlović", "Simić", "Radovanović", "Kovačević", "Popović",
+  "Todorović", "Milošević", "Ristić", "Lukić", "Božović", "Vasić",
+  "Janković", "Perić",
 ];
 
 const QUERIES = [
@@ -73,49 +99,106 @@ function mulberry32(seed) {
 const rand = mulberry32(20260920);
 const randInt = (min, max) => min + Math.floor(rand() * (max - min + 1));
 
+function shuffle(items) {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
 function fail(message, error) {
   console.error(message, error ?? "");
   process.exit(1);
 }
 
-async function clean() {
-  const { data: uploaders, error } = await supabase
-    .from("uploaders")
-    .select("id")
-    .gte("id", SEED_ID_MIN)
-    .lt("id", SEED_ID_MAX);
-  if (error) fail("listing seeded uploaders failed:", error);
-  if (uploaders.length === 0) {
-    console.log("no seed data found");
-    return;
-  }
-  const ids = uploaders.map((u) => u.id);
+async function mapLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await worker(items[index], index);
+      }
+    }),
+  );
+  return results;
+}
 
-  for (const id of ids) {
-    const { data: objects, error: listError } = await supabase.storage
-      .from("photos")
-      .list(id, { limit: 1000 });
-    if (listError) fail(`listing storage for ${id} failed:`, listError);
-    if (objects.length > 0) {
-      const { error: removeError } = await supabase.storage
-        .from("photos")
-        .remove(objects.map((o) => `${id}/${o.name}`));
-      if (removeError) fail(`removing storage for ${id} failed:`, removeError);
-    }
+function chunk(items, size) {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+function guests() {
+  const names = [];
+  for (const last of LAST_NAMES) {
+    for (const first of FIRST_NAMES) names.push(`${first} ${last}`);
   }
+  return shuffle(names)
+    .slice(0, GUEST_COUNT)
+    .map((name, index) => ({
+      id: `5eed0000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      name,
+    }));
+}
+
+// Splits a total across weighted shares, spending every last unit so the seeded
+// counts come out exact.
+function allocate(total, weights) {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const counts = weights.map((weight) => Math.floor((total * weight) / sum));
+  let remainder = total - counts.reduce((a, b) => a + b, 0);
+  for (let i = 0; remainder > 0; i = (i + 1) % counts.length, remainder--) {
+    counts[i]++;
+  }
+  return counts;
+}
+
+// Every object in a bucket. Listing is one directory at a time, and folders come
+// back as entries without an id.
+async function storagePaths(bucket, prefix = "") {
+  const paths = [];
+  for (let offset = 0; ; offset += STORAGE_PAGE) {
+    const { data: entries, error } = await supabase.storage
+      .from(bucket)
+      .list(prefix, { limit: STORAGE_PAGE, offset });
+    if (error) fail(`listing ${bucket}/${prefix} failed:`, error);
+    for (const entry of entries) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.id === null) paths.push(...(await storagePaths(bucket, path)));
+      else paths.push(path);
+    }
+    if (entries.length < STORAGE_PAGE) return paths;
+  }
+}
+
+async function emptyBucket(bucket) {
+  const paths = await storagePaths(bucket);
+  for (const batch of chunk(paths, STORAGE_PAGE)) {
+    const { error } = await supabase.storage.from(bucket).remove(batch);
+    if (error) fail(`removing objects from ${bucket} failed:`, error);
+  }
+  return paths.length;
+}
+
+async function deleteAll(table, keyColumn) {
+  const { error } = await supabase.from(table).delete().not(keyColumn, "is", null);
+  if (error) fail(`deleting ${table} failed:`, error);
+}
+
+async function clean() {
+  const removed = await mapLimit(BUCKETS, CONCURRENCY, emptyBucket);
 
   // Likes cascade with photos.
-  const { error: photosError } = await supabase
-    .from("photos")
-    .delete()
-    .in("uploader_id", ids);
-  if (photosError) fail("deleting seeded photos failed:", photosError);
-  const { error: uploadersError } = await supabase
-    .from("uploaders")
-    .delete()
-    .in("id", ids);
-  if (uploadersError) fail("deleting seeded uploaders failed:", uploadersError);
-  console.log(`cleaned ${ids.length} seeded guests`);
+  await deleteAll("export_jobs", "kind");
+  await deleteAll("photos", "id");
+  await deleteAll("uploaders", "id");
+
+  const total = removed.reduce((a, b) => a + b, 0);
+  console.log(`cleaned ${total} storage objects and every gallery row`);
 }
 
 async function search(query) {
@@ -129,8 +212,7 @@ async function search(query) {
   const body = await response.json();
   return body.photos.map((photo) => ({
     id: String(photo.id),
-    url: photo.src.large2x,
-    thumbnailUrl: renditionUrl(photo.src.large2x, THUMBNAIL_WIDTH),
+    url: renditionUrl(photo.src.large2x, THUMBNAIL_WIDTH),
   }));
 }
 
@@ -161,11 +243,7 @@ async function loadPool() {
     console.log(`${query}: ${photos.length} photos`);
   }
   const pool = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool;
+  return shuffle(pool);
 }
 
 // Pixel size from a JPEG's start-of-frame marker: the gallery reserves a tile's
@@ -227,8 +305,54 @@ function likeCount() {
   const roll = rand();
   if (roll < 0.25) return 0;
   if (roll < 0.75) return randInt(1, 5);
-  if (roll < 0.95) return randInt(6, 12);
-  return randInt(13, 20);
+  if (roll < 0.95) return randInt(6, 20);
+  return randInt(21, 60);
+}
+
+// Every photo to seed, decided up front so the run stays deterministic while
+// downloads and uploads go out in parallel.
+function plan(guestList, images) {
+  const kinds = shuffle([
+    ...Array(GALLERY_PHOTO_COUNT).fill("public"),
+    ...Array(PRIVATE_PHOTO_COUNT).fill("private"),
+    ...Array(DELETED_PHOTO_COUNT).fill("deleted"),
+  ]);
+  // A handful of guests shoot most of the wedding; the rest bring a few photos.
+  const counts = allocate(
+    TOTAL_PHOTO_COUNT,
+    guestList.map(() => 1 + rand() ** 3 * 12),
+  );
+
+  const now = Date.now();
+  const photos = [];
+  let fileNumber = randInt(1000, 4000);
+  let kindIndex = 0;
+  guestList.forEach((guest, guestIndex) => {
+    for (let i = 0; i < counts[guestIndex]; i++) {
+      const kind = kinds[kindIndex++];
+      const image = images[photos.length % images.length];
+      const uploadedAt = new Date(
+        now - randInt(0, UPLOAD_WINDOW_HOURS) * 3_600_000 - randInt(0, 3_600_000),
+      );
+      photos.push({
+        id: crypto.randomUUID(),
+        guest,
+        image,
+        filename: `IMG_${fileNumber++}.jpg`,
+        visibility: kind === "private" ? "private" : "public",
+        uploadedAt,
+        takenAt: new Date(uploadedAt.getTime() - randInt(0, 6) * 3_600_000),
+        deletedAt:
+          kind === "deleted"
+            ? new Date(
+                Math.min(now, uploadedAt.getTime() + randInt(1, 48) * 3_600_000),
+              )
+            : null,
+        likes: kind === "public" ? likeCount() : 0,
+      });
+    }
+  });
+  return photos;
 }
 
 async function seed() {
@@ -238,91 +362,80 @@ async function seed() {
   mkdirSync(CACHE_DIR, { recursive: true });
   const pool = await loadPool();
 
+  const downloaded = await mapLimit(pool, CONCURRENCY, async (source) => {
+    const bytes = await fetchImage(source.url, `${source.id}.thumb`);
+    if (!bytes) {
+      console.warn(`skipped (download failed after retries): ${source.url}`);
+      return null;
+    }
+    return { bytes, size: jpegSize(bytes) };
+  });
+  const images = downloaded.filter(Boolean);
+  if (images.length === 0) fail("no images could be downloaded");
+  console.log(`${images.length} distinct images ready`);
+
+  const guestList = guests();
   const { error: uploadersError } = await supabase.from("uploaders").insert(
-    GUESTS.map((guest) => ({ id: guest.id, display_name: guest.name })),
+    guestList.map((guest) => ({ id: guest.id, display_name: guest.name })),
   );
   if (uploadersError) fail("inserting uploaders failed:", uploadersError);
 
-  // Like devices: the guests themselves plus extra guests who never uploaded.
-  const devicePool = GUESTS.map((g) => g.id);
-  for (let i = 0; i < 30; i++) {
-    devicePool.push(
-      `5eedcafe-0000-4000-8000-${String(i).padStart(12, "0")}`,
-    );
+  const photos = plan(guestList, images);
+
+  let uploaded = 0;
+  await mapLimit(photos, CONCURRENCY, async (photo) => {
+    photo.path = `${photo.guest.id}/${photo.id}.jpg`;
+    const uploadError = await upload(photo.path, photo.image.bytes);
+    if (uploadError) fail(`storage upload failed for ${photo.path}:`, uploadError);
+    uploaded++;
+    if (uploaded % 200 === 0) console.log(`uploaded ${uploaded}/${photos.length}`);
+  });
+
+  const rows = photos.map((photo) => ({
+    id: photo.id,
+    uploader_id: photo.guest.id,
+    storage_path: photo.path,
+    thumbnail_path: null,
+    original_filename: photo.filename,
+    content_type: "image/jpeg",
+    size_bytes: photo.image.bytes.byteLength,
+    image_width: photo.image.size?.width ?? null,
+    image_height: photo.image.size?.height ?? null,
+    visibility: photo.visibility,
+    media_type: "photo",
+    taken_at: photo.takenAt.toISOString(),
+    uploaded_at: photo.uploadedAt.toISOString(),
+    deleted_at: photo.deletedAt?.toISOString() ?? null,
+  }));
+  for (const batch of chunk(rows, INSERT_BATCH)) {
+    const { error } = await supabase.from("photos").insert(batch);
+    if (error) fail("photo insert failed:", error);
   }
 
-  const now = Date.now();
-  let fileNumber = randInt(1000, 4000);
-  let taken = 0;
-  let photoCount = 0;
-  let likeTotal = 0;
-
-  for (const guest of GUESTS) {
-    const photos = randInt(10, 20);
-    console.log(`${guest.name}: ${photos} photos`);
-
-    for (let i = 0; i < photos; i++) {
-      const source = pool[taken++ % pool.length];
-      const image = await fetchImage(source.url, source.id);
-      if (!image) {
-        console.warn(`  skipped (download failed after retries): ${source.url}`);
-        continue;
-      }
-
-      const photoId = crypto.randomUUID();
-      const path = `${guest.id}/${photoId}.jpg`;
-      const uploadError = await upload(path, image);
-      if (uploadError) fail(`storage upload failed for ${path}:`, uploadError);
-
-      // Guests' browsers generate this on upload; seeded photos take a smaller
-      // Pexels rendition instead.
-      let thumbPath = `${guest.id}/${photoId}.thumb.jpg`;
-      const thumbnail = await fetchImage(source.thumbnailUrl, `${source.id}.thumb`);
-      if (thumbnail) {
-        const thumbError = await upload(thumbPath, thumbnail);
-        if (thumbError) fail(`storage upload failed for ${thumbPath}:`, thumbError);
-      } else {
-        console.warn(`  no thumbnail (download failed): ${source.thumbnailUrl}`);
-        thumbPath = null;
-      }
-      const rendered = jpegSize(thumbnail ?? image);
-
-      const uploadedAt = new Date(now - randInt(0, 72) * 3_600_000 - randInt(0, 3_600_000));
-      const takenAt = new Date(uploadedAt.getTime() - randInt(0, 6) * 3_600_000);
-      const { error: photoError } = await supabase.from("photos").insert({
-        id: photoId,
-        uploader_id: guest.id,
-        storage_path: path,
-        thumbnail_path: thumbPath,
-        original_filename: `IMG_${fileNumber++}.jpg`,
-        content_type: "image/jpeg",
-        size_bytes: image.byteLength,
-        image_width: rendered?.width ?? null,
-        image_height: rendered?.height ?? null,
-        visibility: rand() < 0.05 ? "private" : "public",
-        media_type: "photo",
-        taken_at: takenAt.toISOString(),
-        uploaded_at: uploadedAt.toISOString(),
-      });
-      if (photoError) fail(`photo insert failed for ${path}:`, photoError);
-
-      const likes = likeCount();
-      if (likes > 0) {
-        const devices = [...devicePool]
-          .sort(() => rand() - 0.5)
-          .filter((id) => id !== guest.id)
-          .slice(0, likes);
-        const { error: likesError } = await supabase.from("likes").insert(
-          devices.map((deviceId) => ({ photo_id: photoId, device_id: deviceId })),
-        );
-        if (likesError) fail(`likes insert failed for ${photoId}:`, likesError);
-        likeTotal += devices.length;
-      }
-      photoCount++;
+  const devicePool = guestList.map((guest) => guest.id);
+  for (let i = 0; i < LIKE_DEVICE_COUNT; i++) {
+    devicePool.push(`5eedcafe-0000-4000-8000-${String(i).padStart(12, "0")}`);
+  }
+  const likes = [];
+  for (const photo of photos) {
+    if (photo.likes === 0) continue;
+    const devices = shuffle([...devicePool])
+      .filter((id) => id !== photo.guest.id)
+      .slice(0, photo.likes);
+    for (const deviceId of devices) {
+      likes.push({ photo_id: photo.id, device_id: deviceId });
     }
   }
+  for (const batch of chunk(likes, INSERT_BATCH)) {
+    const { error } = await supabase.from("likes").insert(batch);
+    if (error) fail("likes insert failed:", error);
+  }
 
-  console.log(`seeded ${GUESTS.length} guests, ${photoCount} photos, ${likeTotal} likes`);
+  console.log(
+    `seeded ${guestList.length} guests, ${photos.length} photos ` +
+      `(${GALLERY_PHOTO_COUNT} in the gallery, ${PRIVATE_PHOTO_COUNT} private, ` +
+      `${DELETED_PHOTO_COUNT} in the bin), ${likes.length} likes`,
+  );
 }
 
 await clean();
