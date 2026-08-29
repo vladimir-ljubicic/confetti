@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
+import { thumbSrc } from "@/app/photo-image";
 import { isAdmin } from "@/lib/admin-session";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrls } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { INTL_LOCALES, pluralize, type Locale } from "@/lib/i18n";
 import { RECYCLE_RETENTION_DAYS } from "@/lib/recycle-bin";
@@ -14,9 +14,6 @@ export const dynamic = "force-dynamic";
 
 type BinPhotoRow = {
   id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
-  original_filename: string;
   deleted_at: string;
   uploaders: { display_name: string | null } | null;
 };
@@ -24,18 +21,14 @@ type BinPhotoRow = {
 async function loadDeletedPhotos() {
   const { data, error } = await supabaseAdmin()
     .from("photos")
-    .select(
-      "id, storage_path, thumbnail_path, original_filename, deleted_at, uploaders (display_name)",
-    )
+    .select("id, deleted_at, uploaders (display_name)")
     .not("deleted_at", "is", null)
     .order("deleted_at", { ascending: false });
   if (error) throw new Error(`Loading deleted photos failed: ${error.message}`);
   const rows = data as unknown as BinPhotoRow[];
-  const imageUrls = await galleryImageUrls(rows);
-  return rows.map((photo, index) => ({
+  return rows.map((photo) => ({
     id: photo.id,
     deletedAt: photo.deleted_at,
-    imageUrl: imageUrls[index],
     uploaderName: photo.uploaders?.display_name ?? null,
   }));
 }
@@ -100,15 +93,13 @@ export default async function AdminBinPage() {
                 className="flex items-center gap-3 rounded-card bg-card px-3.5 py-3"
               >
                 <span className="relative size-14 shrink-0 overflow-hidden rounded-thumb bg-sand">
-                  {photo.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photo.imageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="size-full object-cover"
-                    />
-                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbSrc(photo.id)}
+                    alt=""
+                    loading="lazy"
+                    className="size-full object-cover"
+                  />
                   <span aria-hidden className="absolute inset-0 bg-stage/40" />
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">

@@ -7,9 +7,9 @@ import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
+import { hideBrokenImage, thumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
-import { useImageSrc } from "./use-image-src";
 import { useLikes } from "./use-likes";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
@@ -31,11 +31,10 @@ function tileAspect(photo: PublicPhoto): string {
     : FALLBACK_ASPECT;
 }
 
-// Renders the local preview until the signed image has actually loaded, so a
+// Renders the local preview until the stored image has actually loaded, so a
 // freshly uploaded photo keeps its pixels during the swap. Both images fill the
 // tile, whose height its aspect ratio has already reserved.
 function GalleryImage({
-  photoId,
   src,
   alt,
   width,
@@ -44,7 +43,6 @@ function GalleryImage({
   previewUrl,
   onSettled,
 }: {
-  photoId: string;
   src: string;
   alt: string;
   width: number | null;
@@ -53,7 +51,6 @@ function GalleryImage({
   previewUrl?: string;
   onSettled?: () => void;
 }) {
-  const image = useImageSrc(photoId, src);
   // Captured once: the tile (and its object URL) goes away after settling,
   // and the prop change must not restructure the tree and remount the image.
   const [preview] = useState(previewUrl);
@@ -77,7 +74,7 @@ function GalleryImage({
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={image.src}
+        src={src}
         alt={alt}
         width={width ?? undefined}
         height={height ?? undefined}
@@ -85,9 +82,9 @@ function GalleryImage({
         fetchPriority={eager ? "high" : "auto"}
         decoding="async"
         onLoad={settle}
-        onError={() => {
+        onError={(event) => {
           settle();
-          image.onError();
+          hideBrokenImage(event);
         }}
         ref={(img) => {
           // A cached image can be complete before onLoad ever fires.
@@ -251,36 +248,32 @@ export function PhotoGrid({
                     absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
                   }`}
                 >
-                  {entry.photo.imageUrl ? (
-                    viewer ? (
-                      <button
-                        type="button"
-                        aria-label={viewer.labels.open}
-                        onClick={() => setViewerStartId(entry.photo.id)}
-                        className="block h-full w-full"
-                      >
-                        <GalleryImage
-                          photoId={entry.photo.id}
-                          src={entry.photo.imageUrl}
-                          alt={photoAltText(altLabels, entry.photo.uploader)}
-                          width={entry.photo.width}
-                          height={entry.photo.height}
-                          eager={rowIndex * 2 + columnIndex < EAGER_TILES}
-                          {...absorbProps(entry.photo)}
-                        />
-                      </button>
-                    ) : (
+                  {viewer ? (
+                    <button
+                      type="button"
+                      aria-label={viewer.labels.open}
+                      onClick={() => setViewerStartId(entry.photo.id)}
+                      className="block h-full w-full"
+                    >
                       <GalleryImage
-                        photoId={entry.photo.id}
-                        src={entry.photo.imageUrl}
+                        src={thumbSrc(entry.photo.id)}
                         alt={photoAltText(altLabels, entry.photo.uploader)}
                         width={entry.photo.width}
                         height={entry.photo.height}
                         eager={rowIndex * 2 + columnIndex < EAGER_TILES}
                         {...absorbProps(entry.photo)}
                       />
-                    )
-                  ) : null}
+                    </button>
+                  ) : (
+                    <GalleryImage
+                      src={thumbSrc(entry.photo.id)}
+                      alt={photoAltText(altLabels, entry.photo.uploader)}
+                      width={entry.photo.width}
+                      height={entry.photo.height}
+                      eager={rowIndex * 2 + columnIndex < EAGER_TILES}
+                      {...absorbProps(entry.photo)}
+                    />
+                  )}
                   {showUploader && entry.photo.uploader && onSelectUploader && (
                     <UploaderLabel
                       uploader={entry.photo.uploader}

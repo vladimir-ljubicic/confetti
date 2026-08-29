@@ -4,7 +4,6 @@ import { viewerLabels } from "@/app/viewer-labels";
 import { isAdmin } from "@/lib/admin-session";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrls } from "@/lib/photo-urls";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { isUuid } from "@/lib/uploaders";
@@ -39,8 +38,6 @@ async function loadGuest(publicId: string): Promise<Guest | null> {
 
 type GuestPhotoRow = {
   id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
   original_filename: string;
   visibility: Visibility;
   like_count: number;
@@ -53,7 +50,7 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
     )
     .eq("uploader_id", guest.id)
     .not("uploaded_at", "is", null)
@@ -64,11 +61,9 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
   // The viewer's uploader pill shows the guest's public photo count, matching
   // their public gallery page.
   const publicCount = rows.filter((row) => row.visibility === "public").length;
-  const imageUrls = await galleryImageUrls(rows);
-  return rows.map((photo, index) => ({
+  return rows.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploaded_at,
-    imageUrl: imageUrls[index],
     width: photo.image_width,
     height: photo.image_height,
     originalFilename: photo.original_filename,
