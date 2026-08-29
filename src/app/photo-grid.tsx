@@ -11,7 +11,6 @@ import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
 import { useImageSrc } from "./use-image-src";
 import { useLikes } from "./use-likes";
-import { usePhotoFeed, type PhotoFeedSource } from "./use-photo-feed";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
 type GridEntry =
@@ -102,8 +101,10 @@ function GalleryImage({
 
 function UploaderLabel({
   uploader,
+  onSelect,
 }: {
   uploader: { displayName: string; publicId: string };
+  onSelect: (publicId: string) => void;
 }) {
   const label = shortUploaderName(uploader.displayName);
   if (label === "") return null;
@@ -111,7 +112,20 @@ function UploaderLabel({
     // The 44px flex box is an enlarged tap target; only the text is visible.
     <Link
       href={`/uploader/${uploader.publicId}`}
-      onClick={(event) => event.stopPropagation()}
+      // The click is intercepted; the address is only here so the guest's
+      // gallery can be opened in a tab or copied. Prefetching every label in
+      // the grid would render the whole gallery again once per guest on screen.
+      prefetch={false}
+      onClick={(event) => {
+        event.stopPropagation();
+        // Modified clicks stay a plain link, so the guest's gallery can still
+        // be opened in its own tab.
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        onSelect(uploader.publicId);
+      }}
       className="absolute bottom-0 left-0 flex min-h-11 min-w-11 max-w-[60%] items-end"
     >
       <span className="mb-2.5 ml-2.5 min-w-0 truncate text-[11px] tracking-[0.04em] text-card [text-shadow:0_1px_4px_rgba(27,24,21,0.65)]">
@@ -123,16 +137,16 @@ function UploaderLabel({
 
 export function PhotoGrid({
   photos,
-  feed,
   emptyLabel,
   altLabels,
   downloadLabel,
   likeLabels,
   viewer,
   showUploader = false,
+  showUploadTiles = true,
+  onSelectUploader,
 }: {
   photos: PublicPhoto[];
-  feed?: PhotoFeedSource;
   emptyLabel: string;
   altLabels: PhotoAltLabels;
   downloadLabel?: string;
@@ -144,21 +158,21 @@ export function PhotoGrid({
     galleryCount?: number;
   };
   showUploader?: boolean;
+  // Photos still uploading belong to the whole gallery; a narrowed grid is not
+  // where the guest who started them expects to find them.
+  showUploadTiles?: boolean;
+  onSelectUploader?: (publicId: string) => void;
 }) {
   const queue = useUploadQueue();
   const likes = useLikes();
-  const {
-    photos: loadedPhotos,
-    enterOrder,
-    loading,
-    loadMore,
-    sentinelRef,
-  } = usePhotoFeed(photos, feed);
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
-  const tiles = useMemo(() => queue?.tiles ?? [], [queue]);
+  const tiles = useMemo(
+    () => (showUploadTiles ? (queue?.tiles ?? []) : []),
+    [queue, showUploadTiles],
+  );
   const photoIds = useMemo(
-    () => new Set(loadedPhotos.map((photo) => photo.id)),
-    [loadedPhotos],
+    () => new Set(photos.map((photo) => photo.id)),
+    [photos],
   );
 
   // Once the refreshed feed contains an uploaded photo, its optimistic tile
@@ -189,7 +203,7 @@ export function PhotoGrid({
     (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
   );
 
-  if (loadedPhotos.length === 0 && visibleTiles.length === 0) {
+  if (photos.length === 0 && visibleTiles.length === 0) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
   }
 
@@ -204,7 +218,7 @@ export function PhotoGrid({
 
   const entries: GridEntry[] = [
     ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
-    ...loadedPhotos.map((photo): GridEntry => ({ kind: "photo", photo })),
+    ...photos.map((photo): GridEntry => ({ kind: "photo", photo })),
   ];
   const columns = [
     entries.filter((_, index) => index % 2 === 0),
@@ -212,7 +226,7 @@ export function PhotoGrid({
   ];
   return (
     <>
-      <div className="grid w-full grid-cols-2 items-start gap-2 px-3">
+      <div className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26">
         {columns.map((column, columnIndex) => (
           <ul key={columnIndex} className="flex flex-col gap-2">
             {column.map((entry, rowIndex) =>
@@ -230,15 +244,12 @@ export function PhotoGrid({
               ) : (
                 <li
                   key={entry.photo.id}
+                  style={{ aspectRatio: tileAspect(entry.photo) }}
                   // A photo taking over from its own upload tile is already
                   // on screen and must not fade in a second time.
                   className={`group relative overflow-hidden rounded-tile bg-sand ${
                     absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
                   }`}
-                  style={{
-                    aspectRatio: tileAspect(entry.photo),
-                    animationDelay: `${(enterOrder.get(entry.photo.id) ?? 0) * 40}ms`,
-                  }}
                 >
                   {entry.photo.imageUrl ? (
                     viewer ? (
@@ -270,8 +281,11 @@ export function PhotoGrid({
                       />
                     )
                   ) : null}
-                  {showUploader && entry.photo.uploader && (
-                    <UploaderLabel uploader={entry.photo.uploader} />
+                  {showUploader && entry.photo.uploader && onSelectUploader && (
+                    <UploaderLabel
+                      uploader={entry.photo.uploader}
+                      onSelect={onSelectUploader}
+                    />
                   )}
                   {likeLabels && (
                     <LikePill
@@ -302,27 +316,16 @@ export function PhotoGrid({
           </ul>
         ))}
       </div>
-      <div
-        ref={sentinelRef}
-        className="flex items-center justify-center pt-5 pb-26"
-      >
-        {loading && (
-          <span
-            aria-hidden
-            className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
-          />
-        )}
-      </div>
       {viewer && viewerStartId !== null && (
         <PhotoViewer
-          photos={loadedPhotos}
+          photos={photos}
           startId={viewerStartId}
           likes={likes}
           canManageAll={viewer.canManageAll}
           locale={viewer.locale}
           labels={viewer.labels}
           galleryCount={viewer.galleryCount}
-          onNearEnd={loadMore}
+          onSelectUploader={onSelectUploader}
           onClose={() => setViewerStartId(null)}
         />
       )}

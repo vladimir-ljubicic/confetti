@@ -1,14 +1,13 @@
 import "server-only";
-import {
-  encodeGalleryCursor,
-  galleryCursorFilter,
-  type GalleryCursor,
-} from "./gallery-cursor";
 import { galleryImageUrls } from "./photo-urls";
 import type { SortMode } from "./sort-mode";
 import { supabaseAdmin } from "./supabase-server";
 
-const GALLERY_PAGE_SIZE = 30;
+// The gallery is handed over whole so that ordering and per-guest filtering
+// happen on the client, with no round trip. A gallery this far past a wedding's
+// worth of photos would need a different design; the cap only stops one from
+// taking the page down while it gets one.
+const GALLERY_MAX_PHOTOS = 2000;
 
 type PublicPhotoRow = {
   id: string;
@@ -25,13 +24,9 @@ type PublicPhotoRow = {
 
 export type PublicPhotoPage = {
   photos: PublicPhoto[];
-  // Opaque key for the next page; null once the gallery is exhausted.
-  nextCursor: string | null;
-  // Photos matching the query, ignoring the page limit. Only the first page
-  // carries it; it rides along with the rows at no extra round trip.
-  totalCount: number | null;
-  // Totals for the uploader a page is scoped to; null for the whole gallery.
-  uploaderStats: PublicPhotoStats | null;
+  // Public photos in the gallery, which exceeds the photos handed over only
+  // once the cap is hit. It rides along with the rows at no extra round trip.
+  totalCount: number;
 };
 
 export type PublicPhoto = {
@@ -69,8 +64,6 @@ export async function loadViewerLikes(
 
 export type PublicPhotoStats = { photoCount: number; likeTotal: number };
 
-const NO_STATS: PublicPhotoStats = { photoCount: 0, likeTotal: 0 };
-
 // Gallery-wide totals for the given uploaders, keyed by uploader id. Aggregated
 // in the database and scoped to the ids asked for, so the cost follows the page
 // on screen rather than the size of the gallery.
@@ -95,40 +88,25 @@ export async function loadPublicUploaderStats(
   );
 }
 
-export async function loadPublicPhotoStats(
-  uploaderId: string,
-): Promise<PublicPhotoStats> {
-  const stats = await loadPublicUploaderStats([uploaderId]);
-  return stats.get(uploaderId) ?? NO_STATS;
-}
-
 export async function loadPublicPhotos({
   sort,
-  uploaderId,
   viewerDeviceId = null,
-  cursor = null,
 }: {
+  // The order the gallery is handed over in. The client re-sorts from here
+  // without asking again, so this only has to be right for the first paint.
   sort: SortMode;
-  uploaderId?: string;
   viewerDeviceId?: string | null;
-  cursor?: GalleryCursor | null;
 }): Promise<PublicPhotoPage> {
-  // A cursor page counts only what is left below it, and the count is shown
-  // once, on the first page. Scoped to an uploader their stats already carry it.
-  const wantsCount = cursor === null && uploaderId === undefined;
   let query = supabaseAdmin()
     .from("photos")
     .select(
       "id, storage_path, thumbnail_path, original_filename, uploaded_at, like_count, image_width, image_height, uploader_id, uploaders (display_name, public_id)",
-      wantsCount ? ({ count: "exact" } as const) : undefined,
+      { count: "exact" },
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
-  if (uploaderId) query = query.eq("uploader_id", uploaderId);
-  if (cursor) query = query.or(galleryCursorFilter(sort, cursor));
-  // Every sort ends on the id so its key is unique: without it, rows sharing a
-  // timestamp or a like count could straddle a page boundary and be skipped.
+  // Every sort ends on the id so its key is unique, matching `comparePhotos`.
   query =
     sort === "popular"
       ? query
@@ -138,23 +116,19 @@ export async function loadPublicPhotos({
       : query
           .order("uploaded_at", { ascending: false })
           .order("id", { ascending: false });
-  const { data, count, error } = await query.limit(GALLERY_PAGE_SIZE);
+  const { data, count, error } = await query.limit(GALLERY_MAX_PHOTOS);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
-  // Scoped to one uploader every row is theirs, so their stats stand in for
-  // the per-uploader lookup and are what the page header shows.
-  const statsIds = uploaderId
-    ? [uploaderId]
-    : [...new Set(rows.flatMap((row) => row.uploader_id ?? []))];
   const [viewerLikes, uploaderStats, imageUrls] = await Promise.all([
     loadViewerLikes(
       viewerDeviceId,
       rows.map((row) => row.id),
     ),
-    loadPublicUploaderStats(statsIds),
+    loadPublicUploaderStats([
+      ...new Set(rows.flatMap((row) => row.uploader_id ?? [])),
+    ]),
     galleryImageUrls(rows),
   ]);
-  const last = rows.at(-1);
   return {
     photos: rows.map((photo, index) => ({
       id: photo.id,
@@ -176,17 +150,6 @@ export async function loadPublicPhotos({
           }
         : null,
     })),
-    nextCursor:
-      last && rows.length === GALLERY_PAGE_SIZE
-        ? encodeGalleryCursor({
-            likeCount: last.like_count,
-            uploadedAt: last.uploaded_at,
-            id: last.id,
-          })
-        : null,
-    totalCount: count ?? null,
-    uploaderStats: uploaderId
-      ? (uploaderStats.get(uploaderId) ?? NO_STATS)
-      : null,
+    totalCount: count ?? rows.length,
   };
 }

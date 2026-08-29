@@ -149,6 +149,7 @@ export function PhotoViewer({
   labels,
   galleryCount,
   onNearEnd,
+  onSelectUploader,
   onClose,
 }: {
   photos: ViewerPhoto[];
@@ -157,10 +158,13 @@ export function PhotoViewer({
   canManageAll: boolean;
   locale: Locale;
   labels: ViewerLabels;
-  // Size of the gallery being swiped through: the feed is paged, so `photos`
-  // holds only what has been loaded so far.
+  // Size of the gallery being swiped through, when it is larger than the
+  // photos handed over.
   galleryCount?: number;
   onNearEnd?: () => void;
+  // Given, the uploader pill filters the gallery behind the viewer in place
+  // rather than navigating to the guest's page.
+  onSelectUploader?: (publicId: string) => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -487,6 +491,22 @@ export function PhotoViewer({
           ) : (
             <Link
               href={`/uploader/${current.uploader.publicId}`}
+              prefetch={false}
+              onClick={(event) => {
+                const publicId = current.uploader?.publicId;
+                if (!onSelectUploader || publicId === undefined) return;
+                if (
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey
+                ) {
+                  return;
+                }
+                event.preventDefault();
+                dismiss();
+                onSelectUploader(publicId);
+              }}
               className="flex min-h-12 items-center gap-2.5 rounded-pill border border-[rgba(250,246,238,0.22)] bg-[rgba(250,246,238,0.08)] py-[5px] pr-3.5 pl-1.5 transition active:bg-[rgba(250,246,238,0.14)]"
             >
               <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-[rgba(250,246,238,0.16)] font-serif text-[16px] text-[#e8dcc0]">

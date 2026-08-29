@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { SortMode } from "@/lib/sort-mode";
 
 const SortContext = createContext<{
@@ -8,21 +8,20 @@ const SortContext = createContext<{
   setSort: (sort: SortMode) => void;
 } | null>(null);
 
-// The server owns the order, so the toggle navigates; this holds the chosen
-// mode meanwhile, and follows the server again once the new page arrives (or
-// the viewer goes back to one sorted the other way).
+// The whole gallery is loaded, so the toggle reorders it where it stands. The
+// mode lives with the view that does the reordering; this only carries it down
+// to the toggle, which the header renders far from it.
 export function SortProvider({
-  initial,
+  sort,
+  onChange,
   children,
 }: {
-  initial: SortMode;
+  sort: SortMode;
+  onChange: (sort: SortMode) => void;
   children: ReactNode;
 }) {
-  const [state, setState] = useState({ server: initial, sort: initial });
-  if (state.server !== initial) setState({ server: initial, sort: initial });
-  const setSort = (sort: SortMode) => setState({ server: initial, sort });
   return (
-    <SortContext.Provider value={{ sort: state.sort, setSort }}>
+    <SortContext.Provider value={{ sort, setSort: onChange }}>
       {children}
     </SortContext.Provider>
   );
