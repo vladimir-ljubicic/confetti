@@ -53,7 +53,20 @@ export function GalleryView({
   footer: ReactNode;
 }) {
   const pathname = usePathname();
-  const guestId = GUEST_PATH.exec(pathname)?.[1] ?? null;
+  const routeGuestId = GUEST_PATH.exec(pathname)?.[1] ?? null;
+  // The address says whose gallery this is, but the router reports an address
+  // this view pushed itself a render late — long enough for the unnarrowed
+  // gallery to appear for a frame under a viewer already closing off it. So
+  // the choice is rendered as it is made, and the address corrects it if it
+  // ever moves on its own, as it does when stepping back through history.
+  const [selected, setSelected] = useState({
+    route: routeGuestId,
+    guestId: routeGuestId,
+  });
+  if (selected.route !== routeGuestId) {
+    setSelected({ route: routeGuestId, guestId: routeGuestId });
+  }
+  const guestId = selected.guestId;
   const [sort, setSort] = useState(initialSort);
   // History entries this view pushed itself, and so may step back through. A
   // guest's gallery opened directly has none, and leaving it pushes instead.
@@ -83,6 +96,7 @@ export function GalleryView({
 
   const selectGuest = useCallback((publicId: string) => {
     pushed.current += 1;
+    setSelected((current) => ({ ...current, guestId: publicId }));
     window.history.pushState(
       null,
       "",
@@ -97,6 +111,7 @@ export function GalleryView({
       window.history.back();
       return;
     }
+    setSelected((current) => ({ ...current, guestId: null }));
     window.history.pushState(null, "", `/${window.location.search}`);
     window.scrollTo(0, 0);
   }, []);

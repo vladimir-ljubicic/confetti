@@ -178,9 +178,19 @@ export function PhotoViewer({
     ReadonlyMap<string, Visibility>
   >(new Map());
   const visibilityChanged = useRef(false);
-  const [closing, setClosing] = useState(false);
+  // What the viewer is showing at the moment it starts to close, and so what it
+  // goes on showing while it fades. The feed behind it keeps loading, and a
+  // page arriving mid-fade would otherwise re-lay the slides and carry the exit
+  // animation onto another photo.
+  const [closingOn, setClosingOn] = useState<{
+    photos: ViewerPhoto[];
+    galleryCount: number | undefined;
+  } | null>(null);
+  const closing = closingOn !== null;
   const closeTimer = useRef<number | null>(null);
-  const visible = photos.filter((photo) => !hiddenIds.has(photo.id));
+  const visible = (closingOn?.photos ?? photos).filter(
+    (photo) => !hiddenIds.has(photo.id),
+  );
 
   const startIndex = Math.max(
     visible.findIndex((photo) => photo.id === startId),
@@ -190,8 +200,9 @@ export function PhotoViewer({
   const currentIndex = Math.min(index, visible.length - 1);
   const current = visible[currentIndex];
 
+  const shownCount = closingOn ? closingOn.galleryCount : galleryCount;
   const total = Math.max(
-    (galleryCount ?? visible.length) - hiddenIds.size,
+    (shownCount ?? visible.length) - hiddenIds.size,
     visible.length,
   );
 
@@ -238,9 +249,9 @@ export function PhotoViewer({
   // Closing runs the exit animation first; the viewer leaves once it has.
   const dismiss = useCallback(() => {
     if (closeTimer.current !== null) return;
-    setClosing(true);
+    setClosingOn({ photos, galleryCount });
     closeTimer.current = window.setTimeout(onClose, CLOSE_MS);
-  }, [onClose]);
+  }, [photos, galleryCount, onClose]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -504,7 +515,11 @@ export function PhotoViewer({
                   return;
                 }
                 event.preventDefault();
-                dismiss();
+                // No exit animation: this is a move to the guest's gallery,
+                // not a return to the one the viewer was opened from, and
+                // fading back to a grid that is being replaced anyway reads
+                // as a stutter. Both in one commit, so neither is seen alone.
+                onClose();
                 onSelectUploader(publicId);
               }}
               className="flex min-h-12 items-center gap-2.5 rounded-pill border border-[rgba(250,246,238,0.22)] bg-[rgba(250,246,238,0.08)] py-[5px] pr-3.5 pl-1.5 transition active:bg-[rgba(250,246,238,0.14)]"
