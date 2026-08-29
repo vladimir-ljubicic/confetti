@@ -7,6 +7,7 @@ import {
 } from "@/lib/event-schedule";
 import { getEventSettings } from "@/lib/event-settings";
 import { getDict, getLocale } from "@/lib/locale";
+import type { SortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { ConfettiMark } from "../confetti-mark";
 import { LocaleToggle } from "../locale-toggle";
@@ -17,9 +18,10 @@ import { uploadWindowLine } from "../upload-window";
 // does not need the photos — all of it either cached or a single indexed row.
 // Standing in for the header rather than sketching it is the point: a
 // placeholder of another size moves the page under the reader the moment the
-// real header lands. The grid has no stand-in for the same reason. A tile's
-// height is its photo's, and that is not known until the photos are.
-export default async function Loading() {
+// real header lands, and a toggle on the wrong side of the bar jumps across it.
+// The grid has no stand-in for the same reason. A tile's height is its photo's,
+// and that is not known until the photos are.
+export async function GalleryLoading({ sort }: { sort: SortMode }) {
   const locale = await getLocale();
   const dict = await getDict();
   const [settings, profile] = await Promise.all([
@@ -92,7 +94,7 @@ export default async function Loading() {
         <div className="ml-auto">
           <SortToggleView
             labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
-            active="latest"
+            active={sort}
           />
         </div>
       </div>
