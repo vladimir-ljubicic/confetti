@@ -35,10 +35,7 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   if (error) throw new Error(`Loading own photos failed: ${error.message}`);
   const rows = data as OwnPhotoRow[];
   const [viewerLikes, imageUrls] = await Promise.all([
-    loadViewerLikes(
-      deviceId,
-      rows.map((row) => row.id),
-    ),
+    loadViewerLikes(deviceId),
     galleryImageUrls(rows),
   ]);
   return rows.map((photo, index) => ({

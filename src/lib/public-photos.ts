@@ -48,16 +48,19 @@ export type PublicPhoto = {
   } | null;
 };
 
+// Every photo this device has liked, not just the ones on screen. Narrowing to
+// the screen's ids would put them all in the request URL, which stops working
+// a few hundred ids in; the caller only asks `has(id)`, so the extra ids are
+// free. The limit matches the gallery cap, above which no id can be asked for.
 export async function loadViewerLikes(
   viewerDeviceId: string | null,
-  photoIds: string[],
 ): Promise<Set<string>> {
-  if (!viewerDeviceId || photoIds.length === 0) return new Set();
+  if (!viewerDeviceId) return new Set();
   const { data, error } = await supabaseAdmin()
     .from("likes")
     .select("photo_id")
     .eq("device_id", viewerDeviceId)
-    .in("photo_id", photoIds);
+    .limit(GALLERY_MAX_PHOTOS);
   if (error) throw new Error(`Loading likes failed: ${error.message}`);
   return new Set((data as { photo_id: string }[]).map((row) => row.photo_id));
 }
@@ -120,10 +123,7 @@ export async function loadPublicPhotos({
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
   const [viewerLikes, uploaderStats, imageUrls] = await Promise.all([
-    loadViewerLikes(
-      viewerDeviceId,
-      rows.map((row) => row.id),
-    ),
+    loadViewerLikes(viewerDeviceId),
     loadPublicUploaderStats([
       ...new Set(rows.flatMap((row) => row.uploader_id ?? [])),
     ]),
