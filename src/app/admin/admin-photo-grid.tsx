@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { hideBrokenImage, thumbSrc } from "@/app/photo-image";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
 import { useLikes } from "@/app/use-likes";
 import { usePhotoFeed, type FeedPage } from "@/app/use-photo-feed";
@@ -137,15 +138,14 @@ export function AdminPhotoGrid({
               onClick={() => setViewerStartId(photo.id)}
               className="relative block aspect-square w-full overflow-hidden rounded-tile bg-sand"
             >
-              {photo.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photo.imageUrl}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={thumbSrc(photo.id)}
+                alt=""
+                loading="lazy"
+                onError={hideBrokenImage}
+                className="h-full w-full object-cover"
+              />
               {photo.visibility === "private" && (
                 <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.72)] px-[7px] py-[3px] text-[10px] text-paper">
                   {privateBadge}

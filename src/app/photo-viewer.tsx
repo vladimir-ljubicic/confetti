@@ -9,7 +9,7 @@ import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
-import { useImageSrc } from "./use-image-src";
+import { hideBrokenImage, thumbSrc } from "./photo-image";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 
@@ -64,24 +64,21 @@ function clickedLetterbox(event: React.MouseEvent<HTMLImageElement>): boolean {
 }
 
 function ViewerImage({
-  photoId,
   src,
   alt,
   onClick,
 }: {
-  photoId: string;
   src: string;
   alt: string;
   onClick: (event: React.MouseEvent<HTMLImageElement>) => void;
 }) {
-  const image = useImageSrc(photoId, src);
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={image.src}
+      src={src}
       alt={alt}
       loading="lazy"
-      onError={image.onError}
+      onError={hideBrokenImage}
       onClick={onClick}
       className="max-h-full w-full touch-manipulation object-contain"
     />
@@ -466,14 +463,11 @@ export function PhotoViewer({
             }}
             className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
           >
-            {photo.imageUrl && (
-              <ViewerImage
-                photoId={photo.id}
-                src={photo.imageUrl}
-                alt={photoAltText(labels.alt, photo.uploader)}
-                onClick={(event) => tapPhoto(event, photo)}
-              />
-            )}
+            <ViewerImage
+              src={thumbSrc(photo.id)}
+              alt={photoAltText(labels.alt, photo.uploader)}
+              onClick={(event) => tapPhoto(event, photo)}
+            />
             {burst?.photoId === photo.id && (
               <span
                 key={burst.key}

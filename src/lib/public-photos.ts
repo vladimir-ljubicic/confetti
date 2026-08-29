@@ -1,5 +1,4 @@
 import "server-only";
-import { galleryImageUrls } from "./photo-urls";
 import type { SortMode } from "./sort-mode";
 import { supabaseAdmin } from "./supabase-server";
 
@@ -11,8 +10,6 @@ const GALLERY_MAX_PHOTOS = 2000;
 
 type PublicPhotoRow = {
   id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
   original_filename: string;
   uploaded_at: string;
   like_count: number;
@@ -32,9 +29,8 @@ export type PublicPhotoPage = {
 export type PublicPhoto = {
   id: string;
   uploadedAt: string;
-  imageUrl: string | null;
-  // Pixel size of the image at `imageUrl`, so a tile can reserve its height
-  // before the image arrives; null when it was never recorded.
+  // Pixel size of the rendered image, so a tile can reserve its height before
+  // the image arrives; null when it was never recorded.
   width: number | null;
   height: number | null;
   originalFilename: string;
@@ -103,7 +99,7 @@ export async function loadPublicPhotos({
   let query = supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, uploaded_at, like_count, image_width, image_height, uploader_id, uploaders (display_name, public_id)",
+      "id, original_filename, uploaded_at, like_count, image_width, image_height, uploader_id, uploaders (display_name, public_id)",
       { count: "exact" },
     )
     .eq("visibility", "public")
@@ -122,18 +118,16 @@ export async function loadPublicPhotos({
   const { data, count, error } = await query.limit(GALLERY_MAX_PHOTOS);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   const rows = data as unknown as PublicPhotoRow[];
-  const [viewerLikes, uploaderStats, imageUrls] = await Promise.all([
+  const [viewerLikes, uploaderStats] = await Promise.all([
     loadViewerLikes(viewerDeviceId),
     loadPublicUploaderStats([
       ...new Set(rows.flatMap((row) => row.uploader_id ?? [])),
     ]),
-    galleryImageUrls(rows),
   ]);
   return {
-    photos: rows.map((photo, index) => ({
+    photos: rows.map((photo) => ({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
-      imageUrl: imageUrls[index],
       width: photo.image_width,
       height: photo.image_height,
       originalFilename: photo.original_filename,

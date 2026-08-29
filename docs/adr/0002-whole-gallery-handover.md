@@ -31,10 +31,10 @@ carry `loading="lazy"` (`src/app/photo-grid.tsx`) and reserve their height from
 - Sorting and entering or leaving a guest's gallery cost no server round trip.
 - Whatever a photo carries is paid for twice — once in the SSR'd markup, once in
   the RSC payload that hydrates the client component holding the array. Keeping
-  per-photo fields small is what keeps this affordable. How images are addressed,
-  the largest such field, is decided in ADR-0003.
+  per-photo fields small is what keeps this affordable. How images are addressed
+  without paying a credential per photo is decided in ADR-0003.
 - The grid is not virtualized; every photo is a live DOM node with its own
-  `useImageSrc` hook.
+  `<img>`.
 - `totalCount` comes from an exact count, not from the rows returned, so past the
   cap the viewer's counter reports more photos than the grid holds.
 - Any per-photo lookup that fans the id list out to Supabase must send it in a

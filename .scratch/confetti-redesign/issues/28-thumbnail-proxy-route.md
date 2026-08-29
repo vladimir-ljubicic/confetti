@@ -6,7 +6,7 @@ metadata, and hands out access that cannot be withdrawn. Replace it with a stabl
 route the client derives from the photo id. See ADR-0003 for the decision and the
 measurements behind it.
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## The route
 
@@ -25,8 +25,12 @@ measurements behind it.
 - `Cache-Control: private, max-age=300`. **`private` is required**: the redirect is
   authorized for one viewer, and a shared cache holding it would serve that
   authorization to somebody else.
-- Sign the target for ~600s. It must outlive the cached redirect, or a browser
-  follows a cached 302 to an expired token.
+- The signed target must outlive the cached redirect, or a browser follows a
+  cached 302 to a token that has already expired. Signing is itself cached, so
+  the bound is `signing window + max-age < TTL`. A cache that expires an entry by
+  age does not give that bound: the request that finds an entry expired is still
+  served it, and only the request after that gets a fresh one. The window has to
+  be part of the cache key.
 
 `max-age` trades function invocations against how quickly a revocation is felt.
 Worst case a viewer keeps rendering a revoked photo for roughly `max-age` plus the
@@ -63,13 +67,13 @@ signs in bulk and should go with it.
 
 ## Acceptance
 
-- [ ] No `object/sign` URL appears in the HTML of any gallery, admin, my-photos or
+- [x] No `object/sign` URL appears in the HTML of any gallery, admin, my-photos or
       bin page
-- [ ] A photo made private stops rendering for other guests without a redeploy or
+- [x] A photo made private stops rendering for other guests without a redeploy or
       cache flush
-- [ ] A deleted photo stops rendering for guests and still renders in the admin bin
-- [ ] Admin still sees private photos; a guest still sees their own
-- [ ] Gallery payload per photo drops to ~44 B gzipped (measure with the method in
+- [x] A deleted photo stops rendering for guests and still renders in the admin bin
+- [x] Admin still sees private photos; a guest still sees their own
+- [x] Gallery payload per photo drops to ~44 B gzipped (measure with the method in
       ADR-0003)
 - [ ] Images survive a page reload from browser cache instead of refetching
 
@@ -91,3 +95,38 @@ regresses, that is the place to look.
 ADR-0002 describes the payload cost of the whole-gallery handover and points here
 for how images are addressed. Its wording assumes no per-photo credential once this
 lands; check it still reads true when closing this ticket.
+
+`GET /api/photos/[id]/thumb` authorizes per request and 302s to the signed
+thumbnail with `Cache-Control: private, max-age=300`. The signed target is minted
+for 900s. `src/lib/photo-url-window.ts` holds that TTL, the 300s signing window
+and the 300s `max-age` together with `signingWindow`, which keys the signing
+cache by window so a URL is at most one window old when it is handed over and
+then lives in a browser's redirect cache for up to a further `max-age`; a test
+asserts the two fit inside the TTL. All five render paths now send only the
+photo id; `thumbSrc`/`hideBrokenImage` in `src/app/photo-image.ts` replace
+`use-image-src.ts` and the `image-url` route, both deleted, along with the
+tick-batching in `photo-urls.ts`. The five queries stopped selecting
+`storage_path`/`thumbnail_path` with nothing left to sign. ADR-0002's consequence
+about a `useImageSrc` hook per tile was updated.
+
+Verified against the local dev server and database. Measured with ADR-0003's
+method over the same page at 143 photos: 131 B gzipped per photo before, 42 B
+after (18,752 → 6,006 B for the array; whole page 49,223 → 23,868 B gzipped). No
+`object/sign` string remains in `/`, `/?sort=popular`, `/uploader/[publicId]`,
+`/my-photos`, `/admin`, `/admin/bin`, `/admin/guests/[publicId]` or the
+`/api/admin/photos` feed. Flipping a public photo to private in the database
+turned the route from 302 to 404 for an anonymous viewer with no restart, and
+back again on restore. A deleted photo 404s for guests and 302s to a real JPEG
+for an admin, which is what the bin renders.
+
+Left unticked: browser cache across a reload. The mechanism is in place and was
+checked as far as curl can — the `<img src>` is derived from the id so it is
+identical between renders, and repeated requests return a byte-identical signed
+`Location` while the cache window holds — but no browser was driven to confirm it
+serves the second load from cache rather than refetching.
+
+The extra hop on the eager tiles costs 153–178ms before any image byte moves,
+nearly all of it the route's own visibility lookup — one PostgREST round trip,
+uncached, per image. A trivial PostgREST request against this project costs
+126–188ms, so the hop is round-trip overhead rather than query work, and caching
+that lookup is where it would go.

@@ -6,12 +6,12 @@ import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
 import { LocaleToggle } from "../locale-toggle";
+import { hideBrokenImage, thumbSrc } from "../photo-image";
 import {
   PhotoViewer,
   type ViewerLabels,
   type ViewerPhoto,
 } from "../photo-viewer";
-import { useImageSrc } from "../use-image-src";
 import { useLikes } from "../use-likes";
 
 export type ProfileLabels = {
@@ -52,7 +52,6 @@ export type ProfileLabels = {
 export type OwnPhoto = {
   id: string;
   uploadedAt: string;
-  imageUrl: string | null;
   width: number | null;
   height: number | null;
   originalFilename: string;
@@ -67,24 +66,15 @@ const LONG_PRESS_MS = 450;
 
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
 
-function TileImage({
-  photoId,
-  src,
-  alt,
-}: {
-  photoId: string;
-  src: string;
-  alt: string;
-}) {
-  const image = useImageSrc(photoId, src);
+function TileImage({ src, alt }: { src: string; alt: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={image.src}
+      src={src}
       alt={alt}
       loading="lazy"
       draggable={false}
-      onError={image.onError}
+      onError={hideBrokenImage}
       className="h-full w-full object-cover"
     />
   );
@@ -207,7 +197,6 @@ export function ProfileView({
   const viewerPhotos: ViewerPhoto[] = shown.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploadedAt,
-    imageUrl: photo.imageUrl,
     width: photo.width,
     height: photo.height,
     originalFilename: photo.originalFilename,
@@ -428,13 +417,7 @@ export function ProfileView({
                     onContextMenu={(event) => event.preventDefault()}
                     className="relative block aspect-square w-full touch-manipulation overflow-hidden rounded-tile bg-sand select-none [-webkit-touch-callout:none]"
                   >
-                    {photo.imageUrl && (
-                      <TileImage
-                        photoId={photo.id}
-                        src={photo.imageUrl}
-                        alt={labels.photoAlt}
-                      />
-                    )}
+                    <TileImage src={thumbSrc(photo.id)} alt={labels.photoAlt} />
                     {selected && <span className="absolute inset-0 bg-gold/30" />}
                     {photo.visibility === "private" && (
                       <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.7)] px-[7px] py-[3px] text-[10px] tracking-[0.06em] text-paper">

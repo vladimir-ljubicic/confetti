@@ -5,7 +5,6 @@ import {
   galleryCursorFilter,
   type GalleryCursor,
 } from "./gallery-cursor";
-import { galleryImageUrls } from "./photo-urls";
 import { loadPublicUploaderStats, type PublicPhoto } from "./public-photos";
 import { supabaseAdmin } from "./supabase-server";
 import type { Visibility } from "./uploader-profile";
@@ -22,8 +21,6 @@ export type AdminPhotoPage = {
 
 type AdminPhotoRow = {
   id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
   original_filename: string;
   visibility: Visibility;
   like_count: number;
@@ -50,7 +47,7 @@ export async function loadAdminPhotos({
     // The join is inner so that filtering on the uploader narrows the photos
     // rather than blanking the embedded row.
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height, uploader_id, uploaders!inner (display_name, public_id)",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height, uploader_id, uploaders!inner (display_name, public_id)",
     )
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
@@ -68,16 +65,14 @@ export async function loadAdminPhotos({
   const rows = data as unknown as AdminPhotoRow[];
   // The viewer's uploader pill shows the guest's public photo count, matching
   // their public gallery page.
-  const [publicStats, imageUrls] = await Promise.all([
-    loadPublicUploaderStats([...new Set(rows.map((row) => row.uploader_id))]),
-    galleryImageUrls(rows),
+  const publicStats = await loadPublicUploaderStats([
+    ...new Set(rows.map((row) => row.uploader_id)),
   ]);
   const last = rows.at(-1);
   return {
-    photos: rows.map((photo, index) => ({
+    photos: rows.map((photo) => ({
       id: photo.id,
       uploadedAt: photo.uploaded_at,
-      imageUrl: imageUrls[index],
       width: photo.image_width,
       height: photo.image_height,
       originalFilename: photo.original_filename,

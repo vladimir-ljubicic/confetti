@@ -1,6 +1,5 @@
 import { getDeviceId } from "@/lib/device";
 import { getDict, getLocale } from "@/lib/locale";
-import { galleryImageUrls } from "@/lib/photo-urls";
 import { loadViewerLikes } from "@/lib/public-photos";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
@@ -12,8 +11,6 @@ export const dynamic = "force-dynamic";
 
 type OwnPhotoRow = {
   id: string;
-  storage_path: string;
-  thumbnail_path: string | null;
   original_filename: string;
   visibility: Visibility;
   like_count: number;
@@ -26,7 +23,7 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, storage_path, thumbnail_path, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
     )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)
@@ -34,14 +31,10 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(`Loading own photos failed: ${error.message}`);
   const rows = data as OwnPhotoRow[];
-  const [viewerLikes, imageUrls] = await Promise.all([
-    loadViewerLikes(deviceId),
-    galleryImageUrls(rows),
-  ]);
-  return rows.map((photo, index) => ({
+  const viewerLikes = await loadViewerLikes(deviceId);
+  return rows.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploaded_at,
-    imageUrl: imageUrls[index],
     width: photo.image_width,
     height: photo.image_height,
     originalFilename: photo.original_filename,
