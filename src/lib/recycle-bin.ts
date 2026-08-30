@@ -16,3 +16,12 @@ export function purgeStoragePaths(
       : [photo.storage_path],
   );
 }
+
+// Renditions live in either the private or the public bucket depending on the
+// photo's visibility; purging removes the same paths from both, and removing
+// a path that is not there is a no-op.
+export function purgeRenditionPaths(
+  photos: { thumbnail_path: string | null }[],
+): string[] {
+  return photos.flatMap((photo) => photo.thumbnail_path ?? []);
+}

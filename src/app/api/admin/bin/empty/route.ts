@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { PHOTOS_BUCKET } from "@/lib/env";
+import { PHOTOS_BUCKET, RENDITIONS_BUCKET } from "@/lib/env";
 import { isAdmin } from "@/lib/admin-session";
 import { jsonError } from "@/lib/http";
-import { purgeStoragePaths } from "@/lib/recycle-bin";
+import { purgeRenditionPaths, purgeStoragePaths } from "@/lib/recycle-bin";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 // Storage objects first, rows after — a storage failure leaves the rows
@@ -22,6 +22,14 @@ export async function POST() {
     .from(PHOTOS_BUCKET)
     .remove(purgeStoragePaths(deleted));
   if (storageError) return jsonError("Could not remove storage objects", 500);
+
+  const renditionPaths = purgeRenditionPaths(deleted);
+  if (renditionPaths.length > 0) {
+    const { error: renditionsError } = await supabase.storage
+      .from(RENDITIONS_BUCKET)
+      .remove(renditionPaths);
+    if (renditionsError) return jsonError("Could not remove storage objects", 500);
+  }
 
   // Re-asserts deletion so a photo restored mid-run keeps its row.
   const { error: deleteError } = await supabase

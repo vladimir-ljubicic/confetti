@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDeviceId } from "@/lib/device";
 import { PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { moveRenditions, renditionsBucket } from "@/lib/renditions";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 type ImageSize = { width: number; height: number };
@@ -28,7 +29,9 @@ export async function POST(
   const supabase = supabaseAdmin();
   const { data: photo, error } = await supabase
     .from("photos")
-    .select("id, uploader_id, storage_path, thumbnail_path, uploaded_at")
+    .select(
+      "id, uploader_id, storage_path, thumbnail_path, visibility, deleted_at, uploaded_at",
+    )
     .eq("id", id)
     .maybeSingle();
   if (error || !photo) return jsonError("Photo not found", 404);
@@ -44,7 +47,15 @@ export async function POST(
   // only if the object actually landed.
   let thumbnailPath = photo.thumbnail_path;
   if (thumbnailPath) {
-    const { data: thumb } = await supabase.storage.from(PHOTOS_BUCKET).info(thumbnailPath);
+    const home = renditionsBucket(photo);
+    let { data: thumb } = await supabase.storage.from(home).info(thumbnailPath);
+    if (!thumb) {
+      // The upload slot was signed for the bucket the photo's visibility
+      // called for at ticket time; a flip since then leaves the thumbnail in
+      // the other bucket, publicly reachable when the photo no longer is.
+      await moveRenditions(supabase, [photo], home);
+      ({ data: thumb } = await supabase.storage.from(home).info(thumbnailPath));
+    }
     if (!thumb) thumbnailPath = null;
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { env, PHOTOS_BUCKET } from "@/lib/env";
+import { env, PHOTOS_BUCKET, RENDITIONS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { purgeCutoff, purgeStoragePaths } from "@/lib/recycle-bin";
+import { purgeCutoff, purgeRenditionPaths, purgeStoragePaths } from "@/lib/recycle-bin";
 import { supabaseAdmin } from "@/lib/supabase-server";
 
 // Permanently purges photos whose recycle-bin retention has lapsed: storage
@@ -25,6 +25,14 @@ export async function GET(request: Request) {
     .from(PHOTOS_BUCKET)
     .remove(purgeStoragePaths(expired));
   if (storageError) return jsonError("Could not remove storage objects", 500);
+
+  const renditionPaths = purgeRenditionPaths(expired);
+  if (renditionPaths.length > 0) {
+    const { error: renditionsError } = await supabase.storage
+      .from(RENDITIONS_BUCKET)
+      .remove(renditionPaths);
+    if (renditionsError) return jsonError("Could not remove storage objects", 500);
+  }
 
   // Re-asserts the cutoff so a photo restored mid-run keeps its row.
   const { error: deleteError } = await supabase

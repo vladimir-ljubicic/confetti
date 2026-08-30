@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-session";
+import { PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { moveRenditions } from "@/lib/renditions";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { isUuid } from "@/lib/uploaders";
 
@@ -21,6 +23,19 @@ export async function POST(
     .maybeSingle();
   if (uploaderError) return jsonError("Could not look up uploader", 500);
   if (!uploader) return jsonError("Uploader not found", 404);
+
+  const { data: hidden, error: listError } = await supabase
+    .from("photos")
+    .select("thumbnail_path")
+    .eq("uploader_id", uploader.id)
+    .eq("visibility", "public")
+    .is("deleted_at", null);
+  if (listError) return jsonError("Could not hide photos", 500);
+
+  // Renditions leave the public CDN before the rows flip, so a failure never
+  // leaves a private photo's renditions publicly reachable.
+  const moved = await moveRenditions(supabase, hidden, PHOTOS_BUCKET);
+  if (!moved) return jsonError("Could not hide photos", 500);
 
   const { error } = await supabase
     .from("photos")

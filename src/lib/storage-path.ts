@@ -37,7 +37,8 @@ export function storagePath(
   return `${uploaderId}/${photoId}.${ext}`;
 }
 
-// Client-generated JPEG thumbnails always live next to the original.
-export function thumbnailPath(uploaderId: string, photoId: string): string {
-  return `${uploaderId}/${photoId}.thumb.jpg`;
+// Canonical path of a photo's thumbnail, the same in whichever bucket holds
+// it; which bucket that is follows from the photo's visibility.
+export function thumbnailPath(photoId: string): string {
+  return `${photoId}/thumb.jpg`;
 }

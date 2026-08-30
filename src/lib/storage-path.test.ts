@@ -37,7 +37,7 @@ describe("storagePath", () => {
 });
 
 describe("thumbnailPath", () => {
-  it("builds <uploaderId>/<photoId>.thumb.jpg", () => {
-    expect(thumbnailPath(uploader, photo)).toBe(`${uploader}/${photo}.thumb.jpg`);
+  it("builds <photoId>/thumb.jpg", () => {
+    expect(thumbnailPath(photo)).toBe(`${photo}/thumb.jpg`);
   });
 });

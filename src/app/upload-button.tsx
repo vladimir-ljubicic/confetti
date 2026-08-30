@@ -140,7 +140,12 @@ async function uploadThumbnail(
     if (!thumbnail) return null;
     await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "content-type": "image/jpeg", "cache-control": "max-age=3600" },
+      headers: {
+        "content-type": "image/jpeg",
+        // Content never changes at a rendition path — revocation removes the
+        // object — so browsers may cache it indefinitely.
+        "cache-control": "public, max-age=31536000, immutable",
+      },
       body: thumbnail.blob,
     });
     return { width: thumbnail.width, height: thumbnail.height };

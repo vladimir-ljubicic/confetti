@@ -3,7 +3,7 @@
 //   node scripts/seed.mjs           # wipe everything, then seed
 //   node scripts/seed.mjs --clean   # wipe everything only
 //
-// The wipe empties every gallery table and both storage buckets, so whatever a
+// The wipe empties every gallery table and every storage bucket, so whatever a
 // run leaves behind is exactly what it seeded. Event settings are left alone.
 //
 // Photos come from Pexels, searched by wedding-related queries and cached under
@@ -30,7 +30,7 @@ const supabase = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
 
-const BUCKETS = ["photos", "exports"];
+const BUCKETS = ["photos", "renditions", "exports"];
 
 // Supabase caps a storage listing at 1000 entries and a removal at 1000 paths.
 const STORAGE_PAGE = 1000;
@@ -290,11 +290,11 @@ async function fetchImage(url, cacheKey) {
 }
 
 // Storage occasionally answers a burst of uploads with a 5xx.
-async function upload(path, image) {
+async function upload(bucket, path, image, options = {}) {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const { error } = await supabase.storage
-      .from("photos")
-      .upload(path, image, { contentType: "image/jpeg", upsert: true });
+      .from(bucket)
+      .upload(path, image, { contentType: "image/jpeg", upsert: true, ...options });
     if (!error) return null;
     if (attempt === 3) return error;
     await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
@@ -385,8 +385,21 @@ async function seed() {
   let uploaded = 0;
   await mapLimit(photos, CONCURRENCY, async (photo) => {
     photo.path = `${photo.guest.id}/${photo.id}.jpg`;
-    const uploadError = await upload(photo.path, photo.image.bytes);
+    photo.thumbPath = `${photo.id}/thumb.jpg`;
+    const uploadError = await upload("photos", photo.path, photo.image.bytes);
     if (uploadError) fail(`storage upload failed for ${photo.path}:`, uploadError);
+
+    // Thumbnails go where the app expects them: public live photos serve
+    // theirs from the public renditions bucket, private and deleted ones keep
+    // theirs in the private bucket behind the signed proxy.
+    const bucket =
+      photo.visibility === "public" && photo.deletedAt === null
+        ? "renditions"
+        : "photos";
+    const thumbError = await upload(bucket, photo.thumbPath, photo.image.bytes, {
+      headers: { "cache-control": "public, max-age=31536000, immutable" },
+    });
+    if (thumbError) fail(`storage upload failed for ${photo.thumbPath}:`, thumbError);
     uploaded++;
     if (uploaded % 200 === 0) console.log(`uploaded ${uploaded}/${photos.length}`);
   });
@@ -395,7 +408,7 @@ async function seed() {
     id: photo.id,
     uploader_id: photo.guest.id,
     storage_path: photo.path,
-    thumbnail_path: null,
+    thumbnail_path: photo.thumbPath,
     original_filename: photo.filename,
     content_type: "image/jpeg",
     size_bytes: photo.image.bytes.byteLength,

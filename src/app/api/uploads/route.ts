@@ -4,6 +4,7 @@ import { getDeviceId } from "@/lib/device";
 import { env, PHOTOS_BUCKET } from "@/lib/env";
 import { areUploadsFrozen } from "@/lib/event-settings";
 import { jsonError } from "@/lib/http";
+import { renditionsBucket } from "@/lib/renditions";
 import { storagePath, thumbnailPath } from "@/lib/storage-path";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
@@ -97,10 +98,16 @@ export async function POST(request: Request) {
   if (signError || !signed) return jsonError("Could not authorize upload", 500);
 
   // Galleries render from a client-generated thumbnail, never the original;
-  // sign a second upload slot for it.
-  const thumbPath = thumbnailPath(deviceId, photoId);
+  // sign a second upload slot for it, in the bucket the photo's visibility
+  // calls for.
+  const thumbPath = thumbnailPath(photoId);
   const { data: signedThumb, error: thumbError } = await supabase.storage
-    .from(PHOTOS_BUCKET)
+    .from(
+      renditionsBucket({
+        visibility: uploader.defaultVisibility,
+        deleted_at: null,
+      }),
+    )
     .createSignedUploadUrl(thumbPath);
   if (thumbError || !signedThumb) return jsonError("Could not authorize upload", 500);
 

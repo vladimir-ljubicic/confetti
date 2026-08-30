@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
 import { LocaleToggle } from "../locale-toggle";
-import { hideBrokenImage, thumbSrc } from "../photo-image";
+import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import {
   PhotoViewer,
   type ViewerLabels,
@@ -417,7 +417,14 @@ export function ProfileView({
                     onContextMenu={(event) => event.preventDefault()}
                     className="relative block aspect-square w-full touch-manipulation overflow-hidden rounded-tile bg-sand select-none [-webkit-touch-callout:none]"
                   >
-                    <TileImage src={thumbSrc(photo.id)} alt={labels.photoAlt} />
+                    <TileImage
+                      src={
+                        photo.visibility === "public"
+                          ? publicThumbSrc(photo.id)
+                          : thumbSrc(photo.id)
+                      }
+                      alt={labels.photoAlt}
+                    />
                     {selected && <span className="absolute inset-0 bg-gold/30" />}
                     {photo.visibility === "private" && (
                       <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.7)] px-[7px] py-[3px] text-[10px] tracking-[0.06em] text-paper">

@@ -15,3 +15,7 @@ export const env = {
 };
 
 export const PHOTOS_BUCKET = "photos";
+
+// Public bucket holding public photos' renditions; objects are addressed by
+// paths derived from the photo id, so URLs are unguessable without it.
+export const RENDITIONS_BUCKET = "renditions";

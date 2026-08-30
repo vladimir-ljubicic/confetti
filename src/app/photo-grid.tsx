@@ -7,7 +7,7 @@ import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
-import { hideBrokenImage, thumbSrc } from "./photo-image";
+import { hideBrokenImage, publicThumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
 import { useLikes } from "./use-likes";
@@ -256,7 +256,7 @@ export function PhotoGrid({
                       className="block h-full w-full"
                     >
                       <GalleryImage
-                        src={thumbSrc(entry.photo.id)}
+                        src={publicThumbSrc(entry.photo.id)}
                         alt={photoAltText(altLabels, entry.photo.uploader)}
                         width={entry.photo.width}
                         height={entry.photo.height}
@@ -266,7 +266,7 @@ export function PhotoGrid({
                     </button>
                   ) : (
                     <GalleryImage
-                      src={thumbSrc(entry.photo.id)}
+                      src={publicThumbSrc(entry.photo.id)}
                       alt={photoAltText(altLabels, entry.photo.uploader)}
                       width={entry.photo.width}
                       height={entry.photo.height}
