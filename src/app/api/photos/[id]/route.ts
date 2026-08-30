@@ -7,7 +7,7 @@ import { moveRenditions } from "@/lib/renditions";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { parseVisibilityField } from "@/lib/uploader-profile";
 
-type ManageablePhoto = { thumbnail_path: string | null };
+type ManageablePhoto = { id: string };
 
 // The photo when the caller may manage it; an error response when it is gone
 // or the caller may not (neither the uploading device nor an admin).
@@ -16,7 +16,7 @@ async function requireManageablePhoto(
 ): Promise<{ photo: ManageablePhoto } | { denied: NextResponse }> {
   const { data: photo, error } = await supabaseAdmin()
     .from("photos")
-    .select("uploader_id, deleted_at, thumbnail_path")
+    .select("id, uploader_id, deleted_at")
     .eq("id", id)
     .maybeSingle();
   if (error || !photo || photo.deleted_at) {

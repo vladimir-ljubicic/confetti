@@ -13,7 +13,7 @@ export async function POST() {
     .from("photos")
     .update({ deleted_at: null })
     .not("deleted_at", "is", null)
-    .select("thumbnail_path, visibility");
+    .select("id, visibility");
   if (error) return jsonError("Could not restore photos", 500);
 
   const restoredPublic = data.filter((photo) => photo.visibility === "public");

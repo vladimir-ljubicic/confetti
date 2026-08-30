@@ -5,6 +5,7 @@ import {
   GALLERY_URL_WINDOW_SECONDS,
   signingWindow,
 } from "./photo-url-window";
+import { viewerPath } from "./storage-path";
 import { supabaseAdmin } from "./supabase-server";
 
 export type PhotoForUrl = {
@@ -60,6 +61,12 @@ export async function galleryImageUrls(
   return Promise.all(
     photos.map((photo) => stableSignedUrl(photo.thumbnail_path ?? photo.storage_path)),
   );
+}
+
+// Signed URL of the private-bucket viewer rendition; null when the photo has
+// none to sign.
+export async function viewerImageUrl(photoId: string): Promise<string | null> {
+  return stableSignedUrl(viewerPath(photoId));
 }
 
 // Signed URL that downloads the untouched original (EXIF intact). Signed

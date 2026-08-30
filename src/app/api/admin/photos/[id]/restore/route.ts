@@ -18,7 +18,7 @@ export async function POST(
     .update({ deleted_at: null })
     .eq("id", id)
     .not("deleted_at", "is", null)
-    .select("thumbnail_path, visibility")
+    .select("id, visibility")
     .maybeSingle();
   if (error) return jsonError("Could not restore photo", 500);
   if (!data) return jsonError("Photo not in the recycle bin", 404);

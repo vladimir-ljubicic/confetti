@@ -5,7 +5,7 @@ import { env, PHOTOS_BUCKET } from "@/lib/env";
 import { areUploadsFrozen } from "@/lib/event-settings";
 import { jsonError } from "@/lib/http";
 import { renditionsBucket } from "@/lib/renditions";
-import { storagePath, thumbnailPath } from "@/lib/storage-path";
+import { storagePath, thumbnailPath, viewerPath } from "@/lib/storage-path";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
 import {
@@ -97,19 +97,23 @@ export async function POST(request: Request) {
     .createSignedUploadUrl(path);
   if (signError || !signed) return jsonError("Could not authorize upload", 500);
 
-  // Galleries render from a client-generated thumbnail, never the original;
-  // sign a second upload slot for it, in the bucket the photo's visibility
-  // calls for.
+  // Photos render from client-generated renditions, never the original; sign
+  // an upload slot for each, in the bucket the photo's visibility calls for.
+  const bucket = renditionsBucket({
+    visibility: uploader.defaultVisibility,
+    deleted_at: null,
+  });
   const thumbPath = thumbnailPath(photoId);
-  const { data: signedThumb, error: thumbError } = await supabase.storage
-    .from(
-      renditionsBucket({
-        visibility: uploader.defaultVisibility,
-        deleted_at: null,
-      }),
-    )
-    .createSignedUploadUrl(thumbPath);
-  if (thumbError || !signedThumb) return jsonError("Could not authorize upload", 500);
+  const [
+    { data: signedThumb, error: thumbError },
+    { data: signedViewer, error: viewerError },
+  ] = await Promise.all([
+    supabase.storage.from(bucket).createSignedUploadUrl(thumbPath),
+    supabase.storage.from(bucket).createSignedUploadUrl(viewerPath(photoId)),
+  ]);
+  if (thumbError || !signedThumb || viewerError || !signedViewer) {
+    return jsonError("Could not authorize upload", 500);
+  }
 
   const { error: insertError } = await supabase.from("photos").insert({
     id: photoId,
@@ -130,6 +134,7 @@ export async function POST(request: Request) {
     token: signed.token,
     storageUrl: env.supabaseUrl(),
     thumbnailUploadUrl: signedThumb.signedUrl,
+    viewerUploadUrl: signedViewer.signedUrl,
   };
   return NextResponse.json(ticket);
 }

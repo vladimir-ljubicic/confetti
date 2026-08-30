@@ -37,8 +37,17 @@ export function storagePath(
   return `${uploaderId}/${photoId}.${ext}`;
 }
 
-// Canonical path of a photo's thumbnail, the same in whichever bucket holds
-// it; which bucket that is follows from the photo's visibility.
+// Rendition paths are canonical, the same in whichever bucket holds them;
+// which bucket that is follows from the photo's visibility.
 export function thumbnailPath(photoId: string): string {
   return `${photoId}/thumb.jpg`;
+}
+
+// The 1600px full-screen rendition.
+export function viewerPath(photoId: string): string {
+  return `${photoId}/viewer.jpg`;
+}
+
+export function renditionPaths(photoId: string): string[] {
+  return [thumbnailPath(photoId), viewerPath(photoId)];
 }

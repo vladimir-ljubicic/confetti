@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const cutoff = purgeCutoff(new Date());
   const { data: expired, error } = await supabase
     .from("photos")
-    .select("id, storage_path, thumbnail_path")
+    .select("id, storage_path")
     .lt("deleted_at", cutoff);
   if (error) return jsonError("Could not list expired photos", 500);
   if (expired.length === 0) return NextResponse.json({ purged: 0 });
@@ -26,13 +26,10 @@ export async function GET(request: Request) {
     .remove(purgeStoragePaths(expired));
   if (storageError) return jsonError("Could not remove storage objects", 500);
 
-  const renditionPaths = purgeRenditionPaths(expired);
-  if (renditionPaths.length > 0) {
-    const { error: renditionsError } = await supabase.storage
-      .from(RENDITIONS_BUCKET)
-      .remove(renditionPaths);
-    if (renditionsError) return jsonError("Could not remove storage objects", 500);
-  }
+  const { error: renditionsError } = await supabase.storage
+    .from(RENDITIONS_BUCKET)
+    .remove(purgeRenditionPaths(expired));
+  if (renditionsError) return jsonError("Could not remove storage objects", 500);
 
   // Re-asserts the cutoff so a photo restored mid-run keeps its row.
   const { error: deleteError } = await supabase

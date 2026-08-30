@@ -80,8 +80,10 @@ const QUERIES = [
 // Pexels caps a page at 80 results.
 const PER_QUERY = 60;
 
-// Keep in step with GALLERY_IMAGE_WIDTH in src/lib/thumbnail.ts.
+// Keep in step with GALLERY_IMAGE_WIDTH and VIEWER_IMAGE_WIDTH in
+// src/lib/thumbnail.ts.
 const THUMBNAIL_WIDTH = 800;
+const VIEWER_WIDTH = 1600;
 
 const CACHE_DIR = fileURLToPath(new URL("./.cache/pexels/", import.meta.url));
 
@@ -213,6 +215,7 @@ async function search(query) {
   return body.photos.map((photo) => ({
     id: String(photo.id),
     url: renditionUrl(photo.src.large2x, THUMBNAIL_WIDTH),
+    viewerUrl: renditionUrl(photo.src.large2x, VIEWER_WIDTH),
   }));
 }
 
@@ -368,7 +371,10 @@ async function seed() {
       console.warn(`skipped (download failed after retries): ${source.url}`);
       return null;
     }
-    return { bytes, size: jpegSize(bytes) };
+    // A photo may legitimately lack its viewer rendition; a failed download
+    // seeds that case instead of aborting.
+    const viewerBytes = await fetchImage(source.viewerUrl, `${source.id}.viewer`);
+    return { bytes, viewerBytes, size: jpegSize(bytes) };
   });
   const images = downloaded.filter(Boolean);
   if (images.length === 0) fail("no images could be downloaded");
@@ -389,17 +395,23 @@ async function seed() {
     const uploadError = await upload("photos", photo.path, photo.image.bytes);
     if (uploadError) fail(`storage upload failed for ${photo.path}:`, uploadError);
 
-    // Thumbnails go where the app expects them: public live photos serve
+    // Renditions go where the app expects them: public live photos serve
     // theirs from the public renditions bucket, private and deleted ones keep
     // theirs in the private bucket behind the signed proxy.
     const bucket =
       photo.visibility === "public" && photo.deletedAt === null
         ? "renditions"
         : "photos";
-    const thumbError = await upload(bucket, photo.thumbPath, photo.image.bytes, {
+    const cacheHeaders = {
       headers: { "cache-control": "public, max-age=31536000, immutable" },
-    });
+    };
+    const thumbError = await upload(bucket, photo.thumbPath, photo.image.bytes, cacheHeaders);
     if (thumbError) fail(`storage upload failed for ${photo.thumbPath}:`, thumbError);
+    if (photo.image.viewerBytes) {
+      const viewerPath = `${photo.id}/viewer.jpg`;
+      const viewerError = await upload(bucket, viewerPath, photo.image.viewerBytes, cacheHeaders);
+      if (viewerError) fail(`storage upload failed for ${viewerPath}:`, viewerError);
+    }
     uploaded++;
     if (uploaded % 200 === 0) console.log(`uploaded ${uploaded}/${photos.length}`);
   });

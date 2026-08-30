@@ -3,6 +3,7 @@ export type UploadTicket = {
   path: string;
   token: string;
   storageUrl: string;
-  // PUT the client-generated JPEG thumbnail here.
+  // PUT the client-generated JPEG renditions here.
   thumbnailUploadUrl: string;
+  viewerUploadUrl: string;
 };

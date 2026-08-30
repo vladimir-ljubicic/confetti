@@ -13,7 +13,7 @@ export async function POST() {
   const supabase = supabaseAdmin();
   const { data: deleted, error } = await supabase
     .from("photos")
-    .select("id, storage_path, thumbnail_path")
+    .select("id, storage_path")
     .not("deleted_at", "is", null);
   if (error) return jsonError("Could not list deleted photos", 500);
   if (deleted.length === 0) return NextResponse.json({ purged: 0 });
@@ -23,13 +23,10 @@ export async function POST() {
     .remove(purgeStoragePaths(deleted));
   if (storageError) return jsonError("Could not remove storage objects", 500);
 
-  const renditionPaths = purgeRenditionPaths(deleted);
-  if (renditionPaths.length > 0) {
-    const { error: renditionsError } = await supabase.storage
-      .from(RENDITIONS_BUCKET)
-      .remove(renditionPaths);
-    if (renditionsError) return jsonError("Could not remove storage objects", 500);
-  }
+  const { error: renditionsError } = await supabase.storage
+    .from(RENDITIONS_BUCKET)
+    .remove(purgeRenditionPaths(deleted));
+  if (renditionsError) return jsonError("Could not remove storage objects", 500);
 
   // Re-asserts deletion so a photo restored mid-run keeps its row.
   const { error: deleteError } = await supabase

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { storagePath, thumbnailPath } from "./storage-path";
+import {
+  renditionPaths,
+  storagePath,
+  thumbnailPath,
+  viewerPath,
+} from "./storage-path";
 
 const uploader = "11111111-1111-4111-8111-111111111111";
 const photo = "22222222-2222-4222-8222-222222222222";
@@ -39,5 +44,20 @@ describe("storagePath", () => {
 describe("thumbnailPath", () => {
   it("builds <photoId>/thumb.jpg", () => {
     expect(thumbnailPath(photo)).toBe(`${photo}/thumb.jpg`);
+  });
+});
+
+describe("viewerPath", () => {
+  it("builds <photoId>/viewer.jpg", () => {
+    expect(viewerPath(photo)).toBe(`${photo}/viewer.jpg`);
+  });
+});
+
+describe("renditionPaths", () => {
+  it("lists every rendition of a photo", () => {
+    expect(renditionPaths(photo)).toEqual([
+      `${photo}/thumb.jpg`,
+      `${photo}/viewer.jpg`,
+    ]);
   });
 });

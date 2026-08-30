@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { purgeCutoff, purgeStoragePaths } from "./recycle-bin";
+import { purgeCutoff, purgeRenditionPaths, purgeStoragePaths } from "./recycle-bin";
 
 describe("purgeCutoff", () => {
   it("is 30 days before the given moment", () => {
@@ -10,16 +10,34 @@ describe("purgeCutoff", () => {
 });
 
 describe("purgeStoragePaths", () => {
-  it("includes originals and thumbnails when present", () => {
+  it("includes each photo's original and every rendition path", () => {
     expect(
       purgeStoragePaths([
-        { storage_path: "u1/p1.jpg", thumbnail_path: null },
-        { storage_path: "u1/p2.heic", thumbnail_path: "u1/p2.thumb.jpg" },
+        { id: "p1", storage_path: "u1/p1.jpg" },
+        { id: "p2", storage_path: "u1/p2.heic" },
       ]),
-    ).toEqual(["u1/p1.jpg", "u1/p2.heic", "u1/p2.thumb.jpg"]);
+    ).toEqual([
+      "u1/p1.jpg",
+      "p1/thumb.jpg",
+      "p1/viewer.jpg",
+      "u1/p2.heic",
+      "p2/thumb.jpg",
+      "p2/viewer.jpg",
+    ]);
   });
 
   it("is empty for no photos", () => {
     expect(purgeStoragePaths([])).toEqual([]);
+  });
+});
+
+describe("purgeRenditionPaths", () => {
+  it("lists every rendition path of every photo", () => {
+    expect(purgeRenditionPaths([{ id: "p1" }, { id: "p2" }])).toEqual([
+      "p1/thumb.jpg",
+      "p1/viewer.jpg",
+      "p2/thumb.jpg",
+      "p2/viewer.jpg",
+    ]);
   });
 });

@@ -1,5 +1,6 @@
 import { StorageApiError, type SupabaseClient } from "@supabase/supabase-js";
 import { PHOTOS_BUCKET, RENDITIONS_BUCKET } from "./env";
+import { renditionPaths } from "./storage-path";
 
 export type RenditionsHome = typeof PHOTOS_BUCKET | typeof RENDITIONS_BUCKET;
 
@@ -19,8 +20,8 @@ function otherBucket(bucket: RenditionsHome): RenditionsHome {
   return bucket === PHOTOS_BUCKET ? RENDITIONS_BUCKET : PHOTOS_BUCKET;
 }
 
-// A missing source means there is nothing to move: the photo has no thumbnail
-// object, or its renditions are already in the target bucket.
+// A missing source means there is nothing to move: the photo never got that
+// rendition, or it is already in the target bucket.
 function isMissingSource(error: unknown): boolean {
   return error instanceof StorageApiError && error.code === "NoSuchKey";
 }
@@ -29,20 +30,16 @@ function isMissingSource(error: unknown): boolean {
 // their paths. True when every rendition is in place afterwards.
 export async function moveRenditions(
   supabase: SupabaseClient,
-  photos: { thumbnail_path: string | null }[],
+  photos: { id: string }[],
   bucket: RenditionsHome,
 ): Promise<boolean> {
   const results = await Promise.all(
     photos.flatMap((photo) =>
-      photo.thumbnail_path === null
-        ? []
-        : [
-            supabase.storage
-              .from(otherBucket(bucket))
-              .move(photo.thumbnail_path, photo.thumbnail_path, {
-                destinationBucket: bucket,
-              }),
-          ],
+      renditionPaths(photo.id).map((path) =>
+        supabase.storage
+          .from(otherBucket(bucket))
+          .move(path, path, { destinationBucket: bucket }),
+      ),
     ),
   );
   return results.every(({ error }) => error === null || isMissingSource(error));

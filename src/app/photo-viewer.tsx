@@ -9,7 +9,7 @@ import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
-import { hideBrokenImage, thumbSrc } from "./photo-image";
+import { hideBrokenImage, renditionSrcs } from "./photo-image";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 
@@ -65,17 +65,50 @@ function clickedLetterbox(event: React.MouseEvent<HTMLImageElement>): boolean {
 
 function ViewerImage({
   src,
+  sharpSrc,
+  sharpen,
   alt,
   onClick,
 }: {
   src: string;
+  sharpSrc: string;
+  // Only slides near the current one fetch their viewer rendition, so opening
+  // the viewer doesn't pull one for every photo in the feed.
+  sharpen: boolean;
   alt: string;
   onClick: (event: React.MouseEvent<HTMLImageElement>) => void;
 }) {
+  // The thumb paints at once from the grid's cache; the wider viewer
+  // rendition swaps in only once fully decoded, so the upgrade never blanks
+  // the stage and, with the same aspect ratio, never shifts layout. A photo
+  // with no viewer rendition keeps the thumb.
+  const [sharp, setSharp] = useState(false);
+  useEffect(() => {
+    if (!sharpen || sharp) return;
+    let cancelled = false;
+    const image = new Image();
+    const swap = () => {
+      if (!cancelled) setSharp(true);
+    };
+    image.src = sharpSrc;
+    image
+      .decode()
+      .then(swap)
+      .catch(() => {
+        // decode() can reject under memory pressure even for an image that
+        // fetched fine; only a failed fetch (naturalWidth 0) keeps the thumb.
+        if (image.naturalWidth > 0) swap();
+        else if (!image.complete) image.onload = swap;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sharpen, sharp, sharpSrc]);
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={sharp ? sharpSrc : src}
       alt={alt}
       loading="lazy"
       onError={hideBrokenImage}
@@ -455,34 +488,43 @@ export function PhotoViewer({
           closing ? "viewer-photo-out" : "viewer-photo-in"
         }`}
       >
-        {visible.map((photo) => (
-          <div
-            key={photo.id}
-            onClick={(event) => {
-              if (event.target === event.currentTarget) dismiss();
-            }}
-            className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
-          >
-            <ViewerImage
-              src={thumbSrc(photo.id)}
-              alt={photoAltText(labels.alt, photo.uploader)}
-              onClick={(event) => tapPhoto(event, photo)}
-            />
-            {burst?.photoId === photo.id && (
-              <span
-                key={burst.key}
-                aria-hidden
-                onAnimationEnd={() => setBurst(null)}
-                className="heart-burst pointer-events-none absolute"
-              >
-                <HeartIcon
-                  filled
-                  className="h-[92px] w-[92px] text-paper drop-shadow-[0_2px_16px_rgba(27,24,21,0.5)]"
-                />
-              </span>
-            )}
-          </div>
-        ))}
+        {visible.map((photo, slideIndex) => {
+          const srcs = renditionSrcs({
+            id: photo.id,
+            width: photo.width,
+            visibility: visibilityOverrides.get(photo.id) ?? photo.visibility,
+          });
+          return (
+            <div
+              key={photo.id}
+              onClick={(event) => {
+                if (event.target === event.currentTarget) dismiss();
+              }}
+              className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
+            >
+              <ViewerImage
+                src={srcs.thumb}
+                sharpSrc={srcs.viewer}
+                sharpen={Math.abs(slideIndex - currentIndex) <= 1}
+                alt={photoAltText(labels.alt, photo.uploader)}
+                onClick={(event) => tapPhoto(event, photo)}
+              />
+              {burst?.photoId === photo.id && (
+                <span
+                  key={burst.key}
+                  aria-hidden
+                  onAnimationEnd={() => setBurst(null)}
+                  className="heart-burst pointer-events-none absolute"
+                >
+                  <HeartIcon
+                    filled
+                    className="h-[92px] w-[92px] text-paper drop-shadow-[0_2px_16px_rgba(27,24,21,0.5)]"
+                  />
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center">

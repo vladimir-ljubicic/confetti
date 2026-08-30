@@ -26,7 +26,7 @@ export async function POST(
 
   const { data: hidden, error: listError } = await supabase
     .from("photos")
-    .select("thumbnail_path")
+    .select("id")
     .eq("uploader_id", uploader.id)
     .eq("visibility", "public")
     .is("deleted_at", null);

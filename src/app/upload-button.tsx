@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import * as tus from "tus-js-client";
 import { extractTakenAt } from "@/lib/exif";
-import { generateThumbnail } from "@/lib/thumbnail";
+import { generateRenditions } from "@/lib/thumbnail";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
 import {
   FILE_TOO_LARGE_STATUS,
@@ -128,29 +128,40 @@ type UploadControl = {
 
 type ThumbnailSize = { width: number; height: number };
 
-// Best-effort: failures are swallowed and the upload proceeds without a
-// thumbnail. Returns the size the gallery will render at, or null when there
+function putRendition(uploadUrl: string, blob: Blob): Promise<Response> {
+  return fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "content-type": "image/jpeg",
+      // Content never changes at a rendition path — revocation removes the
+      // object — so browsers may cache it indefinitely.
+      "cache-control": "public, max-age=31536000, immutable",
+    },
+    body: blob,
+  });
+}
+
+// Best-effort: failures are swallowed and the upload proceeds without
+// renditions. Returns the size the gallery will render at, or null when there
 // is no thumbnail to render.
-async function uploadThumbnail(
+async function uploadRenditions(
   file: File,
-  uploadUrl: string,
+  ticket: Pick<UploadTicket, "thumbnailUploadUrl" | "viewerUploadUrl">,
 ): Promise<ThumbnailSize | null> {
   try {
-    const thumbnail = await generateThumbnail(file);
-    if (!thumbnail) return null;
-    await fetch(uploadUrl, {
-      method: "PUT",
-      headers: {
-        "content-type": "image/jpeg",
-        // Content never changes at a rendition path — revocation removes the
-        // object — so browsers may cache it indefinitely.
-        "cache-control": "public, max-age=31536000, immutable",
-      },
-      body: thumbnail.blob,
-    });
-    return { width: thumbnail.width, height: thumbnail.height };
+    const renditions = await generateRenditions(file);
+    if (!renditions) return null;
+    // A lost viewer rendition only costs sharpness — the viewer keeps showing
+    // the thumb — so it must not sink the thumbnail everything renders from.
+    const viewerUpload = renditions.viewer
+      ? putRendition(ticket.viewerUploadUrl, renditions.viewer).catch(() => null)
+      : null;
+    await putRendition(ticket.thumbnailUploadUrl, renditions.thumb.blob);
+    await viewerUpload;
+    const { width, height } = renditions.thumb;
+    return { width, height };
   } catch (error) {
-    console.error("Thumbnail upload failed", error);
+    console.error("Rendition upload failed", error);
     return null;
   }
 }
@@ -184,11 +195,11 @@ async function uploadFile(
     throw new RateLimitedError(body?.reason === "batch" ? "batch" : "window");
   }
   if (!response.ok) throw new Error(`Upload request failed (${response.status})`);
-  const { photoId, path, token, storageUrl, thumbnailUploadUrl } =
-    (await response.json()) as UploadTicket;
+  const ticket = (await response.json()) as UploadTicket;
+  const { photoId, path, token, storageUrl } = ticket;
   if (control?.isCancelled()) throw new UploadCancelledError();
 
-  const thumbnailUpload = uploadThumbnail(file, thumbnailUploadUrl);
+  const renditionUpload = uploadRenditions(file, ticket);
 
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(file, {
@@ -215,7 +226,7 @@ async function uploadFile(
     upload.start();
   });
 
-  const thumbnailSize = await thumbnailUpload;
+  const thumbnailSize = await renditionUpload;
   const complete = await fetch(`/api/uploads/${photoId}/complete`, {
     method: "POST",
     headers: { "content-type": "application/json" },
