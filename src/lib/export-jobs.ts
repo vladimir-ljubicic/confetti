@@ -174,8 +174,8 @@ function tusHeaders(): Record<string, string> {
   // The apikey header carries auth for new-format (sb_secret_…) keys, which
   // the bearer path alone rejects as malformed JWTs.
   return {
-    apikey: env.supabaseServiceRoleKey(),
-    authorization: `Bearer ${env.supabaseServiceRoleKey()}`,
+    apikey: env.supabaseSecretKey(),
+    authorization: `Bearer ${env.supabaseSecretKey()}`,
     "tus-resumable": "1.0.0",
   };
 }

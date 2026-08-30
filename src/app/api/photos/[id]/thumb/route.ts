@@ -29,7 +29,8 @@ export async function GET(
     .eq("id", id)
     .maybeSingle();
   const photo = data as ThumbRow | null;
-  if (error || !photo || !photo.uploaded_at) return jsonError("Photo not found", 404);
+  if (error || !photo || !photo.uploaded_at)
+    return jsonError("Photo not found", 404);
 
   if (photo.deleted_at) {
     // The recycle bin renders deleted photos, so an admin still gets them.

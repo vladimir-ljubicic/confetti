@@ -8,7 +8,7 @@ function required(name: string): string {
 
 export const env = {
   supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseServiceRoleKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
+  supabaseSecretKey: () => required("SUPABASE_SECRET_KEY"),
   adminPasscode: () => required("ADMIN_PASSCODE"),
   cronSecret: () => required("CRON_SECRET"),
   uploadLimits: () => parseUploadLimits(process.env),
