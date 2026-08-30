@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FALLBACK_TILE_ASPECT,
-  HEAD_TILES_PER_COLUMN,
+  GALLERY_HEAD_PHOTOS,
   columnMetrics,
   columnWindow,
+  dealColumns,
   tileHeightRatio,
   type ColumnWindow,
 } from "@/lib/grid-window";
@@ -24,6 +25,10 @@ import { useUploadQueue, type UploadTile } from "./upload-queue";
 type GridEntry =
   | { kind: "tile"; tile: UploadTile }
   | { kind: "photo"; photo: PublicPhoto };
+
+function entryRatio(entry: GridEntry): number {
+  return tileHeightRatio(entry.kind === "photo" ? entry.photo : entry.tile);
+}
 
 // Tiles this far into the grid are on screen before anything scrolls, so they
 // are fetched at once rather than waiting to be discovered as lazy.
@@ -224,6 +229,8 @@ export function PhotoGrid({
     setDeepLinkId(null);
   }, [deepLinkId, photoIds]);
 
+  // Dealt over the full ordered list, never the mounted slice, so the layout
+  // is stable while the window moves.
   const columns = useMemo(() => {
     const visibleTiles = tiles.filter(
       (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
@@ -232,10 +239,9 @@ export function PhotoGrid({
       ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
       ...photos.map((photo): GridEntry => ({ kind: "photo", photo })),
     ];
-    return [
-      entries.filter((_, index) => index % 2 === 0),
-      entries.filter((_, index) => index % 2 === 1),
-    ];
+    return dealColumns(entries.map(entryRatio)).map((indexes) =>
+      indexes.map((index) => ({ entry: entries[index], order: index })),
+    );
   }, [tiles, photos, photoIds]);
   const empty = columns[0].length === 0;
 
@@ -298,17 +304,13 @@ export function PhotoGrid({
     () =>
       columns.map((column) => {
         if (band === null) {
-          return {
-            start: 0,
-            end: Math.min(column.length, HEAD_TILES_PER_COLUMN),
-            topSpacer: 0,
-            bottomSpacer: 0,
-          };
+          let end = 0;
+          while (end < column.length && column[end].order < GALLERY_HEAD_PHOTOS)
+            end++;
+          return { start: 0, end, topSpacer: 0, bottomSpacer: 0 };
         }
         const metrics = columnMetrics(
-          column.map((entry) =>
-            tileHeightRatio(entry.kind === "photo" ? entry.photo : entry.tile),
-          ),
+          column.map(({ entry }) => entryRatio(entry)),
           band.columnWidth,
           band.gap,
         );
@@ -345,20 +347,32 @@ export function PhotoGrid({
               className="flex flex-col gap-2"
             >
               {topSpacer > 0 && <li aria-hidden style={{ height: topSpacer }} />}
-              {column.slice(start, end).map((entry, sliceIndex) => {
-                const rowIndex = start + sliceIndex;
-                return entry.kind === "tile" ? (
-                  queue && (
-                    <UploadTileView
-                      key={`tile-${entry.tile.id}`}
-                      tile={entry.tile}
-                      labels={queue.labels}
-                      likes={likes}
-                      likeLabels={likeLabels}
-                      offline={queue.offline}
-                    />
-                  )
-                ) : (
+              {column.slice(start, end).map(({ entry, order }) => {
+                if (entry.kind === "tile") {
+                  return (
+                    queue && (
+                      <UploadTileView
+                        key={`tile-${entry.tile.id}`}
+                        tile={entry.tile}
+                        labels={queue.labels}
+                        likes={likes}
+                        likeLabels={likeLabels}
+                        offline={queue.offline}
+                      />
+                    )
+                  );
+                }
+                const image = (
+                  <GalleryImage
+                    src={publicThumbSrc(entry.photo.id)}
+                    alt={photoAltText(altLabels, entry.photo.uploader)}
+                    width={entry.photo.width}
+                    height={entry.photo.height}
+                    eager={order < EAGER_TILES}
+                    {...absorbProps(entry.photo)}
+                  />
+                );
+                return (
                   <li
                     key={entry.photo.id}
                     style={{ aspectRatio: tileAspect(entry.photo) }}
@@ -375,24 +389,10 @@ export function PhotoGrid({
                         onClick={() => setViewerStartId(entry.photo.id)}
                         className="block h-full w-full"
                       >
-                        <GalleryImage
-                          src={publicThumbSrc(entry.photo.id)}
-                          alt={photoAltText(altLabels, entry.photo.uploader)}
-                          width={entry.photo.width}
-                          height={entry.photo.height}
-                          eager={rowIndex * 2 + columnIndex < EAGER_TILES}
-                          {...absorbProps(entry.photo)}
-                        />
+                        {image}
                       </button>
                     ) : (
-                      <GalleryImage
-                        src={publicThumbSrc(entry.photo.id)}
-                        alt={photoAltText(altLabels, entry.photo.uploader)}
-                        width={entry.photo.width}
-                        height={entry.photo.height}
-                        eager={rowIndex * 2 + columnIndex < EAGER_TILES}
-                        {...absorbProps(entry.photo)}
-                      />
+                      image
                     )}
                     {showUploader && entry.photo.uploader && onSelectUploader && (
                       <UploaderLabel

@@ -9,10 +9,11 @@ const FALLBACK_TILE = { width: 3, height: 4 };
 export const FALLBACK_TILE_RATIO = FALLBACK_TILE.height / FALLBACK_TILE.width;
 export const FALLBACK_TILE_ASPECT = `${FALLBACK_TILE.width} / ${FALLBACK_TILE.height}`;
 
-// Tiles per grid column in the server-rendered head, and the per-column mount
-// cap while the grid is still unmeasured. One constant, so hydration always
-// mounts exactly the tiles the server rendered.
-export const HEAD_TILES_PER_COLUMN = 20;
+// Photos in the server-rendered head, and the mount cap while the grid is
+// still unmeasured: enough tiles to fill the first screens while the client
+// fetches the whole gallery in the background. One constant, so hydration
+// always mounts exactly the tiles the server rendered.
+export const GALLERY_HEAD_PHOTOS = 40;
 
 // Height as a fraction of the tile's width.
 export function tileHeightRatio(size: {
@@ -22,6 +23,36 @@ export function tileHeightRatio(size: {
   return size.width && size.height
     ? size.height / size.width
     : FALLBACK_TILE_RATIO;
+}
+
+// Nominal tile geometry for dealing, matching the design's mobile column
+// width and the grid's tile gap. Dealing happens before anything is measured,
+// so it estimates heights at this size for every screen.
+const DEAL_COLUMN_WIDTH = 180;
+const DEAL_GAP = 8;
+
+// Deals tiles to the grid's two columns: each tile lands on the currently
+// shorter column (ties go left), so order reads left-right/top-down and the
+// column bottoms stay close. The gap is part of a tile's height here: the
+// column collecting shorter tiles holds more of them, and its extra gaps
+// would otherwise add up to a visible lead over thousands of tiles. Returns
+// each column's tile indexes into the given list.
+export function dealColumns(ratios: number[]): [number[], number[]] {
+  const left: number[] = [];
+  const right: number[] = [];
+  let leftHeight = 0;
+  let rightHeight = 0;
+  ratios.forEach((ratio, index) => {
+    const height = DEAL_COLUMN_WIDTH * ratio + DEAL_GAP;
+    if (leftHeight <= rightHeight) {
+      left.push(index);
+      leftHeight += height;
+    } else {
+      right.push(index);
+      rightHeight += height;
+    }
+  });
+  return [left, right];
 }
 
 export type ColumnMetrics = {

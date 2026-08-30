@@ -1,6 +1,6 @@
 import "server-only";
 import { galleryCursorFilter, type GalleryCursor } from "./gallery-cursor";
-import { HEAD_TILES_PER_COLUMN } from "./grid-window";
+import { GALLERY_HEAD_PHOTOS } from "./grid-window";
 import type { SortMode } from "./sort-mode";
 import { supabaseAdmin } from "./supabase-server";
 
@@ -8,10 +8,6 @@ import { supabaseAdmin } from "./supabase-server";
 // gallery, and this only stops a runaway one from taking the page down. A
 // gallery near this size would need a different design.
 const GALLERY_MAX_PHOTOS = 10_000;
-
-// Rows the server renders before handing over: enough tiles to fill the first
-// screens while the client fetches the whole gallery in the background.
-const GALLERY_HEAD_PHOTOS = 2 * HEAD_TILES_PER_COLUMN;
 
 // Rows per database round trip. PostgREST caps a single response, so the full
 // gallery is walked by cursor in pages that stay under any such cap.
