@@ -6,7 +6,7 @@ import {
 import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
-import { loadPublicPhotos } from "@/lib/public-photos";
+import { hasPublicPhotos, loadPublicPhotos } from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { getUploaderProfile } from "@/lib/uploaders";
@@ -21,25 +21,34 @@ import { UploadQueueProvider } from "./upload-queue";
 import { uploadWindowLine } from "./upload-window";
 import { photoAltLabels, viewerLabels } from "./viewer-labels";
 
-// Every route that shows the gallery renders this: the first screens of tiles,
-// with the client fetching the rest in the background and deciding locally
-// whether it is showing all of them or one guest's. Both entries therefore
-// leave and re-enter a guest's gallery without asking the server for anything.
+// Every route that shows the gallery renders this: a first paint's worth of
+// tiles, with the client fetching the rest in the background and deciding
+// locally whether it is showing all of them or one guest's. Both entries
+// therefore leave and re-enter a guest's gallery without asking the server for
+// anything.
+export type GalleryGuest = {
+  publicId: string;
+  uploaderId: string;
+  displayName: string;
+};
+
 export async function GalleryScreen({
   sort,
-  guestName = null,
+  guest = null,
 }: {
   sort: SortMode;
-  // Set when the route names a guest, so their header has a name even before
-  // one of their photos is on screen.
-  guestName?: string | null;
+  // Set when the route names a guest: the first paint is their photos alone,
+  // queried by their id rather than filtered out of the whole gallery.
+  guest?: GalleryGuest | null;
 }) {
   const locale = await getLocale();
   const dict = await getDict();
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
   const [photos, profile, settings, admin, job] = await Promise.all([
-    loadPublicPhotos({ sort, viewerDeviceId: deviceId, head: true }),
+    guest
+      ? loadPublicPhotos({ sort, viewerDeviceId: deviceId, uploaderId: guest.uploaderId })
+      : loadPublicPhotos({ sort, viewerDeviceId: deviceId, head: true }),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     getEventSettings().catch(() => ({
@@ -57,7 +66,10 @@ export async function GalleryScreen({
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
   const exportJob = uploadsFrozen ? job : null;
 
-  if (photos.length === 0) {
+  // An empty guest-scoped load says nothing about the gallery at large: a
+  // guest with no public photos gets their named, empty gallery, and only an
+  // event with no public photos anywhere gets the welcome screen.
+  if (photos.length === 0 && (!guest || !(await hasPublicPhotos()))) {
     return (
       <EmptyGallery
         dict={dict}
@@ -89,7 +101,9 @@ export async function GalleryScreen({
         <GalleryView
           photos={photos}
           initialSort={sort}
-          initialGuestName={guestName}
+          initialGuest={
+            guest ? { publicId: guest.publicId, displayName: guest.displayName } : null
+          }
           locale={locale}
           viewerName={profile?.displayName ?? null}
           canManageAll={admin}
@@ -102,7 +116,6 @@ export async function GalleryScreen({
           header={
             <GalleryHeader
               displayName={profile?.displayName ?? null}
-              photoCount={photos.length}
               locale={locale}
               eventDateIso={settings.eventDateIso}
               uploadWindowLine={uploadWindowLine(dict, locale, settings, new Date())}

@@ -19,5 +19,14 @@ export default async function UploaderPage({
   const uploader = await getUploaderByPublicId(publicId);
   if (!uploader) notFound();
 
-  return <GalleryScreen sort={sort} guestName={uploader.displayName} />;
+  return (
+    <GalleryScreen
+      sort={sort}
+      guest={{
+        publicId,
+        uploaderId: uploader.uploaderId,
+        displayName: uploader.displayName,
+      }}
+    />
+  );
 }

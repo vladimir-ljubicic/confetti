@@ -71,6 +71,21 @@ export async function loadViewerLikes(
   return ids;
 }
 
+// Whether the gallery holds any public photo at all. A guest-scoped load that
+// comes back empty cannot tell an empty guest from an empty gallery, and the
+// two get different screens.
+export async function hasPublicPhotos(): Promise<boolean> {
+  const { data, error } = await supabaseAdmin()
+    .from("photos")
+    .select("id")
+    .eq("visibility", "public")
+    .not("uploaded_at", "is", null)
+    .is("deleted_at", null)
+    .limit(1);
+  if (error) throw new Error(`Loading gallery failed: ${error.message}`);
+  return (data as unknown[]).length > 0;
+}
+
 export type PublicPhotoStats = { photoCount: number; likeTotal: number };
 
 // Gallery-wide totals for the given uploaders, keyed by uploader id. Aggregated
@@ -101,6 +116,7 @@ async function fetchPublicRows(
   sort: SortMode,
   limit: number,
   after: GalleryCursor | null,
+  uploaderId: string | null,
 ): Promise<PublicPhotoRow[]> {
   let query = supabaseAdmin()
     .from("photos")
@@ -110,6 +126,7 @@ async function fetchPublicRows(
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
+  if (uploaderId !== null) query = query.eq("uploader_id", uploaderId);
   if (after !== null) query = query.or(galleryCursorFilter(sort, after));
   // Every sort ends on the id so its key is unique, matching `comparePhotos`.
   query =
@@ -126,12 +143,15 @@ async function fetchPublicRows(
   return data as unknown as PublicPhotoRow[];
 }
 
-async function fetchAllPublicRows(sort: SortMode): Promise<PublicPhotoRow[]> {
+async function fetchAllPublicRows(
+  sort: SortMode,
+  uploaderId: string | null,
+): Promise<PublicPhotoRow[]> {
   const rows: PublicPhotoRow[] = [];
   let after: GalleryCursor | null = null;
   while (rows.length < GALLERY_MAX_PHOTOS) {
     const size = Math.min(GALLERY_PAGE, GALLERY_MAX_PHOTOS - rows.length);
-    const page = await fetchPublicRows(sort, size, after);
+    const page = await fetchPublicRows(sort, size, after, uploaderId);
     rows.push(...page);
     if (page.length < size) break;
     const last = page[page.length - 1];
@@ -148,6 +168,7 @@ export async function loadPublicPhotos({
   sort,
   viewerDeviceId = null,
   head = false,
+  uploaderId = null,
 }: {
   // The order the rows come back in. The client re-sorts from here without
   // asking again, so this only has to be right for the first paint.
@@ -156,10 +177,16 @@ export async function loadPublicPhotos({
   // First screen only: the tiles the server renders before the client fetches
   // the whole gallery in the background.
   head?: boolean;
+  // One guest's gallery instead of the whole one. A guest's public set is
+  // small, so it comes back complete — `head` does not apply.
+  uploaderId?: string | null;
 }): Promise<PublicPhoto[]> {
-  const rows = head
-    ? await fetchPublicRows(sort, GALLERY_HEAD_PHOTOS, null)
-    : await fetchAllPublicRows(sort);
+  const rows =
+    uploaderId !== null
+      ? await fetchAllPublicRows(sort, uploaderId)
+      : head
+        ? await fetchPublicRows(sort, GALLERY_HEAD_PHOTOS, null, null)
+        : await fetchAllPublicRows(sort, null);
   const [viewerLikes, uploaderStats] = await Promise.all([
     loadViewerLikes(viewerDeviceId),
     loadPublicUploaderStats([

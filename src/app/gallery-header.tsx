@@ -66,7 +66,6 @@ function persistCoachMarkSeen() {
 
 export function GalleryHeader({
   displayName,
-  photoCount,
   locale,
   eventDateIso,
   uploadWindowLine,
@@ -75,7 +74,6 @@ export function GalleryHeader({
   offlineNotice,
 }: {
   displayName: string | null;
-  photoCount: number;
   locale: Locale;
   eventDateIso: string;
   uploadWindowLine?: string | null;
@@ -104,9 +102,10 @@ export function GalleryHeader({
   const [coachMark, setCoachMark] = useState(false);
 
   const name = displayName ?? savedName;
-  // The live number of photos the client holds, which outgrows the
-  // server-rendered count once the background fetch lands.
-  const count = useGalleryCount() ?? photoCount;
+  // The live number of gallery photos the client holds, which outgrows the
+  // server-rendered count once the background fetch lands; null when it holds
+  // no gallery-wide set yet, so no number is shown.
+  const count = useGalleryCount();
 
   useEffect(() => {
     const begin = () => {
@@ -283,10 +282,11 @@ export function GalleryHeader({
             {COUPLE_NAMES[locale].oneLine}
           </span>
           <span className="text-[11px] tracking-[0.16em] text-ink/68">
-            {formatEventDate(eventDateIso, ".")} · {count}
+            {formatEventDate(eventDateIso, ".")}
+            {count !== null && <> · {count}</>}
           </span>
         </div>
-        {count > 0 && (
+        {count !== null && count > 0 && (
           <div className="ml-auto">
             <SortToggle
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}

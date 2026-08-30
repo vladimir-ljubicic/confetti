@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { headCoversView } from "@/lib/gallery-head";
 import type { Locale } from "@/lib/i18n";
 import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
@@ -24,7 +25,7 @@ const GUEST_PATH = /^\/uploader\/([^/?#]+)/;
 export function GalleryView({
   photos: headPhotos,
   initialSort,
-  initialGuestName = null,
+  initialGuest = null,
   locale,
   viewerName,
   canManageAll,
@@ -37,13 +38,15 @@ export function GalleryView({
   header,
   footer,
 }: {
-  // The server-rendered head of the gallery: the first screens of tiles in
-  // `initialSort` order.
+  // What the server rendered: the gallery's first screens of tiles in
+  // `initialSort` order, or — when the load landed on a guest's gallery —
+  // that guest's complete public set.
   photos: PublicPhoto[];
   initialSort: SortMode;
-  // Whose gallery a cold load landed on, for the header of a guest whose
-  // photos are all private and so absent from `photos`.
-  initialGuestName?: string | null;
+  // The guest whose gallery a cold load landed on, and so whose photos are
+  // all `photos` holds. Their name comes along for the header of a guest
+  // whose photos are all private and so absent even there.
+  initialGuest?: { publicId: string; displayName: string } | null;
   locale: Locale;
   viewerName: string | null;
   canManageAll: boolean;
@@ -77,10 +80,16 @@ export function GalleryView({
   const pushed = useRef(0);
 
   const { photos, complete } = useFullGallery(headPhotos);
-  // The head holds only its own order; another one has nothing correct to
+  // A view outside what the server rendered — another order of the gallery
+  // head, or anything beyond a guest-scoped load — has nothing correct to
   // show until the full set lands, so the grid waits on the in-flight fetch
-  // rather than asking the server for a re-sorted head.
-  const sortPending = !complete && sort !== initialSort;
+  // rather than asking the server again.
+  const gridPending =
+    !complete &&
+    !headCoversView(
+      { guestId: initialGuest?.publicId ?? null, sort: initialSort },
+      { guestId, sort },
+    );
 
   const ordered = useMemo(
     () => [...photos].sort(comparePhotos(sort)),
@@ -98,11 +107,11 @@ export function GalleryView({
   const guest = useMemo(() => {
     if (guestId === null) return null;
     return {
-      displayName: shown[0]?.uploader?.displayName ?? initialGuestName ?? "",
+      displayName: shown[0]?.uploader?.displayName ?? initialGuest?.displayName ?? "",
       photoCount: shown.length,
       likeTotal: shown.reduce((sum, photo) => sum + photo.likeCount, 0),
     };
-  }, [guestId, shown, initialGuestName]);
+  }, [guestId, shown, initialGuest]);
 
   const selectGuest = useCallback((publicId: string) => {
     pushed.current += 1;
@@ -138,7 +147,9 @@ export function GalleryView({
 
   return (
     <SortProvider sort={sort} onChange={changeSort}>
-      <GalleryCountProvider count={photos.length}>
+      <GalleryCountProvider
+        count={complete || initialGuest === null ? photos.length : null}
+      >
         {guest ? (
           <GuestBar
             displayName={guest.displayName}
@@ -154,11 +165,11 @@ export function GalleryView({
         )}
 
         <div className="flex flex-1 flex-col pt-3.5">
-          {/* While the toggled order waits on the background fetch the grid
+          {/* While the requested view waits on the background fetch the grid
               area stands empty, as it does under the gallery's loading
               screen: a tile's height is its photo's, and those photos are
               not known yet. */}
-          {!sortPending && (
+          {!gridPending && (
             <PhotoGrid
               photos={shown}
               emptyLabel={guest ? guestEmptyLabel : emptyLabel}
