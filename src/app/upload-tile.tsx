@@ -21,10 +21,21 @@ export function UploadTileView({
   const inFlight =
     !waiting && (tile.status === "queued" || tile.status === "uploading");
   const turn = Math.min(Math.max(tile.percent, 0), 100) / 100;
+  // The reserved height and the drawn preview must agree, or the windowed
+  // grid's spacer stand-in for this tile would shift the column.
+  const aspect =
+    tile.width && tile.height ? `${tile.width} / ${tile.height}` : undefined;
   return (
-    <li className="tile-in relative overflow-hidden rounded-tile bg-sand">
+    <li
+      style={{ aspectRatio: aspect }}
+      className="tile-in relative overflow-hidden rounded-tile bg-sand"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={tile.previewUrl} alt="" className="w-full" />
+      <img
+        src={tile.previewUrl}
+        alt=""
+        className={aspect ? "h-full w-full object-cover" : "w-full"}
+      />
 
       {waiting && (
         <div className="absolute inset-0 flex items-center justify-center bg-[rgba(43,38,32,0.42)]">

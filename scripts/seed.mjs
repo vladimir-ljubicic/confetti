@@ -37,9 +37,9 @@ const STORAGE_PAGE = 1000;
 
 const GUEST_COUNT = 100;
 
-// Public photos that are not in the bin, which is what the gallery loads. Set
-// to GALLERY_MAX_PHOTOS in src/lib/public-photos.ts so the gallery sits at its
-// cap.
+// Public photos that are not in the bin, which is what the gallery loads. A
+// big wedding's worth; GALLERY_MAX_PHOTOS in src/lib/public-photos.ts sits
+// well above it as a safety valve.
 const GALLERY_PHOTO_COUNT = 2000;
 const PRIVATE_PHOTO_COUNT = 110;
 const DELETED_PHOTO_COUNT = 90;

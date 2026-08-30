@@ -6,6 +6,7 @@ import { COUPLE_NAMES } from "@/lib/couple";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
+import { useGalleryCount } from "./gallery-count";
 import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
 import { OfflineNotice, type OfflineNoticeLabels } from "./offline-notice";
@@ -103,6 +104,9 @@ export function GalleryHeader({
   const [coachMark, setCoachMark] = useState(false);
 
   const name = displayName ?? savedName;
+  // The live number of photos the client holds, which outgrows the
+  // server-rendered count once the background fetch lands.
+  const count = useGalleryCount() ?? photoCount;
 
   useEffect(() => {
     const begin = () => {
@@ -279,10 +283,10 @@ export function GalleryHeader({
             {COUPLE_NAMES[locale].oneLine}
           </span>
           <span className="text-[11px] tracking-[0.16em] text-ink/68">
-            {formatEventDate(eventDateIso, ".")} · {photoCount}
+            {formatEventDate(eventDateIso, ".")} · {count}
           </span>
         </div>
-        {photoCount > 0 && (
+        {count > 0 && (
           <div className="ml-auto">
             <SortToggle
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}

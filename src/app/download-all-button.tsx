@@ -9,6 +9,7 @@ import {
   useExportJob,
   type DownloadSheetLabels,
 } from "./export-download";
+import { useGalleryCount } from "./gallery-count";
 
 // Guest variant of the download surface: frozen-gallery button, 13a sheet
 // over the public zip (no private-photo row), 13b/13c job card above it.
@@ -23,7 +24,9 @@ export function DownloadAllButton({
   buttonLabel: string;
   labels: DownloadSheetLabels;
   locale: Locale;
-  photoCount: number;
+  // The zip's own count when an export exists; null falls back to the number
+  // of photos the gallery is holding.
+  photoCount: number | null;
   sizeBytes: number | null;
   initialStatus: ExportStatus | null;
 }) {
@@ -31,11 +34,15 @@ export function DownloadAllButton({
   const [checking, setChecking] = useState(false);
   const [failed, setFailed] = useState(false);
   const job = useExportJob(EXPORT_PUBLIC_PATH, initialStatus);
+  const galleryCount = useGalleryCount();
 
   const rows = [
     {
       label: labels.photosRow,
-      value: labels.photosValue.replace("{count}", String(photoCount)),
+      value: labels.photosValue.replace(
+        "{count}",
+        String(photoCount ?? galleryCount ?? 0),
+      ),
     },
     ...(sizeBytes !== null && sizeBytes > 0
       ? [

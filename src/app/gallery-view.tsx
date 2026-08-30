@@ -6,20 +6,23 @@ import type { Locale } from "@/lib/i18n";
 import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { comparePhotos, type SortMode } from "@/lib/sort-mode";
+import { GalleryCountProvider } from "./gallery-count";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
 import type { ViewerLabels } from "./photo-viewer";
 import { PhotoGrid } from "./photo-grid";
 import { SortProvider } from "./sort-context";
+import { useFullGallery } from "./use-full-gallery";
 
 const GUEST_PATH = /^\/uploader\/([^/?#]+)/;
 
-// The whole gallery in one place: ordering and narrowing it to one guest are
-// both local, so the toggle and the uploader labels rearrange what is already
-// on screen instead of asking the server for it again. A guest's gallery keeps
-// its own address, which the view pushes and reads back rather than navigating.
+// The whole gallery in one place: the server hands over its first screens and
+// the rest arrives by a background fetch, after which ordering and narrowing
+// to one guest are both local — the toggle and the uploader labels rearrange
+// what is already loaded instead of asking the server for it again. A guest's
+// gallery keeps its own address, which the view pushes and reads back rather
+// than navigating.
 export function GalleryView({
-  photos,
-  totalCount,
+  photos: headPhotos,
   initialSort,
   initialGuestName = null,
   locale,
@@ -34,8 +37,9 @@ export function GalleryView({
   header,
   footer,
 }: {
+  // The server-rendered head of the gallery: the first screens of tiles in
+  // `initialSort` order.
   photos: PublicPhoto[];
-  totalCount: number;
   initialSort: SortMode;
   // Whose gallery a cold load landed on, for the header of a guest whose
   // photos are all private and so absent from `photos`.
@@ -71,6 +75,12 @@ export function GalleryView({
   // History entries this view pushed itself, and so may step back through. A
   // guest's gallery opened directly has none, and leaving it pushes instead.
   const pushed = useRef(0);
+
+  const { photos, complete } = useFullGallery(headPhotos);
+  // The head holds only its own order; another one has nothing correct to
+  // show until the full set lands, so the grid waits on the in-flight fetch
+  // rather than asking the server for a re-sorted head.
+  const sortPending = !complete && sort !== initialSort;
 
   const ordered = useMemo(
     () => [...photos].sort(comparePhotos(sort)),
@@ -128,39 +138,47 @@ export function GalleryView({
 
   return (
     <SortProvider sort={sort} onChange={changeSort}>
-      {guest ? (
-        <GuestBar
-          displayName={guest.displayName}
-          photoCount={guest.photoCount}
-          likeTotal={guest.likeTotal}
-          viewerName={viewerName}
-          locale={locale}
-          labels={guestLabels}
-          onBack={leaveGuest}
-        />
-      ) : (
-        header
-      )}
+      <GalleryCountProvider count={photos.length}>
+        {guest ? (
+          <GuestBar
+            displayName={guest.displayName}
+            photoCount={guest.photoCount}
+            likeTotal={guest.likeTotal}
+            viewerName={viewerName}
+            locale={locale}
+            labels={guestLabels}
+            onBack={leaveGuest}
+          />
+        ) : (
+          header
+        )}
 
-      <div className="flex flex-1 flex-col pt-3.5">
-        <PhotoGrid
-          photos={shown}
-          emptyLabel={guest ? guestEmptyLabel : emptyLabel}
-          altLabels={altLabels}
-          likeLabels={likeLabels}
-          showUploadTiles={guest === null}
-          viewer={{
-            canManageAll,
-            labels: viewerLabels,
-            locale,
-            galleryCount: guest ? guest.photoCount : totalCount,
-          }}
-          showUploader
-          onSelectUploader={selectGuest}
-        />
+        <div className="flex flex-1 flex-col pt-3.5">
+          {/* While the toggled order waits on the background fetch the grid
+              area stands empty, as it does under the gallery's loading
+              screen: a tile's height is its photo's, and those photos are
+              not known yet. */}
+          {!sortPending && (
+            <PhotoGrid
+              photos={shown}
+              emptyLabel={guest ? guestEmptyLabel : emptyLabel}
+              altLabels={altLabels}
+              likeLabels={likeLabels}
+              showUploadTiles={guest === null}
+              viewer={{
+                canManageAll,
+                labels: viewerLabels,
+                locale,
+                galleryCount: guest ? guest.photoCount : photos.length,
+              }}
+              showUploader
+              onSelectUploader={selectGuest}
+            />
+          )}
 
-        {guest === null && footer}
-      </div>
+          {guest === null && footer}
+        </div>
+      </GalleryCountProvider>
     </SortProvider>
   );
 }

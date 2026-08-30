@@ -31,6 +31,10 @@ export type UploadTileStatus =
 export type UploadTile = {
   id: number;
   previewUrl: string;
+  // Pixel size of the preview, so the tile reserves the same height the grid
+  // computes for it; null until the preview has decoded.
+  width: number | null;
+  height: number | null;
   status: UploadTileStatus;
   percent: number;
   photoId: string | null;

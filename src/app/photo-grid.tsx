@@ -2,6 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FALLBACK_TILE_ASPECT,
+  HEAD_TILES_PER_COLUMN,
+  columnMetrics,
+  columnWindow,
+  tileHeightRatio,
+  type ColumnWindow,
+} from "@/lib/grid-window";
 import type { Locale } from "@/lib/i18n";
 import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
@@ -21,14 +29,25 @@ type GridEntry =
 // are fetched at once rather than waiting to be discovered as lazy.
 const EAGER_TILES = 6;
 
-// Stands in for a photo whose pixel size was never recorded, so its tile still
-// reserves a plausible height instead of collapsing to nothing.
-const FALLBACK_ASPECT = "3 / 4";
+// Extra viewports mounted beyond each edge of the screen, so scrolling meets
+// tiles that already exist.
+const OVERSCAN_VIEWPORTS = 2;
+
+// The visible-plus-overscan band, in the grid's own coordinates, with the
+// measurements the tile heights derive from. Null until the grid has been
+// measured — each column mounts its head, which is exactly what the server
+// rendered.
+type GridBand = {
+  columnWidth: number;
+  gap: number;
+  top: number;
+  bottom: number;
+};
 
 function tileAspect(photo: PublicPhoto): string {
   return photo.width && photo.height
     ? `${photo.width} / ${photo.height}`
-    : FALLBACK_ASPECT;
+    : FALLBACK_TILE_ASPECT;
 }
 
 // Renders the local preview until the stored image has actually loaded, so a
@@ -184,7 +203,10 @@ export function PhotoGrid({
   const removeTiles = queue?.removeTiles;
 
   // A shared /?photo=<id> link opens the viewer on that photo. The param is
-  // consumed immediately so closing the viewer or reloading doesn't reopen it.
+  // consumed immediately so closing the viewer or reloading doesn't reopen it;
+  // the id is held on to instead, because the photo it names may only arrive
+  // with the background fetch of the full gallery.
+  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
   useEffect(() => {
     if (!viewer) return;
     const url = new URL(window.location.href);
@@ -193,14 +215,109 @@ export function PhotoGrid({
     url.searchParams.delete("photo");
     window.history.replaceState(null, "", url);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (photoIds.has(id)) setViewerStartId(id);
-  }, [viewer, photoIds]);
+    setDeepLinkId(id);
+  }, [viewer]);
+  useEffect(() => {
+    if (deepLinkId === null || !photoIds.has(deepLinkId)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewerStartId(deepLinkId);
+    setDeepLinkId(null);
+  }, [deepLinkId, photoIds]);
 
-  const visibleTiles = tiles.filter(
-    (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
+  const columns = useMemo(() => {
+    const visibleTiles = tiles.filter(
+      (tile) => tile.photoId === null || !photoIds.has(tile.photoId),
+    );
+    const entries: GridEntry[] = [
+      ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
+      ...photos.map((photo): GridEntry => ({ kind: "photo", photo })),
+    ];
+    return [
+      entries.filter((_, index) => index % 2 === 0),
+      entries.filter((_, index) => index % 2 === 1),
+    ];
+  }, [tiles, photos, photoIds]);
+  const empty = columns[0].length === 0;
+
+  // The grid is windowed: only tiles near the screen mount, and per-column
+  // spacers keep the scroll height, computed from the photos' aspect ratios
+  // rather than measured. Until the first measurement the head of each column
+  // mounts as-is, matching the markup the server rendered.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const columnRef = useRef<HTMLUListElement | null>(null);
+  const [band, setBand] = useState<GridBand | null>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    const column = columnRef.current;
+    if (!grid || !column) return;
+    let frame: number | null = null;
+    let measuredAt = Number.NEGATIVE_INFINITY;
+
+    const measure = () => {
+      frame = null;
+      measuredAt = window.scrollY;
+      const gridTop = grid.getBoundingClientRect().top + window.scrollY;
+      const viewport = window.innerHeight;
+      setBand({
+        columnWidth: column.getBoundingClientRect().width,
+        gap: parseFloat(getComputedStyle(column).rowGap) || 0,
+        top: window.scrollY - gridTop - OVERSCAN_VIEWPORTS * viewport,
+        bottom:
+          window.scrollY - gridTop + (1 + OVERSCAN_VIEWPORTS) * viewport,
+      });
+    };
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(measure);
+    };
+    const onScroll = () => {
+      // Half the overscan may pass unnoticed before the window shifts; the
+      // mounted band still overhangs the screen by the other half.
+      if (
+        Math.abs(window.scrollY - measuredAt) >
+        (OVERSCAN_VIEWPORTS / 2) * window.innerHeight
+      ) {
+        schedule();
+      }
+    };
+
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(column);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+    };
+  }, [empty]);
+
+  const windows: ColumnWindow[] = useMemo(
+    () =>
+      columns.map((column) => {
+        if (band === null) {
+          return {
+            start: 0,
+            end: Math.min(column.length, HEAD_TILES_PER_COLUMN),
+            topSpacer: 0,
+            bottomSpacer: 0,
+          };
+        }
+        const metrics = columnMetrics(
+          column.map((entry) =>
+            tileHeightRatio(entry.kind === "photo" ? entry.photo : entry.tile),
+          ),
+          band.columnWidth,
+          band.gap,
+        );
+        return columnWindow(metrics, band.top, band.bottom);
+      }),
+    [columns, band],
   );
 
-  if (photos.length === 0 && visibleTiles.length === 0) {
+  if (empty) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
   }
 
@@ -213,48 +330,61 @@ export function PhotoGrid({
     };
   };
 
-  const entries: GridEntry[] = [
-    ...visibleTiles.map((tile): GridEntry => ({ kind: "tile", tile })),
-    ...photos.map((photo): GridEntry => ({ kind: "photo", photo })),
-  ];
-  const columns = [
-    entries.filter((_, index) => index % 2 === 0),
-    entries.filter((_, index) => index % 2 === 1),
-  ];
   return (
     <>
-      <div className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26">
-        {columns.map((column, columnIndex) => (
-          <ul key={columnIndex} className="flex flex-col gap-2">
-            {column.map((entry, rowIndex) =>
-              entry.kind === "tile" ? (
-                queue && (
-                  <UploadTileView
-                    key={`tile-${entry.tile.id}`}
-                    tile={entry.tile}
-                    labels={queue.labels}
-                    likes={likes}
-                    likeLabels={likeLabels}
-                    offline={queue.offline}
-                  />
-                )
-              ) : (
-                <li
-                  key={entry.photo.id}
-                  style={{ aspectRatio: tileAspect(entry.photo) }}
-                  // A photo taking over from its own upload tile is already
-                  // on screen and must not fade in a second time.
-                  className={`group relative overflow-hidden rounded-tile bg-sand ${
-                    absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
-                  }`}
-                >
-                  {viewer ? (
-                    <button
-                      type="button"
-                      aria-label={viewer.labels.open}
-                      onClick={() => setViewerStartId(entry.photo.id)}
-                      className="block h-full w-full"
-                    >
+      <div
+        ref={gridRef}
+        className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26"
+      >
+        {columns.map((column, columnIndex) => {
+          const { start, end, topSpacer, bottomSpacer } = windows[columnIndex];
+          return (
+            <ul
+              key={columnIndex}
+              ref={columnIndex === 0 ? columnRef : undefined}
+              className="flex flex-col gap-2"
+            >
+              {topSpacer > 0 && <li aria-hidden style={{ height: topSpacer }} />}
+              {column.slice(start, end).map((entry, sliceIndex) => {
+                const rowIndex = start + sliceIndex;
+                return entry.kind === "tile" ? (
+                  queue && (
+                    <UploadTileView
+                      key={`tile-${entry.tile.id}`}
+                      tile={entry.tile}
+                      labels={queue.labels}
+                      likes={likes}
+                      likeLabels={likeLabels}
+                      offline={queue.offline}
+                    />
+                  )
+                ) : (
+                  <li
+                    key={entry.photo.id}
+                    style={{ aspectRatio: tileAspect(entry.photo) }}
+                    // A photo taking over from its own upload tile is already
+                    // on screen and must not fade in a second time.
+                    className={`group relative overflow-hidden rounded-tile bg-sand ${
+                      absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
+                    }`}
+                  >
+                    {viewer ? (
+                      <button
+                        type="button"
+                        aria-label={viewer.labels.open}
+                        onClick={() => setViewerStartId(entry.photo.id)}
+                        className="block h-full w-full"
+                      >
+                        <GalleryImage
+                          src={publicThumbSrc(entry.photo.id)}
+                          alt={photoAltText(altLabels, entry.photo.uploader)}
+                          width={entry.photo.width}
+                          height={entry.photo.height}
+                          eager={rowIndex * 2 + columnIndex < EAGER_TILES}
+                          {...absorbProps(entry.photo)}
+                        />
+                      </button>
+                    ) : (
                       <GalleryImage
                         src={publicThumbSrc(entry.photo.id)}
                         alt={photoAltText(altLabels, entry.photo.uploader)}
@@ -263,51 +393,45 @@ export function PhotoGrid({
                         eager={rowIndex * 2 + columnIndex < EAGER_TILES}
                         {...absorbProps(entry.photo)}
                       />
-                    </button>
-                  ) : (
-                    <GalleryImage
-                      src={publicThumbSrc(entry.photo.id)}
-                      alt={photoAltText(altLabels, entry.photo.uploader)}
-                      width={entry.photo.width}
-                      height={entry.photo.height}
-                      eager={rowIndex * 2 + columnIndex < EAGER_TILES}
-                      {...absorbProps(entry.photo)}
-                    />
-                  )}
-                  {showUploader && entry.photo.uploader && onSelectUploader && (
-                    <UploaderLabel
-                      uploader={entry.photo.uploader}
-                      onSelect={onSelectUploader}
-                    />
-                  )}
-                  {likeLabels && (
-                    <LikePill
-                      state={likes.stateFor(entry.photo.id, {
-                        liked: entry.photo.likedByViewer,
-                        count: entry.photo.likeCount,
-                      })}
-                      onToggle={() =>
-                        void likes.toggle(entry.photo.id, {
+                    )}
+                    {showUploader && entry.photo.uploader && onSelectUploader && (
+                      <UploaderLabel
+                        uploader={entry.photo.uploader}
+                        onSelect={onSelectUploader}
+                      />
+                    )}
+                    {likeLabels && (
+                      <LikePill
+                        state={likes.stateFor(entry.photo.id, {
                           liked: entry.photo.likedByViewer,
                           count: entry.photo.likeCount,
-                        })
-                      }
-                      labels={likeLabels}
-                    />
-                  )}
-                  {downloadLabel && (
-                    <a
-                      href={`/api/photos/${entry.photo.id}/download`}
-                      className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
-                    >
-                      {downloadLabel}
-                    </a>
-                  )}
-                </li>
-              ),
-            )}
-          </ul>
-        ))}
+                        })}
+                        onToggle={() =>
+                          void likes.toggle(entry.photo.id, {
+                            liked: entry.photo.likedByViewer,
+                            count: entry.photo.likeCount,
+                          })
+                        }
+                        labels={likeLabels}
+                      />
+                    )}
+                    {downloadLabel && (
+                      <a
+                        href={`/api/photos/${entry.photo.id}/download`}
+                        className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
+                      >
+                        {downloadLabel}
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+              {bottomSpacer > 0 && (
+                <li aria-hidden style={{ height: bottomSpacer }} />
+              )}
+            </ul>
+          );
+        })}
       </div>
       {viewer && viewerStartId !== null && (
         <PhotoViewer

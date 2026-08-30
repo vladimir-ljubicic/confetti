@@ -21,10 +21,10 @@ import { UploadQueueProvider } from "./upload-queue";
 import { uploadWindowLine } from "./upload-window";
 import { photoAltLabels, viewerLabels } from "./viewer-labels";
 
-// Every route that shows the gallery renders this: the whole set of photos,
-// with the view deciding locally whether it is showing all of them or one
-// guest's. Both entries therefore leave and re-enter a guest's gallery without
-// asking the server for anything.
+// Every route that shows the gallery renders this: the first screens of tiles,
+// with the client fetching the rest in the background and deciding locally
+// whether it is showing all of them or one guest's. Both entries therefore
+// leave and re-enter a guest's gallery without asking the server for anything.
 export async function GalleryScreen({
   sort,
   guestName = null,
@@ -38,8 +38,8 @@ export async function GalleryScreen({
   const dict = await getDict();
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
-  const [page, profile, settings, admin, job] = await Promise.all([
-    loadPublicPhotos({ sort, viewerDeviceId: deviceId }),
+  const [photos, profile, settings, admin, job] = await Promise.all([
+    loadPublicPhotos({ sort, viewerDeviceId: deviceId, head: true }),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     getEventSettings().catch(() => ({
@@ -53,12 +53,11 @@ export async function GalleryScreen({
     getExportJob("public").catch(() => null),
   ]);
   const uploadsFrozen = settings.uploadsFrozen;
-  const photoCount = page.totalCount;
 
   const uploadsBlocked = profile?.uploadsBlocked ?? false;
   const exportJob = uploadsFrozen ? job : null;
 
-  if (page.photos.length === 0) {
+  if (photos.length === 0) {
     return (
       <EmptyGallery
         dict={dict}
@@ -88,8 +87,7 @@ export async function GalleryScreen({
         }}
       >
         <GalleryView
-          photos={page.photos}
-          totalCount={photoCount}
+          photos={photos}
           initialSort={sort}
           initialGuestName={guestName}
           locale={locale}
@@ -104,7 +102,7 @@ export async function GalleryScreen({
           header={
             <GalleryHeader
               displayName={profile?.displayName ?? null}
-              photoCount={photoCount}
+              photoCount={photos.length}
               locale={locale}
               eventDateIso={settings.eventDateIso}
               uploadWindowLine={uploadWindowLine(dict, locale, settings, new Date())}
@@ -137,7 +135,7 @@ export async function GalleryScreen({
                 buttonLabel={dict.gallery.downloadAll}
                 labels={dict.downloadSheet}
                 locale={locale}
-                photoCount={exportJob?.total_count ?? photoCount}
+                photoCount={exportJob?.total_count ?? null}
                 sizeBytes={exportJob?.zip_size_bytes ?? null}
                 initialStatus={exportJob ? exportJobStatus(exportJob) : null}
               />

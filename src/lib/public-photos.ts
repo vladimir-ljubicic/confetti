@@ -1,12 +1,21 @@
 import "server-only";
+import { galleryCursorFilter, type GalleryCursor } from "./gallery-cursor";
+import { HEAD_TILES_PER_COLUMN } from "./grid-window";
 import type { SortMode } from "./sort-mode";
 import { supabaseAdmin } from "./supabase-server";
 
-// The gallery is handed over whole so that ordering and per-guest filtering
-// happen on the client, with no round trip. A gallery this far past a wedding's
-// worth of photos would need a different design; the cap only stops one from
-// taking the page down while it gets one.
-const GALLERY_MAX_PHOTOS = 2000;
+// A safety valve, not a design ceiling: the client is built to hold the whole
+// gallery, and this only stops a runaway one from taking the page down. A
+// gallery near this size would need a different design.
+const GALLERY_MAX_PHOTOS = 10_000;
+
+// Rows the server renders before handing over: enough tiles to fill the first
+// screens while the client fetches the whole gallery in the background.
+const GALLERY_HEAD_PHOTOS = 2 * HEAD_TILES_PER_COLUMN;
+
+// Rows per database round trip. PostgREST caps a single response, so the full
+// gallery is walked by cursor in pages that stay under any such cap.
+const GALLERY_PAGE = 1000;
 
 type PublicPhotoRow = {
   id: string;
@@ -17,13 +26,6 @@ type PublicPhotoRow = {
   image_height: number | null;
   uploader_id: string | null;
   uploaders: { display_name: string | null; public_id: string } | null;
-};
-
-export type PublicPhotoPage = {
-  photos: PublicPhoto[];
-  // Public photos in the gallery, which exceeds the photos handed over only
-  // once the cap is hit. It rides along with the rows at no extra round trip.
-  totalCount: number;
 };
 
 export type PublicPhoto = {
@@ -47,18 +49,26 @@ export type PublicPhoto = {
 // Every photo this device has liked, not just the ones on screen. Narrowing to
 // the screen's ids would put them all in the request URL, which stops working
 // a few hundred ids in; the caller only asks `has(id)`, so the extra ids are
-// free. The limit matches the gallery cap, above which no id can be asked for.
+// free. Paged so no response cap can silently truncate below the gallery cap,
+// above which no id can be asked for.
 export async function loadViewerLikes(
   viewerDeviceId: string | null,
 ): Promise<Set<string>> {
   if (!viewerDeviceId) return new Set();
-  const { data, error } = await supabaseAdmin()
-    .from("likes")
-    .select("photo_id")
-    .eq("device_id", viewerDeviceId)
-    .limit(GALLERY_MAX_PHOTOS);
-  if (error) throw new Error(`Loading likes failed: ${error.message}`);
-  return new Set((data as { photo_id: string }[]).map((row) => row.photo_id));
+  const ids = new Set<string>();
+  for (let from = 0; ids.size < GALLERY_MAX_PHOTOS; from += GALLERY_PAGE) {
+    const { data, error } = await supabaseAdmin()
+      .from("likes")
+      .select("photo_id")
+      .eq("device_id", viewerDeviceId)
+      .order("photo_id")
+      .range(from, from + GALLERY_PAGE - 1);
+    if (error) throw new Error(`Loading likes failed: ${error.message}`);
+    const rows = data as { photo_id: string }[];
+    for (const row of rows) ids.add(row.photo_id);
+    if (rows.length < GALLERY_PAGE) break;
+  }
+  return ids;
 }
 
 export type PublicPhotoStats = { photoCount: number; likeTotal: number };
@@ -87,24 +97,20 @@ export async function loadPublicUploaderStats(
   );
 }
 
-export async function loadPublicPhotos({
-  sort,
-  viewerDeviceId = null,
-}: {
-  // The order the gallery is handed over in. The client re-sorts from here
-  // without asking again, so this only has to be right for the first paint.
-  sort: SortMode;
-  viewerDeviceId?: string | null;
-}): Promise<PublicPhotoPage> {
+async function fetchPublicRows(
+  sort: SortMode,
+  limit: number,
+  after: GalleryCursor | null,
+): Promise<PublicPhotoRow[]> {
   let query = supabaseAdmin()
     .from("photos")
     .select(
       "id, original_filename, uploaded_at, like_count, image_width, image_height, uploader_id, uploaders (display_name, public_id)",
-      { count: "exact" },
     )
     .eq("visibility", "public")
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
+  if (after !== null) query = query.or(galleryCursorFilter(sort, after));
   // Every sort ends on the id so its key is unique, matching `comparePhotos`.
   query =
     sort === "popular"
@@ -115,35 +121,68 @@ export async function loadPublicPhotos({
       : query
           .order("uploaded_at", { ascending: false })
           .order("id", { ascending: false });
-  const { data, count, error } = await query.limit(GALLERY_MAX_PHOTOS);
+  const { data, error } = await query.limit(limit);
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
-  const rows = data as unknown as PublicPhotoRow[];
+  return data as unknown as PublicPhotoRow[];
+}
+
+async function fetchAllPublicRows(sort: SortMode): Promise<PublicPhotoRow[]> {
+  const rows: PublicPhotoRow[] = [];
+  let after: GalleryCursor | null = null;
+  while (rows.length < GALLERY_MAX_PHOTOS) {
+    const size = Math.min(GALLERY_PAGE, GALLERY_MAX_PHOTOS - rows.length);
+    const page = await fetchPublicRows(sort, size, after);
+    rows.push(...page);
+    if (page.length < size) break;
+    const last = page[page.length - 1];
+    after = {
+      likeCount: last.like_count,
+      uploadedAt: last.uploaded_at,
+      id: last.id,
+    };
+  }
+  return rows;
+}
+
+export async function loadPublicPhotos({
+  sort,
+  viewerDeviceId = null,
+  head = false,
+}: {
+  // The order the rows come back in. The client re-sorts from here without
+  // asking again, so this only has to be right for the first paint.
+  sort: SortMode;
+  viewerDeviceId?: string | null;
+  // First screen only: the tiles the server renders before the client fetches
+  // the whole gallery in the background.
+  head?: boolean;
+}): Promise<PublicPhoto[]> {
+  const rows = head
+    ? await fetchPublicRows(sort, GALLERY_HEAD_PHOTOS, null)
+    : await fetchAllPublicRows(sort);
   const [viewerLikes, uploaderStats] = await Promise.all([
     loadViewerLikes(viewerDeviceId),
     loadPublicUploaderStats([
       ...new Set(rows.flatMap((row) => row.uploader_id ?? [])),
     ]),
   ]);
-  return {
-    photos: rows.map((photo) => ({
-      id: photo.id,
-      uploadedAt: photo.uploaded_at,
-      width: photo.image_width,
-      height: photo.image_height,
-      originalFilename: photo.original_filename,
-      likeCount: photo.like_count,
-      likedByViewer: viewerLikes.has(photo.id),
-      ownedByViewer:
-        viewerDeviceId !== null && photo.uploader_id === viewerDeviceId,
-      uploader: photo.uploaders?.display_name
-        ? {
-            displayName: photo.uploaders.display_name,
-            publicId: photo.uploaders.public_id,
-            photoCount:
-              uploaderStats.get(photo.uploader_id ?? "")?.photoCount ?? 0,
-          }
-        : null,
-    })),
-    totalCount: count ?? rows.length,
-  };
+  return rows.map((photo) => ({
+    id: photo.id,
+    uploadedAt: photo.uploaded_at,
+    width: photo.image_width,
+    height: photo.image_height,
+    originalFilename: photo.original_filename,
+    likeCount: photo.like_count,
+    likedByViewer: viewerLikes.has(photo.id),
+    ownedByViewer:
+      viewerDeviceId !== null && photo.uploader_id === viewerDeviceId,
+    uploader: photo.uploaders?.display_name
+      ? {
+          displayName: photo.uploaders.display_name,
+          publicId: photo.uploaders.public_id,
+          photoCount:
+            uploaderStats.get(photo.uploader_id ?? "")?.photoCount ?? 0,
+        }
+      : null,
+  }));
 }

@@ -436,18 +436,28 @@ export function UploadButton({
         removeTimer: null,
       });
     }
-    queue.addTiles(
-      tileItems.map((item) => ({
-        id: item.id,
-        previewUrl: URL.createObjectURL(item.file),
-        status: "queued",
-        percent: 0,
-        photoId: null,
-        cancel: () => cancelTile(item.id),
-        retry: () => void retryTile(item),
-        restore: () => restoreTile(item),
-      })),
-    );
+    const tiles = tileItems.map((item) => ({
+      id: item.id,
+      previewUrl: URL.createObjectURL(item.file),
+      width: null,
+      height: null,
+      status: "queued" as const,
+      percent: 0,
+      photoId: null,
+      cancel: () => cancelTile(item.id),
+      retry: () => void retryTile(item),
+      restore: () => restoreTile(item),
+    }));
+    queue.addTiles(tiles);
+    for (const tile of tiles) {
+      const image = new Image();
+      image.onload = () =>
+        queue.patchTile(tile.id, {
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+      image.src = tile.previewUrl;
+    }
     setBatchTileIds(new Set(tileItems.map((item) => item.id)));
     setBatchActive(true);
     setFrozenNotice(false);
