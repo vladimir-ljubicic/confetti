@@ -10,6 +10,7 @@ import { getDict, getLocale } from "@/lib/locale";
 import type { SortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { ConfettiMark } from "../confetti-mark";
+import { GridSkeleton } from "../grid-skeleton";
 import { LocaleToggle } from "../locale-toggle";
 import { SortToggleView } from "../sort-toggle";
 import { uploadWindowLine } from "../upload-window";
@@ -19,8 +20,8 @@ import { uploadWindowLine } from "../upload-window";
 // Standing in for the header rather than sketching it is the point: a
 // placeholder of another size moves the page under the reader the moment the
 // real header lands, and a toggle on the wrong side of the bar jumps across it.
-// The grid has no stand-in for the same reason. A tile's height is its photo's,
-// and that is not known until the photos are.
+// The grid's stand-in can only guess at its tiles' shapes, so it is clipped to
+// the screen and nothing below it can move.
 export async function GalleryLoading({ sort }: { sort: SortMode }) {
   const locale = await getLocale();
   const dict = await getDict();
@@ -114,6 +115,10 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
           </div>
         </div>
       )}
+
+      <div className="flex min-h-0 flex-1 flex-col pt-3.5">
+        <GridSkeleton />
+      </div>
     </main>
   );
 }

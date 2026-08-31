@@ -8,6 +8,7 @@ import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { comparePhotos, type SortMode } from "@/lib/sort-mode";
 import { GalleryCountProvider } from "./gallery-count";
+import { GridSkeleton } from "./grid-skeleton";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
 import type { ViewerLabels } from "./photo-viewer";
 import { PhotoGrid } from "./photo-grid";
@@ -165,11 +166,9 @@ export function GalleryView({
         )}
 
         <div className="flex flex-1 flex-col pt-3.5">
-          {/* While the requested view waits on the background fetch the grid
-              area stands empty, as it does under the gallery's loading
-              screen: a tile's height is its photo's, and those photos are
-              not known yet. */}
-          {!gridPending && (
+          {gridPending ? (
+            <GridSkeleton />
+          ) : (
             <PhotoGrid
               photos={shown}
               emptyLabel={guest ? guestEmptyLabel : emptyLabel}

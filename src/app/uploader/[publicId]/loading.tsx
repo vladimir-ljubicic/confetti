@@ -1,7 +1,6 @@
 import { getDict } from "@/lib/locale";
+import { GridSkeleton } from "../../grid-skeleton";
 
-// Only the bar, whose height is fixed. The grid below it has no stand-in: a
-// tile is as tall as its photo, which is not known until the photos are.
 export default async function Loading() {
   const dict = await getDict();
 
@@ -24,6 +23,10 @@ export default async function Loading() {
             <span className="block h-[11px] w-24 animate-pulse rounded-pill bg-sand" />
           </div>
         </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col pt-3.5">
+        <GridSkeleton />
       </div>
     </main>
   );

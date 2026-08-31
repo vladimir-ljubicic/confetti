@@ -215,6 +215,11 @@
   animation: tile-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
 }
 
+/* The grid's stand-in waits a beat, so a load that lands first never flashes it. */
+.grid-skeleton {
+  animation: fade 200ms ease-out 150ms backwards;
+}
+
 @keyframes heart-pop {
   0% {
     transform: scale(1);
