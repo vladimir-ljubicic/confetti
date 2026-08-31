@@ -37,6 +37,7 @@ export type ProfileLabels = {
   photoAlt: string;
   exitSelect: string;
   selectAll: string;
+  deselectAll: string;
   selectedOne: string;
   selectedFew: string;
   selectedMany: string;
@@ -307,6 +308,14 @@ export function ProfileView({
   const allSelectedPrivate =
     selectedPhotos.length > 0 &&
     selectedPhotos.every((photo) => photo.visibility === "private");
+  const allShownSelected =
+    shown.length > 0 && shown.every((photo) => selectedIds.has(photo.id));
+
+  function toggleSelectAll() {
+    setSelectedIds(
+      allShownSelected ? new Set() : new Set(shown.map((photo) => photo.id)),
+    );
+  }
 
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: labels.filterAll, count: all.length },
@@ -328,10 +337,10 @@ export function ProfileView({
           </button>
           <button
             type="button"
-            onClick={() => setSelectedIds(new Set(shown.map((photo) => photo.id)))}
+            onClick={toggleSelectAll}
             className="flex min-h-11 items-center rounded-pill px-3 text-[13px] whitespace-nowrap text-gold-small transition active:bg-[rgba(176,141,60,0.18)]"
           >
-            {labels.selectAll}
+            {allShownSelected ? labels.deselectAll : labels.selectAll}
           </button>
         </div>
       ) : (
