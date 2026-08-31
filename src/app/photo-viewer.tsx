@@ -39,6 +39,10 @@ export type ViewerLabels = {
 // How long the viewer holds itself on screen while it fades away.
 const CLOSE_MS = 200;
 
+// Slides mounted on each side of the current one. Wider than the ±1 sharpen
+// window, so a swipe always lands on a slide that already exists.
+const OVERSCAN_SLIDES = 3;
+
 // Two taps count as one gesture within this window and distance of each other.
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_PX = 40;
@@ -357,6 +361,12 @@ export function PhotoViewer({
   const canShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
+  // Only slides around the current one mount; spacers as wide as the missing
+  // slides hold the track's scroll width, so every slide keeps the position
+  // and snap point it would have with the whole list mounted.
+  const trackStart = Math.max(0, currentIndex - OVERSCAN_SLIDES);
+  const trackEnd = Math.min(visible.length, currentIndex + OVERSCAN_SLIDES + 1);
+
   // A double tap likes the photo but never unlikes it, so a mistaken second
   // gesture can't undo the first. The burst plays either way.
   function tapPhoto(
@@ -511,7 +521,15 @@ export function PhotoViewer({
           closing ? "viewer-photo-out" : "viewer-photo-in"
         }`}
       >
-        {visible.map((photo, slideIndex) => {
+        {trackStart > 0 && (
+          <div
+            aria-hidden
+            className="h-full flex-none"
+            style={{ width: `${trackStart * 100}%` }}
+          />
+        )}
+        {visible.slice(trackStart, trackEnd).map((photo, sliceIndex) => {
+          const slideIndex = trackStart + sliceIndex;
           const srcs = renditionSrcs({
             id: photo.id,
             width: photo.width,
@@ -548,6 +566,13 @@ export function PhotoViewer({
             </div>
           );
         })}
+        {trackEnd < visible.length && (
+          <div
+            aria-hidden
+            className="h-full flex-none"
+            style={{ width: `${(visible.length - trackEnd) * 100}%` }}
+          />
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center">
