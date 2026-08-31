@@ -46,5 +46,8 @@ The small rendition of a photo that gallery tiles render, produced on the guest'
 **Viewer image**:
 The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
 
+**Export job**:
+The server-side packing of one ZIP per kind (public gallery, or admin: public plus private). Preparing it starts the job or restarts a cancelled one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin ZIP at any time, and the freeze replaces a ZIP whose snapshot was taken while uploads were open.
+
 **Revocation window**:
 The short delay (up to about a minute) between a photo becoming private or deleted and its thumbnail ceasing to load for other guests. Guests who already viewed the photo may retain it regardless.

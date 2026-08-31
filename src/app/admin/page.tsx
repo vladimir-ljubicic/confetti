@@ -41,12 +41,13 @@ export default async function AdminPage({
   }
 
   const filter = parseAdminFilter(await searchParams);
-  const [summary, page, settings, exportJob] = await Promise.all([
+  const [summary, page, settings, job] = await Promise.all([
     loadAdminSummary(),
     loadAdminPhotos({ filter }),
     getEventSettings(),
     getExportJob("admin").catch(() => null),
   ]);
+  const exportJob = job?.state === "cancelled" ? null : job;
 
   const exportSizeBytes = exportJob?.zip_size_bytes ?? summary.totalBytes;
   const guestCount = summary.uploaders.length + (summary.unnamed ? 1 : 0);

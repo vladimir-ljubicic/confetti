@@ -54,10 +54,10 @@ export function DownloadAllButton({
       : []),
   ];
 
-  async function startDownload() {
+  async function prepare() {
     setChecking(true);
     setFailed(false);
-    const ok = await job.startDownload();
+    const ok = await job.prepare();
     if (ok) setSheetOpen(false);
     else setFailed(true);
     setChecking(false);
@@ -95,7 +95,7 @@ export function DownloadAllButton({
           rows={rows}
           failed={failed}
           checking={checking}
-          onDownload={() => void startDownload()}
+          onPrepare={() => void prepare()}
           onCancel={() => setSheetOpen(false)}
         />
       )}

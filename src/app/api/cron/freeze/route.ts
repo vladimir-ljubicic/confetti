@@ -1,13 +1,8 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { freezeDue } from "@/lib/event-schedule";
 import { getEventSettings, updateEventSettings } from "@/lib/event-settings";
-import {
-  EXPORT_KINDS,
-  exportJobStale,
-  getExportJob,
-  kickExportBuild,
-} from "@/lib/export-jobs";
+import { startFrozenExportBuilds } from "@/lib/export-jobs";
 import { jsonError } from "@/lib/http";
 
 // Freezes uploads once the post-event window lapses and makes sure both
@@ -26,16 +21,8 @@ export async function GET(request: Request) {
     froze = true;
   }
 
-  const kicked: string[] = [];
-  if (frozen) {
-    const origin = new URL(request.url).origin;
-    for (const kind of EXPORT_KINDS) {
-      const job = await getExportJob(kind);
-      if (!job || exportJobStale(job, new Date())) {
-        after(() => kickExportBuild(origin, kind));
-        kicked.push(kind);
-      }
-    }
-  }
+  const kicked = frozen
+    ? await startFrozenExportBuilds(new URL(request.url).origin)
+    : [];
   return NextResponse.json({ frozen, froze, kicked });
 }

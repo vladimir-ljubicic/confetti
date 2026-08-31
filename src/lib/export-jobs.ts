@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { env, PHOTOS_BUCKET } from "./env";
 import { areUploadsFrozen } from "./event-settings";
 import type { ExportStatus } from "./export";
@@ -33,7 +34,9 @@ export const EXPORT_STALE_MS = 3 * 60 * 1000;
 
 export type ExportJob = {
   kind: ExportKind;
-  state: "packing" | "ready" | "failed";
+  job_id: string;
+  state: "packing" | "ready" | "failed" | "cancelled";
+  snapshot_frozen: boolean;
   total_count: number;
   done_count: number;
   zip_size_bytes: number;
@@ -107,40 +110,108 @@ async function snapshotPhotos(kind: ExportKind): Promise<ExportPhoto[]> {
   }
 }
 
-// Creates the job row on first call after uploads freeze; the manifest and
-// total zip size are locked in then and never recomputed.
+// The manifest and total zip size are locked in when the job is created and
+// never recomputed; a fresh job_id marks each (re)creation.
+async function freshJobRow(kind: ExportKind) {
+  const snapshotFrozen = await areUploadsFrozen();
+  const manifest = buildManifest(await snapshotPhotos(kind));
+  const plan = planZip(manifest);
+  return {
+    kind,
+    job_id: randomUUID(),
+    state: "packing" as const,
+    snapshot_frozen: snapshotFrozen,
+    total_count: manifest.length,
+    done_count: 0,
+    zip_size_bytes: plan.totalSize,
+    storage_path: `${kind}.zip`,
+    manifest,
+    crcs: [],
+    upload_url: null,
+    error: null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// Resolves to whether this call created the row; a concurrent creator wins
+// the conflict and this one adopts its job.
+async function insertExportJob(kind: ExportKind): Promise<boolean> {
+  const { data, error } = await supabaseAdmin()
+    .from("export_jobs")
+    .upsert(await freshJobRow(kind), { onConflict: "kind", ignoreDuplicates: true })
+    .select("kind");
+  if (error) throw new Error(`Creating export job failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+// Replaces the job in place with a fresh one; resolves to false when the job
+// was already replaced by someone else.
+async function replaceExportJob(job: ExportJob): Promise<boolean> {
+  const { data, error } = await supabaseAdmin()
+    .from("export_jobs")
+    .update(await freshJobRow(job.kind))
+    .eq("kind", job.kind)
+    .eq("job_id", job.job_id)
+    .select("kind");
+  if (error) throw new Error(`Replacing export job failed: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+// What a build worker sees: the job as it stands, created on demand only once
+// uploads are frozen. A cancelled job stays cancelled here.
 export async function ensureExportJob(kind: ExportKind): Promise<ExportJob | null> {
   const existing = await getExportJob(kind);
   if (existing) return existing;
   if (!(await areUploadsFrozen())) return null;
-
-  const manifest = buildManifest(await snapshotPhotos(kind));
-  const plan = planZip(manifest);
-  const { error } = await supabaseAdmin()
-    .from("export_jobs")
-    .upsert(
-      {
-        kind,
-        state: "packing",
-        total_count: manifest.length,
-        done_count: 0,
-        zip_size_bytes: plan.totalSize,
-        storage_path: `${kind}.zip`,
-        manifest,
-        crcs: [],
-      },
-      { onConflict: "kind", ignoreDuplicates: true },
-    );
-  if (error) throw new Error(`Creating export job failed: ${error.message}`);
+  await insertExportJob(kind);
   return getExportJob(kind);
 }
 
-async function patchJob(kind: ExportKind, patch: Record<string, unknown>): Promise<void> {
+export type PreparedExportJob = { job: ExportJob; created: boolean };
+
+// The explicit prepare action: hands back the live job, creating one when
+// there is none or the last one was cancelled. The admin zip can be prepared
+// while uploads are still open; the public zip only once they freeze.
+export async function prepareExportJob(
+  kind: ExportKind,
+): Promise<PreparedExportJob | null> {
+  const existing = await getExportJob(kind);
+  if (existing && existing.state !== "cancelled") return { job: existing, created: false };
+  if (kind === "public" && !(await areUploadsFrozen())) return null;
+  const created = existing
+    ? await replaceExportJob(existing)
+    : await insertExportJob(kind);
+  const job = await getExportJob(kind);
+  if (!job) throw new Error("Export job vanished while preparing");
+  return { job, created };
+}
+
+// Cancels the job only while it is packing; resolves to the job as it stands
+// either way.
+export async function cancelExportJob(kind: ExportKind): Promise<ExportJob | null> {
   const { error } = await supabaseAdmin()
     .from("export_jobs")
+    .update({ state: "cancelled", updated_at: new Date().toISOString() })
+    .eq("kind", kind)
+    .eq("state", "packing");
+  if (error) throw new Error(`Cancelling export job failed: ${error.message}`);
+  return getExportJob(kind);
+}
+
+// Thrown when a progress write finds the job no longer packing under the same
+// job_id — cancelled, or replaced by a newer prepare — so the slice stops.
+class ExportSupersededError extends Error {}
+
+async function patchJob(job: ExportJob, patch: Record<string, unknown>): Promise<void> {
+  const { data, error } = await supabaseAdmin()
+    .from("export_jobs")
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("kind", kind);
+    .eq("kind", job.kind)
+    .eq("job_id", job.job_id)
+    .eq("state", "packing")
+    .select("kind");
   if (error) throw new Error(`Updating export job failed: ${error.message}`);
+  if ((data?.length ?? 0) === 0) throw new ExportSupersededError(`Export ${job.kind} superseded`);
 }
 
 export async function signedZipUrl(job: ExportJob): Promise<string | null> {
@@ -150,6 +221,26 @@ export async function signedZipUrl(job: ExportJob): Promise<string | null> {
       download: job.kind === "public" ? "fotografije.zip" : "sve-fotografije.zip",
     });
   return error ? null : data.signedUrl;
+}
+
+// Once uploads are frozen: a zip snapshotted while they were still open is
+// replaced, and every build without a live worker is started. Idempotent, so
+// both the freeze and its daily check call it. Resolves to the kinds kicked.
+export async function startFrozenExportBuilds(origin: string): Promise<ExportKind[]> {
+  const kicked: ExportKind[] = [];
+  for (const kind of EXPORT_KINDS) {
+    let job = await getExportJob(kind);
+    let replaced = false;
+    if (job && !job.snapshot_frozen && (await replaceExportJob(job))) {
+      job = await getExportJob(kind);
+      replaced = true;
+    }
+    if (!job || replaced || exportJobStale(job, new Date())) {
+      await kickExportBuild(origin, kind);
+      kicked.push(kind);
+    }
+  }
+  return kicked;
 }
 
 export const EXPORT_BUILD_PATH = "/api/export/build";
@@ -287,7 +378,7 @@ export async function runExportJob(
     if (uploadUrl === null || resumedOffset === null) {
       uploadUrl = await createTusUpload(job.storage_path, plan.totalSize);
       resumedOffset = 0;
-      await patchJob(kind, { upload_url: uploadUrl });
+      await patchJob(job, { upload_url: uploadUrl });
     }
     const url = uploadUrl;
     let offset = resumedOffset;
@@ -320,7 +411,7 @@ export async function runExportJob(
 
     for (let i = start; i < job.manifest.length; i++) {
       if (Date.now() > deadline) {
-        await patchJob(kind, { crcs, done_count: i });
+        await patchJob(job, { crcs, done_count: i });
         return { finished: false, retry: true };
       }
       const data = await downloadPhoto(job.manifest[i]);
@@ -334,7 +425,7 @@ export async function runExportJob(
       const skip = offset + pendingLen - plan.entries[i].headerStart;
       push(skip > 0 ? bytes.subarray(skip) : bytes);
       await flushChunks(false);
-      await patchJob(kind, { crcs, done_count: i + 1 });
+      await patchJob(job, { crcs, done_count: i + 1 });
     }
 
     const tail = tailBytes(entries, crcs as number[], plan);
@@ -345,16 +436,17 @@ export async function runExportJob(
     if (offset !== plan.totalSize) {
       throw new Error(`Upload ended at ${offset}, expected ${plan.totalSize}`);
     }
-    await patchJob(kind, {
+    await patchJob(job, {
       state: "ready",
       done_count: job.total_count,
       error: null,
     });
     return { finished: true, retry: false };
   } catch (error) {
+    if (error instanceof ExportSupersededError) return { finished: true, retry: false };
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Export ${kind} packing failed`, error);
-    await patchJob(kind, {
+    await patchJob(job, {
       ...(error instanceof FatalExportError ? { state: "failed" } : {}),
       error: message,
     }).catch(() => undefined);

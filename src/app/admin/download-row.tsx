@@ -7,7 +7,12 @@ import {
   useExportJob,
   type DownloadSheetLabels,
 } from "@/app/export-download";
-import { EXPORT_ADMIN_PATH, formatSize, type ExportStatus } from "@/lib/export";
+import {
+  EXPORT_ADMIN_CANCEL_PATH,
+  EXPORT_ADMIN_PATH,
+  formatSize,
+  type ExportStatus,
+} from "@/lib/export";
 import type { Locale } from "@/lib/i18n";
 
 // Admin counterpart of DownloadAllButton, against the admin zip (public +
@@ -34,7 +39,8 @@ export function AdminDownloadRow({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [failed, setFailed] = useState(false);
-  const job = useExportJob(EXPORT_ADMIN_PATH, initialStatus);
+  const job = useExportJob(EXPORT_ADMIN_PATH, initialStatus, EXPORT_ADMIN_CANCEL_PATH);
+  const cancel = job.cancel;
 
   const rows = [
     {
@@ -52,10 +58,10 @@ export function AdminDownloadRow({
       : []),
   ];
 
-  async function startDownload() {
+  async function prepare() {
     setChecking(true);
     setFailed(false);
-    const ok = await job.startDownload();
+    const ok = await job.prepare();
     if (ok) setSheetOpen(false);
     else setFailed(true);
     setChecking(false);
@@ -72,6 +78,7 @@ export function AdminDownloadRow({
           onDownload={job.downloadNow}
           onCopy={job.copyStableLink}
           onDismiss={job.dismissCard}
+          onCancel={cancel ? () => void cancel() : undefined}
           className="mb-2"
         />
       )}
@@ -94,7 +101,7 @@ export function AdminDownloadRow({
           rows={rows}
           failed={failed}
           checking={checking}
-          onDownload={() => void startDownload()}
+          onPrepare={() => void prepare()}
           onCancel={() => setSheetOpen(false)}
         />
       )}

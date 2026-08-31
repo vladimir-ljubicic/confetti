@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatSize, parseExportStatus } from "./export";
+import {
+  formatSize,
+  PACKING_ETA_WARMUP_MS,
+  packingEtaMs,
+  parseExportStatus,
+} from "./export";
 
 describe("formatSize", () => {
   it("formats gigabytes with one decimal", () => {
@@ -23,5 +28,46 @@ describe("parseExportStatus", () => {
   it("rejects unknown states", () => {
     expect(parseExportStatus({ state: "nope" })).toBeNull();
     expect(parseExportStatus(null)).toBeNull();
+  });
+});
+
+describe("parseExportStatus (cancelled)", () => {
+  it("accepts a cancelled job", () => {
+    expect(parseExportStatus({ state: "cancelled", done: 0, total: 0 })).toEqual({
+      state: "cancelled",
+      done: 0,
+      total: 0,
+      sizeBytes: null,
+    });
+  });
+});
+
+describe("packingEtaMs", () => {
+  const at = 1_000_000;
+
+  it("shows nothing until the warmup has elapsed", () => {
+    expect(
+      packingEtaMs({ done: 0, at }, { done: 20, at: at + PACKING_ETA_WARMUP_MS - 1 }, 184),
+    ).toBeNull();
+  });
+
+  it("shows nothing when no photo has been packed since the first sample", () => {
+    expect(
+      packingEtaMs({ done: 118, at }, { done: 118, at: at + PACKING_ETA_WARMUP_MS }, 184),
+    ).toBeNull();
+  });
+
+  it("extrapolates the observed rate over the photos still to pack", () => {
+    // 20 photos in 10 s leaves 164 photos → 82 s.
+    expect(
+      packingEtaMs({ done: 0, at }, { done: 20, at: at + 10_000 }, 184),
+    ).toBe(82_000);
+  });
+
+  it("measures from the first sample, not from zero", () => {
+    // Joined at 100 of 184; 42 more in 10 s leaves 42 → 10 s.
+    expect(
+      packingEtaMs({ done: 100, at }, { done: 142, at: at + 10_000 }, 184),
+    ).toBe(10_000);
   });
 });

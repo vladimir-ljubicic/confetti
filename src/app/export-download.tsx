@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EXPORT_PACKING_STATUS,
   formatSize,
+  packingEtaMs,
   parseExportStatus,
   type ExportStatus,
+  type PackingSample,
 } from "@/lib/export";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { formatEta } from "@/lib/upload-eta";
 import { ConfettiMark } from "./confetti-mark";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 
@@ -16,8 +19,11 @@ export type DownloadSheetLabels = {
   intro: string;
   photosRow: string;
   photosValue: string;
-  download: string;
+  prepare: string;
   cancel: string;
+  cancelPrepare: string;
+  etaMinutes: string;
+  etaUnderMinute: string;
   preparingTitle: string;
   preparingBody: string;
   failed: string;
@@ -36,51 +42,81 @@ export type DownloadSheetLabels = {
 };
 
 export type ExportCard =
-  | { kind: "packing"; done: number; total: number }
+  | { kind: "packing"; done: number; total: number; etaMs: number | null }
   | { kind: "ready"; sizeBytes: number | null; total: number }
   | { kind: "failed" };
 
 const POLL_MS = 5000;
 
-function cardFromStatus(status: ExportStatus): ExportCard {
+function cardFromStatus(status: ExportStatus, etaMs: number | null): ExportCard | null {
   if (status.state === "ready") {
     return { kind: "ready", sizeBytes: status.sizeBytes, total: status.total };
   }
   if (status.state === "failed") return { kind: "failed" };
-  return { kind: "packing", done: status.done, total: status.total };
+  if (status.state === "cancelled") return null;
+  return { kind: "packing", done: status.done, total: status.total, etaMs };
 }
 
-// Client half of the export contract: probes the stable endpoint, tracks the
-// job card across visits (13b/13c), and polls while the server is packing.
-export function useExportJob(endpoint: string, initialStatus: ExportStatus | null) {
+// Client half of the export contract: prepares through the stable endpoint,
+// tracks the job card across visits, and polls while the server is packing.
+// The ETA comes from the progress this client has watched. Only a hook given
+// a cancel path can cancel — the shared public build has none.
+export function useExportJob(
+  endpoint: string,
+  initialStatus: ExportStatus | null,
+  cancelPath: string | null = null,
+) {
   const [card, setCard] = useState<ExportCard | null>(
     initialStatus && initialStatus.state === "packing"
-      ? cardFromStatus(initialStatus)
+      ? cardFromStatus(initialStatus, null)
       : null,
   );
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstSample = useRef<PackingSample | null>(null);
 
-  const probe = useCallback(async (): Promise<ExportStatus | null> => {
-    const response = await fetch(endpoint, {
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok && response.status !== EXPORT_PACKING_STATUS) {
-      const status = parseExportStatus(await response.json().catch(() => null));
-      return status?.state === "failed" ? status : null;
+  const applyStatus = useCallback((status: ExportStatus) => {
+    if (status.state !== "packing") {
+      firstSample.current = null;
+      setCard(cardFromStatus(status, null));
+      return;
     }
-    return parseExportStatus(await response.json().catch(() => null));
-  }, [endpoint]);
+    const latest = { done: status.done, at: Date.now() };
+    // A job that restarted from scratch invalidates the rate measured so far.
+    if (!firstSample.current || status.done < firstSample.current.done) {
+      firstSample.current = latest;
+    }
+    setCard(cardFromStatus(status, packingEtaMs(firstSample.current, latest, status.total)));
+  }, []);
+
+  const request = useCallback(
+    async (method: "GET" | "POST", path = endpoint): Promise<ExportStatus | null> => {
+      const response = await fetch(path, {
+        method,
+        headers: { accept: "application/json" },
+      });
+      if (!response.ok && response.status !== EXPORT_PACKING_STATUS) {
+        const status = parseExportStatus(await response.json().catch(() => null));
+        return status?.state === "failed" ? status : null;
+      }
+      return parseExportStatus(await response.json().catch(() => null));
+    },
+    [endpoint],
+  );
 
   useEffect(() => {
     if (card?.kind !== "packing") return;
+    let active = true;
     const timer = setInterval(() => {
-      void probe().then((status) => {
-        if (status) setCard(cardFromStatus(status));
+      void request("GET").then((status) => {
+        if (active && status) applyStatus(status);
       });
     }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [card?.kind, probe]);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [card?.kind, request, applyStatus]);
 
   useEffect(
     () => () => {
@@ -89,19 +125,31 @@ export function useExportJob(endpoint: string, initialStatus: ExportStatus | nul
     [],
   );
 
-  // Resolves to true when the sheet can close (download started or card shown).
-  const startDownload = useCallback(async (): Promise<boolean> => {
+  // Resolves to true when the sheet can close: the card now shows the job,
+  // packing or already ready.
+  const prepare = useCallback(async (): Promise<boolean> => {
     try {
-      const status = await probe();
-      if (!status || status.state === "failed") return false;
-      if (status.state === "ready") window.location.assign(endpoint);
-      setCard(cardFromStatus(status));
+      const status = await request("POST");
+      if (!status || status.state === "failed" || status.state === "cancelled") {
+        return false;
+      }
+      applyStatus(status);
       return true;
     } catch (error) {
-      console.error("Export probe failed", error);
+      console.error("Export prepare failed", error);
       return false;
     }
-  }, [endpoint, probe]);
+  }, [request, applyStatus]);
+
+  const cancel = useCallback(async () => {
+    if (!cancelPath) return;
+    try {
+      const status = await request("POST", cancelPath);
+      if (status) applyStatus(status);
+    } catch (error) {
+      console.error("Export cancel failed", error);
+    }
+  }, [cancelPath, request, applyStatus]);
 
   const downloadNow = useCallback(() => {
     window.location.assign(endpoint);
@@ -120,7 +168,15 @@ export function useExportJob(endpoint: string, initialStatus: ExportStatus | nul
 
   const dismissCard = useCallback(() => setCard(null), []);
 
-  return { card, copied, startDownload, downloadNow, copyStableLink, dismissCard };
+  return {
+    card,
+    copied,
+    prepare,
+    cancel: cancelPath ? cancel : null,
+    downloadNow,
+    copyStableLink,
+    dismissCard,
+  };
 }
 
 export function ExportJobCard({
@@ -131,6 +187,7 @@ export function ExportJobCard({
   onDownload,
   onCopy,
   onDismiss,
+  onCancel,
   className = "",
 }: {
   card: ExportCard;
@@ -140,6 +197,8 @@ export function ExportJobCard({
   onDownload: () => void;
   onCopy: () => void;
   onDismiss: () => void;
+  // Cancelling a shared build is an admin act; guest cards omit it.
+  onCancel?: () => void;
   className?: string;
 }) {
   if (card.kind === "packing") {
@@ -153,11 +212,21 @@ export function ExportJobCard({
             <ConfettiMark size={18} variant="animated" />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-            <span className="truncate text-sm text-ink">
-              {labels.packingProgress
-                .replace("{done}", String(card.done))
-                .replace("{total}", String(card.total))}
-            </span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-sm text-ink">
+                {labels.packingProgress
+                  .replace("{done}", String(card.done))
+                  .replace("{total}", String(card.total))}
+              </span>
+              {card.etaMs !== null && (
+                <span className="shrink-0 text-xs text-ink/60">
+                  {formatEta(card.etaMs, {
+                    minutes: labels.etaMinutes,
+                    underMinute: labels.etaUnderMinute,
+                  })}
+                </span>
+              )}
+            </div>
             <span className="flex h-[5px] overflow-hidden rounded-[2.5px] bg-[#eee5d2]">
               <span
                 className="block bg-gold transition-[width]"
@@ -169,6 +238,15 @@ export function ExportJobCard({
         <span className="text-xs leading-[1.4] text-pretty text-ink/60">
           {labels.preparingBody}
         </span>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="-mx-3.5 flex min-h-11 items-center justify-center self-start rounded-pill px-3.5 text-[13px] text-danger transition active:bg-sand"
+          >
+            {labels.cancelPrepare}
+          </button>
+        )}
       </div>
     );
   }
@@ -247,14 +325,14 @@ export function ExportSheet({
   rows,
   failed,
   checking,
-  onDownload,
+  onPrepare,
   onCancel,
 }: {
   labels: DownloadSheetLabels;
   rows: { label: string; value: string }[];
   failed: boolean;
   checking: boolean;
-  onDownload: () => void;
+  onPrepare: () => void;
   onCancel: () => void;
 }) {
   const { sheetProps, backdropStyle } = useSheetDismiss(onCancel);
@@ -297,10 +375,10 @@ export function ExportSheet({
         <button
           type="button"
           disabled={checking}
-          onClick={onDownload}
+          onClick={onPrepare}
           className="w-full rounded-pill bg-gold px-7 py-4 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
         >
-          {labels.download}
+          {labels.prepare}
         </button>
         <button
           type="button"
