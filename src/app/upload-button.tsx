@@ -15,6 +15,7 @@ import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
+import { useSort } from "./sort-context";
 import { BulkMiniBar, BulkSummary, RejectedCard } from "./upload-minibar";
 import { useUploadQueue } from "./upload-queue";
 
@@ -256,6 +257,7 @@ export function UploadButton({
 }) {
   const router = useRouter();
   const queue = useUploadQueue();
+  const sortContext = useSort();
   const inputRef = useRef<HTMLInputElement>(null);
   const [hasProfile, setHasProfile] = useState(!needsProfile);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -758,6 +760,9 @@ export function UploadButton({
   }
 
   async function startBatch(files: File[]) {
+    // New photos land at the head of the latest order; a gallery in popular
+    // order, or scrolled away from its top, would put them out of sight.
+    sortContext?.setSort("latest");
     if (queue && files.length <= OPTIMISTIC_TILE_MAX) {
       await startTileBatch(files);
     } else {

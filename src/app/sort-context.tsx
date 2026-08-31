@@ -10,7 +10,8 @@ const SortContext = createContext<{
 
 // The whole gallery is loaded, so the toggle reorders it where it stands. The
 // mode lives with the view that does the reordering; this only carries it down
-// to the toggle, which the header renders far from it.
+// to the toggle, which the header renders far from it, and to the upload
+// button, which puts the gallery back in latest order for the photos it adds.
 export function SortProvider({
   sort,
   onChange,

@@ -137,7 +137,8 @@ export function GalleryView({
   }, []);
 
   // The chosen order rides in the address so a reload and a shared link keep
-  // it, without adding a step to go back through.
+  // it, without adding a step to go back through. Choosing the current order
+  // again still brings the top of the gallery on screen.
   const changeSort = useCallback((next: SortMode) => {
     setSort(next);
     const url = new URL(window.location.href);
