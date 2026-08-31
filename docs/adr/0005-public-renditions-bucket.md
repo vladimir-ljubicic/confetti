@@ -65,8 +65,9 @@ leave the private bucket.
   connections for ~150 ms, and the storage service answers a burst beyond its
   pool with `SlowDown` (429). Moves therefore run at most four at a time with
   exponential backoff — about 20 moves a second — and a bulk change (hiding a
-  guest's photos, restoring the bin) is a sequence of requests of 40 photos
-  each, with progress shown while it runs; a 250-photo guest takes ~25 s.
+  guest's photos, restoring the bin, a guest acting on a selection of their
+  own) is a sequence of requests of 40 photos each, with progress shown while
+  it runs; a 250-photo guest takes ~25 s.
 - Renditions move before the row changes, in both directions and one photo at
   a time, so a failed request leaves every row as it was and running the
   action again continues from where the move stopped; a rendition already in

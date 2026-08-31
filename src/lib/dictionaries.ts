@@ -99,6 +99,7 @@ const en = {
     confirmDeleteOne: "Delete {count} photo?",
     confirmDeleteFew: "Delete {count} photos?",
     confirmDeleteMany: "Delete {count} photos?",
+    bulkProgress: "{done} of {total}",
     actionFailed: "That didn't work — try again",
   },
   uploaderPage: {
@@ -354,6 +355,7 @@ const sr: Dictionary = {
     confirmDeleteOne: "Обрисати {count} фотографију?",
     confirmDeleteFew: "Обрисати {count} фотографије?",
     confirmDeleteMany: "Обрисати {count} фотографија?",
+    bulkProgress: "{done} од {total}",
     actionFailed: "Није успело — покушајте поново",
   },
   uploaderPage: {

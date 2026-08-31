@@ -31,3 +31,5 @@ phones during the wedding itself.
 - 04 — per-guest gallery cold load queries only that guest
 - 05 — height-aware column dealing
 - 06 — refresh on focus
+- 07 — bounded, resumable rendition moves for admin bulk actions
+- 08 — the same for a guest's selection on my-photos

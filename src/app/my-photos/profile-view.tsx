@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
 import { LocaleToggle } from "../locale-toggle";
+import { useBulkAction } from "../photo-controls";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import {
   PhotoViewer,
@@ -45,6 +46,7 @@ export type ProfileLabels = {
   confirmDeleteFew: string;
   confirmDeleteMany: string;
   delete: string;
+  bulkProgress: string;
   actionFailed: string;
   localeAriaLabel: string;
 };
@@ -160,14 +162,15 @@ export function ProfileView({
   labels: ProfileLabels;
   viewerLabels: ViewerLabels;
 }) {
-  const router = useRouter();
   const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const visibilityAction = useBulkAction();
+  const deleteAction = useBulkAction();
+  const busy = visibilityAction.busy || deleteAction.busy;
+  const failed = visibilityAction.failed || deleteAction.failed;
   // Photos deleted or re-labelled here vanish/update immediately;
   // router.refresh() catches the server list up in the background.
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
@@ -254,50 +257,31 @@ export function ProfileView({
   function exitSelect() {
     setSelectMode(false);
     setSelectedIds(new Set());
-    setFailed(false);
+    visibilityAction.reset();
+    deleteAction.reset();
   }
 
-  async function runBulk(
-    requests: (() => Promise<Response>)[],
-    apply: () => void,
-  ) {
-    setBusy(true);
-    setFailed(false);
-    const responses = await Promise.all(
-      requests.map((request) => request().catch(() => null)),
+  function post(path: string, body: object) {
+    return fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function setSelectedVisibility(visibility: Visibility) {
+    const ids = selectedPhotos.map((photo) => photo.id);
+    const ok = await visibilityAction.run(() =>
+      post("/api/my-photos/visibility", { ids, visibility }),
     );
-    if (responses.every((response) => response?.ok)) {
-      apply();
-      exitSelect();
-    } else {
-      setFailed(true);
-    }
-    router.refresh();
-    setBusy(false);
+    if (!ok) return;
+    const next = new Map(visibilityOverrides);
+    for (const id of ids) next.set(id, visibility);
+    setVisibilityOverrides(next);
+    exitSelect();
   }
 
-  function setSelectedVisibility(visibility: Visibility) {
-    const ids = selectedPhotos
-      .filter((photo) => photo.visibility !== visibility)
-      .map((photo) => photo.id);
-    void runBulk(
-      ids.map(
-        (id) => () =>
-          fetch(`/api/photos/${id}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ visibility }),
-          }),
-      ),
-      () => {
-        const next = new Map(visibilityOverrides);
-        for (const id of ids) next.set(id, visibility);
-        setVisibilityOverrides(next);
-      },
-    );
-  }
-
-  function deleteSelected() {
+  async function deleteSelected() {
     const ids = selectedPhotos.map((photo) => photo.id);
     const confirmed = window.confirm(
       pluralize(locale, ids.length, {
@@ -307,10 +291,17 @@ export function ProfileView({
       }),
     );
     if (!confirmed) return;
-    void runBulk(
-      ids.map((id) => () => fetch(`/api/photos/${id}`, { method: "DELETE" })),
-      () => setRemovedIds(new Set([...removedIds, ...ids])),
-    );
+    const ok = await deleteAction.run(() => post("/api/my-photos/delete", { ids }));
+    if (!ok) return;
+    setRemovedIds(new Set([...removedIds, ...ids]));
+    exitSelect();
+  }
+
+  function progressOr(label: string, action: { done: number; total: number | null }) {
+    if (action.total === null) return label;
+    return labels.bulkProgress
+      .replace("{done}", String(action.done))
+      .replace("{total}", String(action.total));
   }
 
   const allSelectedPrivate =
@@ -465,19 +456,22 @@ export function ProfileView({
                 type="button"
                 disabled={busy || selectedPhotos.length === 0}
                 onClick={() =>
-                  setSelectedVisibility(allSelectedPrivate ? "public" : "private")
+                  void setSelectedVisibility(allSelectedPrivate ? "public" : "private")
                 }
                 className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
               >
-                {allSelectedPrivate ? labels.makePublic : labels.hide}
+                {progressOr(
+                  allSelectedPrivate ? labels.makePublic : labels.hide,
+                  visibilityAction,
+                )}
               </button>
               <button
                 type="button"
                 disabled={busy || selectedPhotos.length === 0}
-                onClick={deleteSelected}
+                onClick={() => void deleteSelected()}
                 className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger transition active:opacity-60 disabled:opacity-60"
               >
-                {labels.delete}
+                {progressOr(labels.delete, deleteAction)}
               </button>
             </div>
           </div>

@@ -37,17 +37,14 @@ type BulkState = {
   total: number | null;
 };
 
+const IDLE: BulkState = { busy: false, failed: false, done: 0, total: null };
+
 // Drives a batched server action to completion: the route handles one batch
 // per request and reports how many photos remain. A failed request keeps the
 // progress made so far on screen; running again continues from there.
 export function useBulkAction() {
   const router = useRouter();
-  const [state, setState] = useState<BulkState>({
-    busy: false,
-    failed: false,
-    done: 0,
-    total: null,
-  });
+  const [state, setState] = useState<BulkState>(IDLE);
 
   async function run(request: () => Promise<Response>): Promise<boolean> {
     let done = 0;
@@ -70,9 +67,13 @@ export function useBulkAction() {
       if (step.remaining === 0) break;
     }
     router.refresh();
-    setState({ busy: false, failed: false, done, total: null });
+    setState(IDLE);
     return true;
   }
 
-  return { ...state, run };
+  function reset() {
+    setState(IDLE);
+  }
+
+  return { ...state, run, reset };
 }
