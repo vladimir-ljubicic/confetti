@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Jost } from "next/font/google";
 import { ViewTransition } from "react";
 import { LOCALE_TRANSITION_TYPE } from "@/lib/i18n";
@@ -16,6 +16,12 @@ const cormorant = Cormorant_Garamond({
   style: ["normal", "italic"],
   subsets: ["latin", "cyrillic"],
 });
+
+// The on-screen keyboard shrinks the layout viewport, so a fixed bottom
+// sheet rises above it instead of being covered.
+export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const dict = await getDict();

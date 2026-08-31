@@ -24,7 +24,10 @@ const CLOSE_MS = 200;
 
 // Drag-down-to-dismiss for a bottom sheet. Spread `sheetProps` on the panel
 // and `backdropStyle` on the element carrying the dimmed background;
-// `onDismiss` runs once the sheet has slid off screen.
+// `onDismiss` runs once the sheet has slid off screen. A panel taller than
+// the screen scrolls its content in an inner element carrying `scrollProps`:
+// there, a drag scrolls until the content is back at its top, and only then
+// pulls the sheet down.
 export function useSheetDismiss(onDismiss: () => void) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -36,6 +39,8 @@ export function useSheetDismiss(onDismiss: () => void) {
   const offsetRef = useRef(0);
   const dragged = useRef(false);
   const suppressClick = useRef(false);
+  const scroller = useRef<HTMLElement | null>(null);
+  const detachGuard = useRef<(() => void) | null>(null);
 
   // Kept in a ref so a re-render of the sheet's owner cannot restart the
   // close timer with a fresh callback identity.
@@ -57,14 +62,27 @@ export function useSheetDismiss(onDismiss: () => void) {
 
   function down(event: ReactPointerEvent) {
     suppressClick.current = false;
+    detachGuard.current?.();
+    detachGuard.current = null;
     if (closing) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    const target = event.target as HTMLElement;
     // Text fields own their own drag gestures (caret, selection).
-    if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+    if (target.closest("input, textarea, select")) return;
     origin.current = { x: event.clientX, y: event.clientY };
     sample.current = { y: event.clientY, time: event.timeStamp };
     velocity.current = 0;
     dragged.current = false;
+    scroller.current = target.closest<HTMLElement>("[data-sheet-scroll]");
+    // The scrolling element lets the browser pan it, and the browser would
+    // take a downward pan at its top as a scroll (of whatever lies behind)
+    // and cancel the pointer. Once the drag is ours, its touches are kept.
+    const sheet = event.currentTarget;
+    const guard = (touch: Event) => {
+      if (dragged.current) touch.preventDefault();
+    };
+    sheet.addEventListener("touchmove", guard, { passive: false });
+    detachGuard.current = () => sheet.removeEventListener("touchmove", guard);
   }
 
   function move(event: ReactPointerEvent) {
@@ -83,6 +101,11 @@ export function useSheetDismiss(onDismiss: () => void) {
         return;
       }
       if (dy < DRAG_THRESHOLD_PX) return;
+      // Scrolled content scrolls back up before the sheet moves.
+      if (scroller.current && scroller.current.scrollTop > 0) {
+        origin.current = null;
+        return;
+      }
       dragged.current = true;
       setDragging(true);
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -103,6 +126,8 @@ export function useSheetDismiss(onDismiss: () => void) {
     const wasDragging = dragged.current;
     origin.current = null;
     dragged.current = false;
+    detachGuard.current?.();
+    detachGuard.current = null;
     if (!wasDragging) return;
     setDragging(false);
     suppressClick.current = true;
@@ -119,6 +144,8 @@ export function useSheetDismiss(onDismiss: () => void) {
   function cancel() {
     origin.current = null;
     dragged.current = false;
+    detachGuard.current?.();
+    detachGuard.current = null;
     setDragging(false);
     moveTo(0);
   }
@@ -145,6 +172,10 @@ export function useSheetDismiss(onDismiss: () => void) {
       onPointerUp: up,
       onPointerCancel: cancel,
       onClickCapture: clickCapture,
+    },
+    scrollProps: {
+      "data-sheet-scroll": "",
+      style: { touchAction: "pan-y" } satisfies CSSProperties,
     },
     backdropStyle: {
       opacity: closing ? 0 : 1,
