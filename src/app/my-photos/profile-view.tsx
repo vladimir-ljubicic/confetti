@@ -383,14 +383,9 @@ export function ProfileView({
             <span className="text-base leading-none">✕</span>
             {labels.exitSelect}
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={toggleSelectAll}
-            className="flex min-h-11 items-center rounded-pill px-3 text-[13px] whitespace-nowrap text-gold-small transition active:bg-[rgba(176,141,60,0.18)] disabled:opacity-50"
-          >
-            {allShownSelected ? labels.deselectAll : labels.selectAll}
-          </button>
+          <span className="flex min-h-11 items-center px-3 text-[13px] whitespace-nowrap text-ink/50 tabular-nums">
+            {selectedPhotos.length} / {all.length}
+          </span>
         </div>
       ) : (
         <div className="sticky top-0 z-10 flex items-center justify-between bg-paper py-3 pr-3 pl-2">
@@ -456,7 +451,7 @@ export function ProfileView({
             ref={listRef}
             aria-busy={busy}
             className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
-              selectMode ? "pb-28" : "pb-8"
+              selectMode ? "pb-40" : "pb-8"
             } ${busy ? "opacity-45" : ""}`}
           >
             {shown.map((photo) => {
@@ -517,32 +512,55 @@ export function ProfileView({
               />
             </div>
           ) : (
-            <div className="flex w-full max-w-xl items-center justify-between gap-2.5 rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card py-2.5 pr-2 pl-[18px] shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
-              <span className="text-sm text-ink">
-                {pluralize(locale, selectedPhotos.length, {
-                  one: labels.selectedOne,
-                  few: labels.selectedFew,
-                  many: labels.selectedMany,
-                })}
-                {failedAction && (
-                  <span className="block text-xs text-danger">
-                    {progressMade(failedAction) && (
-                      <span className="tabular-nums">
-                        {progressMade(failedAction)} ·{" "}
-                      </span>
-                    )}
-                    {labels.actionFailed}
-                  </span>
-                )}
-              </span>
-              <div className="flex shrink-0 items-center gap-1.5 text-sm">
+            <div className="flex w-full max-w-xl flex-col gap-2.5 rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card px-3 pt-2.5 pb-3 shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
+              <div className="flex items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  aria-pressed={allShownSelected}
+                  onClick={toggleSelectAll}
+                  className="flex min-h-11 items-center gap-[9px] rounded-pill border border-gold/35 bg-gold-tint pr-[13px] pl-[11px] text-sm whitespace-nowrap text-ink transition active:bg-[#f1e6cc]"
+                >
+                  {allShownSelected ? (
+                    <span
+                      aria-hidden
+                      className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-gold text-[11px] text-card"
+                    >
+                      ✓
+                    </span>
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="h-5 w-5 rounded-[5px] border-[1.5px] border-gold bg-card"
+                    />
+                  )}
+                  {allShownSelected
+                    ? labels.deselectAll
+                    : labels.selectAll.replace("{count}", String(shown.length))}
+                </button>
+                <span className="text-right text-sm whitespace-nowrap text-ink">
+                  {pluralize(locale, selectedPhotos.length, {
+                    one: labels.selectedOne,
+                    few: labels.selectedFew,
+                    many: labels.selectedMany,
+                  })}
+                </span>
+              </div>
+              {failedAction && (
+                <p className="text-xs text-danger">
+                  {progressMade(failedAction) && (
+                    <span className="tabular-nums">{progressMade(failedAction)} · </span>
+                  )}
+                  {labels.actionFailed}
+                </p>
+              )}
+              <div className="flex items-center gap-2 text-sm">
                 <button
                   type="button"
                   disabled={selectedPhotos.length === 0}
                   onClick={() =>
                     void setSelectedVisibility(allSelectedPrivate ? "public" : "private")
                   }
-                  className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-pill border border-gold/40 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
                 >
                   {allSelectedPrivate ? labels.makePublic : labels.hide}
                 </button>
@@ -550,7 +568,7 @@ export function ProfileView({
                   type="button"
                   disabled={selectedPhotos.length === 0}
                   onClick={() => void deleteSelected()}
-                  className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger transition active:opacity-60 disabled:opacity-60"
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-pill border border-danger/35 text-danger transition active:opacity-60 disabled:opacity-60"
                 >
                   {labels.delete}
                 </button>
