@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted. Implementation tracked in
+Accepted for private and deleted photos. Since ADR-0005, public photos render
+straight from the public renditions bucket; this proxy remains the render path
+wherever a per-request check is still required (my-photos private tiles, the
+admin gallery, the bin). Implementation tracked in
 `.scratch/confetti-redesign/issues/28-thumbnail-proxy-route.md`.
 
 ## Context
@@ -66,3 +69,6 @@ private for every object, thumbnails included.
   bytes against 479 plain, and the batch signing endpoint ignores a `transform`
   argument, so signing per request rather than per gallery is what makes them
   affordable.
+- Authorization is decided once per photo per request. Batching it across a
+  screen is weighed in ADR-0004, which also records why the signed URL stays
+  behind the redirect rather than being handed to `<img src>`.

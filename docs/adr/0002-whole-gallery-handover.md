@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted, with a known ceiling — see Consequences.
+Accepted, then amended by ADR-0006: the handover survives as a background fetch
+behind a server-rendered first screen, over a virtualized grid. The 2000 cap
+and the exact count are gone.
 
 ## Context
 

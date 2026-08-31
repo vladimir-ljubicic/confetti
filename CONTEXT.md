@@ -39,3 +39,12 @@ The "First L." name shown on gallery tiles, linking to that guest's per-guest ga
 
 **Uploader pill**:
 The tappable avatar+name control in the photo viewer that opens the per-guest gallery, showing the guest's public photo count.
+
+**Thumbnail**:
+The small rendition of a photo that gallery tiles render, produced on the guest's device during upload.
+
+**Viewer image**:
+The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
+
+**Revocation window**:
+The short delay (up to about a minute) between a photo becoming private or deleted and its thumbnail ceasing to load for other guests. Guests who already viewed the photo may retain it regardless.
