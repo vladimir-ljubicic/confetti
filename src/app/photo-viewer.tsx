@@ -185,6 +185,7 @@ export function PhotoViewer({
   labels,
   galleryCount,
   onNearEnd,
+  onCurrentChange,
   onSelectUploader,
   onClose,
 }: {
@@ -198,6 +199,10 @@ export function PhotoViewer({
   // photos handed over.
   galleryCount?: number;
   onNearEnd?: () => void;
+  // Called with each photo the viewer moves on to from the one it opened on,
+  // so the gallery behind can keep that photo's tile on screen for when the
+  // viewer closes.
+  onCurrentChange?: (photoId: string) => void;
   // Given, the uploader pill filters the gallery behind the viewer in place
   // rather than navigating to the guest's page.
   onSelectUploader?: (publicId: string) => void;
@@ -337,6 +342,14 @@ export function PhotoViewer({
   useEffect(() => {
     if (currentIndex >= slideCount - 3) onNearEnd?.();
   }, [currentIndex, slideCount, onNearEnd]);
+
+  const currentId = current?.id;
+  const announcedId = useRef(currentId);
+  useEffect(() => {
+    if (currentId === undefined || currentId === announcedId.current) return;
+    announcedId.current = currentId;
+    onCurrentChange?.(currentId);
+  }, [currentId, onCurrentChange]);
 
   const onScroll = useCallback(() => {
     const track = trackRef.current;

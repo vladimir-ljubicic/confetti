@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { hideBrokenImage, thumbSrc } from "@/app/photo-image";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
+import { revealTile } from "@/app/reveal-tile";
 import { useLikes } from "@/app/use-likes";
 import { usePhotoFeed, type FeedPage } from "@/app/use-photo-feed";
 import {
@@ -40,6 +41,7 @@ export function AdminPhotoGrid({
 }) {
   const likes = useLikes();
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   // What the grid is showing, and what the pressed chip promises it will show
   // — the two differ only while the new first page is on its way.
   const [shown, setShown] = useState({
@@ -125,13 +127,14 @@ export function AdminPhotoGrid({
       )}
 
       <ul
+        ref={listRef}
         aria-busy={switching}
         className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
           switching ? "opacity-45" : ""
         }`}
       >
         {loaded.map((photo) => (
-          <li key={photo.id} className="relative">
+          <li key={photo.id} data-photo-id={photo.id} className="relative">
             <button
               type="button"
               aria-label={viewerLabels.open}
@@ -175,6 +178,11 @@ export function AdminPhotoGrid({
           labels={viewerLabels}
           galleryCount={galleryCount}
           onNearEnd={loadMore}
+          onCurrentChange={(photoId) =>
+            revealTile(
+              listRef.current?.querySelector(`[data-photo-id="${photoId}"]`),
+            )
+          }
           onClose={() => setViewerStartId(null)}
         />
       )}

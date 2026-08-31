@@ -111,3 +111,23 @@ export function columnWindow(
     bottomSpacer: end === count ? 0 : total - offsets[end],
   };
 }
+
+// Tiles closer than this to the viewport's edges count as off screen: the
+// sticky header and the floating buttons cover the edges, and a tile hugging
+// one is not where the eye lands.
+const ON_SCREEN_INSET_PX = 80;
+
+// The scroll position that centers a tile on screen, or null when the tile is
+// already comfortably on screen and the scroll should stay put. The tile's top
+// is in page coordinates.
+export function revealScrollTop(
+  tile: { top: number; height: number },
+  scrollY: number,
+  viewportHeight: number,
+): number | null {
+  const onScreen =
+    tile.top >= scrollY + ON_SCREEN_INSET_PX &&
+    tile.top + tile.height <= scrollY + viewportHeight - ON_SCREEN_INSET_PX;
+  if (onScreen) return null;
+  return Math.max(0, tile.top + tile.height / 2 - viewportHeight / 2);
+}

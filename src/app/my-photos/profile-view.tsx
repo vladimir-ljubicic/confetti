@@ -9,6 +9,7 @@ import { BulkProgress } from "../bulk-progress";
 import { LocaleToggle } from "../locale-toggle";
 import { useBulkAction } from "../photo-controls";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
+import { revealTile } from "../reveal-tile";
 import {
   PhotoViewer,
   type ViewerLabels,
@@ -170,6 +171,7 @@ export function ProfileView({
   const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const visibilityAction = useBulkAction();
@@ -421,6 +423,7 @@ export function ProfileView({
           </div>
 
           <ul
+            ref={listRef}
             aria-busy={busy}
             className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
               selectMode ? "pb-28" : "pb-8"
@@ -429,7 +432,7 @@ export function ProfileView({
             {shown.map((photo) => {
               const selected = selectMode && selectedIds.has(photo.id);
               return (
-                <li key={photo.id} className="relative">
+                <li key={photo.id} data-photo-id={photo.id} className="relative">
                   <button
                     type="button"
                     disabled={busy}
@@ -535,6 +538,11 @@ export function ProfileView({
           canManageAll={false}
           locale={locale}
           labels={viewerLabels}
+          onCurrentChange={(photoId) =>
+            revealTile(
+              listRef.current?.querySelector(`[data-photo-id="${photoId}"]`),
+            )
+          }
           onClose={() => setViewerStartId(null)}
         />
       )}

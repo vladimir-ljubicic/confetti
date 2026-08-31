@@ -3,6 +3,7 @@ import {
   columnMetrics,
   columnWindow,
   dealColumns,
+  revealScrollTop,
   tileHeightRatio,
 } from "./grid-window";
 
@@ -146,5 +147,31 @@ describe("columnWindow", () => {
   it("handles an empty column", () => {
     const window = columnWindow(columnMetrics([], 100, 8), 0, 500);
     expect(window).toEqual({ start: 0, end: 0, topSpacer: 0, bottomSpacer: 0 });
+  });
+});
+
+describe("revealScrollTop", () => {
+  const viewport = 800;
+
+  it("leaves the scroll alone for a tile comfortably on screen", () => {
+    expect(revealScrollTop({ top: 1300, height: 200 }, 1000, viewport)).toBeNull();
+  });
+
+  it("centers a tile below the screen", () => {
+    expect(revealScrollTop({ top: 3000, height: 200 }, 1000, viewport)).toBe(2700);
+  });
+
+  it("centers a tile above the screen", () => {
+    expect(revealScrollTop({ top: 100, height: 200 }, 1000, viewport)).toBe(0);
+    expect(revealScrollTop({ top: 2000, height: 200 }, 4000, viewport)).toBe(1700);
+  });
+
+  it("treats a tile hugging the screen's edge as off screen", () => {
+    expect(revealScrollTop({ top: 1010, height: 200 }, 1000, viewport)).toBe(710);
+    expect(revealScrollTop({ top: 1590, height: 200 }, 1000, viewport)).toBe(1290);
+  });
+
+  it("never scrolls above the page top", () => {
+    expect(revealScrollTop({ top: 0, height: 100 }, 500, viewport)).toBe(0);
   });
 });

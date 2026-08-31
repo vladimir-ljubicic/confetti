@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FALLBACK_TILE_ASPECT,
   GALLERY_HEAD_PHOTOS,
   columnMetrics,
   columnWindow,
   dealColumns,
+  revealScrollTop,
   tileHeightRatio,
   type ColumnWindow,
 } from "@/lib/grid-window";
@@ -48,6 +49,13 @@ type GridBand = {
   top: number;
   bottom: number;
 };
+
+function columnSize(column: HTMLElement): { columnWidth: number; gap: number } {
+  return {
+    columnWidth: column.getBoundingClientRect().width,
+    gap: parseFloat(getComputedStyle(column).rowGap) || 0,
+  };
+}
 
 function tileAspect(photo: PublicPhoto): string {
   return photo.width && photo.height
@@ -207,28 +215,6 @@ export function PhotoGrid({
   }
   const removeTiles = queue?.removeTiles;
 
-  // A shared /?photo=<id> link opens the viewer on that photo. The param is
-  // consumed immediately so closing the viewer or reloading doesn't reopen it;
-  // the id is held on to instead, because the photo it names may only arrive
-  // with the background fetch of the full gallery.
-  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!viewer) return;
-    const url = new URL(window.location.href);
-    const id = url.searchParams.get("photo");
-    if (id === null) return;
-    url.searchParams.delete("photo");
-    window.history.replaceState(null, "", url);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeepLinkId(id);
-  }, [viewer]);
-  useEffect(() => {
-    if (deepLinkId === null || !photoIds.has(deepLinkId)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewerStartId(deepLinkId);
-    setDeepLinkId(null);
-  }, [deepLinkId, photoIds]);
-
   // Dealt over the full ordered list, never the mounted slice, so the layout
   // is stable while the window moves.
   const columns = useMemo(() => {
@@ -266,8 +252,7 @@ export function PhotoGrid({
       const gridTop = grid.getBoundingClientRect().top + window.scrollY;
       const viewport = window.innerHeight;
       setBand({
-        columnWidth: column.getBoundingClientRect().width,
-        gap: parseFloat(getComputedStyle(column).rowGap) || 0,
+        ...columnSize(column),
         top: window.scrollY - gridTop - OVERSCAN_VIEWPORTS * viewport,
         bottom:
           window.scrollY - gridTop + (1 + OVERSCAN_VIEWPORTS) * viewport,
@@ -318,6 +303,62 @@ export function PhotoGrid({
       }),
     [columns, band],
   );
+
+  // Puts a photo's tile on screen while the viewer stands over the grid, so
+  // the viewer closes onto the photo it was showing. The tile may be outside
+  // the mounted window, so its place comes from the column geometry rather
+  // than the DOM.
+  const revealPhoto = useCallback(
+    (photoId: string) => {
+      const grid = gridRef.current;
+      const firstColumn = columnRef.current;
+      if (!grid || !firstColumn) return;
+      for (const column of columns) {
+        const index = column.findIndex(
+          ({ entry }) => entry.kind === "photo" && entry.photo.id === photoId,
+        );
+        if (index < 0) continue;
+        const { columnWidth, gap } = columnSize(firstColumn);
+        const metrics = columnMetrics(
+          column.map(({ entry }) => entryRatio(entry)),
+          columnWidth,
+          gap,
+        );
+        const gridTop = grid.getBoundingClientRect().top + window.scrollY;
+        const target = revealScrollTop(
+          { top: gridTop + metrics.offsets[index], height: metrics.heights[index] },
+          window.scrollY,
+          window.innerHeight,
+        );
+        if (target !== null) window.scrollTo(0, target);
+        return;
+      }
+    },
+    [columns],
+  );
+
+  // A shared /?photo=<id> link opens the viewer on that photo. The param is
+  // consumed immediately so closing the viewer or reloading doesn't reopen it;
+  // the id is held on to instead, because the photo it names may only arrive
+  // with the background fetch of the full gallery.
+  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!viewer) return;
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get("photo");
+    if (id === null) return;
+    url.searchParams.delete("photo");
+    window.history.replaceState(null, "", url);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeepLinkId(id);
+  }, [viewer]);
+  useEffect(() => {
+    if (deepLinkId === null || !photoIds.has(deepLinkId)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewerStartId(deepLinkId);
+    setDeepLinkId(null);
+    revealPhoto(deepLinkId);
+  }, [deepLinkId, photoIds, revealPhoto]);
 
   if (empty) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
@@ -442,6 +483,7 @@ export function PhotoGrid({
           locale={viewer.locale}
           labels={viewer.labels}
           galleryCount={viewer.galleryCount}
+          onCurrentChange={revealPhoto}
           onSelectUploader={onSelectUploader}
           onClose={() => setViewerStartId(null)}
         />
