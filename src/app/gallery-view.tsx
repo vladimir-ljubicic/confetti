@@ -144,6 +144,7 @@ export function GalleryView({
     if (next === "latest") url.searchParams.delete("sort");
     else url.searchParams.set("sort", next);
     window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    window.scrollTo(0, 0);
   }, []);
 
   return (
