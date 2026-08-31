@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
+import { BulkProgress } from "../bulk-progress";
 import { LocaleToggle } from "../locale-toggle";
 import { useBulkAction } from "../photo-controls";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
@@ -47,6 +48,9 @@ export type ProfileLabels = {
   confirmDeleteFew: string;
   confirmDeleteMany: string;
   delete: string;
+  hiding: string;
+  makingPublic: string;
+  deleting: string;
   bulkProgress: string;
   actionFailed: string;
   localeAriaLabel: string;
@@ -170,8 +174,22 @@ export function ProfileView({
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const visibilityAction = useBulkAction();
   const deleteAction = useBulkAction();
+  const [pendingVisibility, setPendingVisibility] = useState<Visibility | null>(null);
   const busy = visibilityAction.busy || deleteAction.busy;
-  const failed = visibilityAction.failed || deleteAction.failed;
+  const running = visibilityAction.busy
+    ? {
+        label: pendingVisibility === "public" ? labels.makingPublic : labels.hiding,
+        done: visibilityAction.done,
+        total: visibilityAction.total,
+      }
+    : deleteAction.busy
+      ? { label: labels.deleting, done: deleteAction.done, total: deleteAction.total }
+      : null;
+  const failedAction = visibilityAction.failed
+    ? visibilityAction
+    : deleteAction.failed
+      ? deleteAction
+      : null;
   // Photos deleted or re-labelled here vanish/update immediately;
   // router.refresh() catches the server list up in the background.
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
@@ -272,6 +290,7 @@ export function ProfileView({
 
   async function setSelectedVisibility(visibility: Visibility) {
     const ids = selectedPhotos.map((photo) => photo.id);
+    setPendingVisibility(visibility);
     const ok = await visibilityAction.run(() =>
       post("/api/my-photos/visibility", { ids, visibility }),
     );
@@ -298,8 +317,8 @@ export function ProfileView({
     exitSelect();
   }
 
-  function progressOr(label: string, action: { done: number; total: number | null }) {
-    if (action.total === null) return label;
+  function progressMade(action: { done: number; total: number | null }) {
+    if (action.total === null) return null;
     return labels.bulkProgress
       .replace("{done}", String(action.done))
       .replace("{total}", String(action.total));
@@ -329,16 +348,18 @@ export function ProfileView({
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[rgba(176,141,60,0.28)] bg-gold-tint py-3 pr-3 pl-2">
           <button
             type="button"
+            disabled={busy}
             onClick={exitSelect}
-            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink transition active:bg-[rgba(176,141,60,0.18)]"
+            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink transition active:bg-[rgba(176,141,60,0.18)] disabled:opacity-50"
           >
             <span className="text-base leading-none">✕</span>
             {labels.exitSelect}
           </button>
           <button
             type="button"
+            disabled={busy}
             onClick={toggleSelectAll}
-            className="flex min-h-11 items-center rounded-pill px-3 text-[13px] whitespace-nowrap text-gold-small transition active:bg-[rgba(176,141,60,0.18)]"
+            className="flex min-h-11 items-center rounded-pill px-3 text-[13px] whitespace-nowrap text-gold-small transition active:bg-[rgba(176,141,60,0.18)] disabled:opacity-50"
           >
             {allShownSelected ? labels.deselectAll : labels.selectAll}
           </button>
@@ -400,7 +421,10 @@ export function ProfileView({
           </div>
 
           <ul
-            className={`grid grid-cols-3 gap-1.5 px-3.5 ${selectMode ? "pb-28" : "pb-8"}`}
+            aria-busy={busy}
+            className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
+              selectMode ? "pb-28" : "pb-8"
+            } ${busy ? "opacity-45" : ""}`}
           >
             {shown.map((photo) => {
               const selected = selectMode && selectedIds.has(photo.id);
@@ -408,6 +432,7 @@ export function ProfileView({
                 <li key={photo.id} className="relative">
                   <button
                     type="button"
+                    disabled={busy}
                     aria-pressed={selectMode ? selected : undefined}
                     onClick={() => onTileClick(photo.id)}
                     onPointerDown={(event) => startPress(photo.id, event)}
@@ -449,41 +474,56 @@ export function ProfileView({
 
       {selectMode && (
         <div className="fixed inset-x-0 bottom-[18px] z-10 flex justify-center px-3.5">
-          <div className="flex w-full max-w-xl items-center justify-between gap-2.5 rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card py-2.5 pr-2 pl-[18px] shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
-            <span className="text-sm text-ink">
-              {pluralize(locale, selectedPhotos.length, {
-                one: labels.selectedOne,
-                few: labels.selectedFew,
-                many: labels.selectedMany,
-              })}
-              {failed && (
-                <span className="block text-xs text-danger">{labels.actionFailed}</span>
-              )}
-            </span>
-            <div className="flex shrink-0 items-center gap-1.5 text-sm">
-              <button
-                type="button"
-                disabled={busy || selectedPhotos.length === 0}
-                onClick={() =>
-                  void setSelectedVisibility(allSelectedPrivate ? "public" : "private")
-                }
-                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
-              >
-                {progressOr(
-                  allSelectedPrivate ? labels.makePublic : labels.hide,
-                  visibilityAction,
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={busy || selectedPhotos.length === 0}
-                onClick={() => void deleteSelected()}
-                className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger transition active:opacity-60 disabled:opacity-60"
-              >
-                {progressOr(labels.delete, deleteAction)}
-              </button>
+          {running ? (
+            <div className="flex w-full max-w-xl items-center rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card px-[18px] py-[15px] shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
+              <BulkProgress
+                label={running.label}
+                done={running.done}
+                total={running.total}
+                countLabel={labels.bulkProgress}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="flex w-full max-w-xl items-center justify-between gap-2.5 rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card py-2.5 pr-2 pl-[18px] shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
+              <span className="text-sm text-ink">
+                {pluralize(locale, selectedPhotos.length, {
+                  one: labels.selectedOne,
+                  few: labels.selectedFew,
+                  many: labels.selectedMany,
+                })}
+                {failedAction && (
+                  <span className="block text-xs text-danger">
+                    {progressMade(failedAction) && (
+                      <span className="tabular-nums">
+                        {progressMade(failedAction)} ·{" "}
+                      </span>
+                    )}
+                    {labels.actionFailed}
+                  </span>
+                )}
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5 text-sm">
+                <button
+                  type="button"
+                  disabled={selectedPhotos.length === 0}
+                  onClick={() =>
+                    void setSelectedVisibility(allSelectedPrivate ? "public" : "private")
+                  }
+                  className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
+                >
+                  {allSelectedPrivate ? labels.makePublic : labels.hide}
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedPhotos.length === 0}
+                  onClick={() => void deleteSelected()}
+                  className="flex min-h-11 items-center justify-center rounded-pill px-3.5 text-danger transition active:opacity-60 disabled:opacity-60"
+                >
+                  {labels.delete}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

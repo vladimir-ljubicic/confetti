@@ -1,5 +1,6 @@
 "use client";
 
+import { BulkProgress } from "@/app/bulk-progress";
 import { useBulkAction, useServerAction } from "@/app/photo-controls";
 
 export type GuestSettingsLabels = {
@@ -8,6 +9,7 @@ export type GuestSettingsLabels = {
   allow: string;
   block: string;
   hideAll: string;
+  hiding: string;
   bulkProgress: string;
   actionFailed: string;
 };
@@ -81,20 +83,30 @@ export function GuestSettings({
         )}
       </div>
       <div className="flex flex-col rounded-b-card border border-ink/10 bg-card">
-        <button
-          type="button"
-          disabled={hideAll.busy || publicCount === 0}
-          aria-busy={hideAll.busy}
-          onClick={() =>
-            void hideAll.run(() =>
-              fetch(`/api/admin/uploaders/${publicId}/hide-all`, { method: "POST" }),
-            )
-          }
-          className="flex items-center justify-between gap-3 px-4 py-[15px] text-left transition disabled:opacity-60"
-        >
-          <span className="text-sm text-ink">{labels.hideAll}</span>
-          <span className="text-[13px] whitespace-nowrap text-ink/60">{hideAllValue}</span>
-        </button>
+        {hideAll.busy ? (
+          <div className="flex px-4 py-[13px]">
+            <BulkProgress
+              label={labels.hiding}
+              done={hideAll.done}
+              total={hideAll.total}
+              countLabel={labels.bulkProgress}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={publicCount === 0}
+            onClick={() =>
+              void hideAll.run(() =>
+                fetch(`/api/admin/uploaders/${publicId}/hide-all`, { method: "POST" }),
+              )
+            }
+            className="flex items-center justify-between gap-3 px-4 py-[15px] text-left transition disabled:opacity-60"
+          >
+            <span className="text-sm text-ink">{labels.hideAll}</span>
+            <span className="text-[13px] whitespace-nowrap text-ink/60">{hideAllValue}</span>
+          </button>
+        )}
         {hideAll.failed && (
           <p className="px-4 pb-2 text-xs text-danger">{labels.actionFailed}</p>
         )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { BulkProgress } from "@/app/bulk-progress";
 import { useBulkAction, useServerAction } from "@/app/photo-controls";
 
 export function BinActions({
@@ -9,15 +10,21 @@ export function BinActions({
   countLine: string;
   labels: {
     restoreAll: string;
+    restoring: string;
     bulkProgress: string;
     emptyBin: string;
+    emptying: string;
     confirmEmptyBin: string;
     actionFailed: string;
   };
 }) {
   const restore = useBulkAction();
   const empty = useServerAction();
-  const busy = restore.busy || empty.busy;
+  const running = restore.busy
+    ? { label: labels.restoring, done: restore.done, total: restore.total }
+    : empty.busy
+      ? { label: labels.emptying, done: 0, total: null }
+      : null;
   const failed = restore.failed || empty.failed;
 
   function restoreAll() {
@@ -36,23 +43,35 @@ export function BinActions({
           .replace("{done}", String(restore.done))
           .replace("{total}", String(restore.total));
 
+  if (running) {
+    return (
+      <div className="sticky bottom-0 mt-auto flex flex-col bg-paper-alt px-3.5 pt-4 pb-[22px]">
+        <div className="flex rounded-card border border-ink/10 bg-card px-4 py-[13px]">
+          <BulkProgress
+            label={running.label}
+            done={running.done}
+            total={running.total}
+            countLabel={labels.bulkProgress}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="sticky bottom-0 mt-auto flex flex-col gap-2.5 bg-paper-alt px-3.5 pt-4 pb-[22px]">
       <button
         type="button"
-        disabled={busy}
-        aria-busy={restore.busy}
         onClick={restoreAll}
-        className="flex items-center justify-between gap-3 rounded-card border border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand disabled:opacity-60"
+        className="flex items-center justify-between gap-3 rounded-card border border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand"
       >
         <span className="text-sm text-ink">{labels.restoreAll}</span>
         <span className="text-[13px] whitespace-nowrap text-ink/50">{restoreValue}</span>
       </button>
       <button
         type="button"
-        disabled={busy}
         onClick={emptyBin}
-        className="self-center border-b border-danger/30 p-3 text-[13px] text-danger transition disabled:opacity-60"
+        className="self-center border-b border-danger/30 p-3 text-[13px] text-danger transition"
       >
         {labels.emptyBin}
       </button>
