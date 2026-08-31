@@ -4,7 +4,9 @@
 
 Accepted. Supersedes the public-photo render path of ADR-0003 and dissolves the
 question ADR-0004 held open. Implementation tracked in
-`.scratch/gallery-performance/issues/01-public-renditions-bucket.md`.
+`.scratch/gallery-performance/issues/01-public-renditions-bucket.md`; the
+bounded, resumable move mechanics in
+`.scratch/gallery-performance/issues/07-batched-rendition-moves.md`.
 
 ## Context
 
@@ -59,3 +61,18 @@ leave the private bucket.
   the move.
 - ADR-0004's batching question dissolves for public photos: there is nothing
   to authorize or sign per screen.
+- A move is one Storage API call that holds one of the project's database
+  connections for ~150 ms, and the storage service answers a burst beyond its
+  pool with `SlowDown` (429). Moves therefore run at most four at a time with
+  exponential backoff — about 20 moves a second — and a bulk change (hiding a
+  guest's photos, restoring the bin) is a sequence of requests of 40 photos
+  each, with progress shown while it runs; a 250-photo guest takes ~25 s.
+- Renditions move before the row changes, in both directions and one photo at
+  a time, so a failed request leaves every row as it was and running the
+  action again continues from where the move stopped; a rendition already in
+  place is a no-op. Making a photo public or restoring it therefore has its
+  renditions on the CDN a moment before the row shows it — no exposure, since
+  that is the photo its owner is publishing.
+- A nightly reconcile moves any rendition still sitting in the bucket its row
+  no longer calls for — the repair path for the remaining edge, two visibility
+  changes of one photo interleaving.

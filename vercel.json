@@ -5,6 +5,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/reconcile-renditions",
+      "schedule": "30 3 * * *"
+    },
+    {
       "path": "/api/cron/freeze",
       "schedule": "0 2 * * *"
     }

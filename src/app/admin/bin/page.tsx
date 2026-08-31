@@ -130,6 +130,7 @@ export default async function AdminBinPage() {
             })} →`}
             labels={{
               restoreAll: labels.restoreAll,
+              bulkProgress: labels.bulkProgress,
               emptyBin: labels.emptyBin,
               confirmEmptyBin: labels.confirmEmptyBin,
               actionFailed: labels.actionFailed,

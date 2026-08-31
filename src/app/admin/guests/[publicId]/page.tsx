@@ -197,6 +197,7 @@ export default async function AdminGuestPage({
           allow: labels.uploadsAllow,
           block: labels.uploadsBlock,
           hideAll: labels.hideAllFromGuest,
+          bulkProgress: labels.bulkProgress,
           actionFailed: labels.actionFailed,
         }}
       />

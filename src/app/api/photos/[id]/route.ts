@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-session";
 import { getDeviceId } from "@/lib/device";
-import { PHOTOS_BUCKET, RENDITIONS_BUCKET } from "@/lib/env";
+import { PHOTOS_BUCKET } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { moveRenditions } from "@/lib/renditions";
+import { moveRenditions, renditionsBucket } from "@/lib/renditions";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { parseVisibilityField } from "@/lib/uploader-profile";
 
@@ -43,23 +43,20 @@ export async function PATCH(request: Request, context: RouteContext<"/api/photos
   if ("denied" in result) return result.denied;
 
   const supabase = supabaseAdmin();
-  // Renditions cross buckets on the private side of the row update, so a
-  // failure never leaves a private photo's renditions on the public CDN.
-  if (visibility === "private") {
-    const moved = await moveRenditions(supabase, [result.photo], PHOTOS_BUCKET);
-    if (!moved) return jsonError("Could not update photo", 500);
-  }
+  // Renditions cross buckets before the row changes, so a failure leaves the
+  // row as it was and trying again picks up where the move stopped.
+  const { failed } = await moveRenditions(
+    supabase,
+    [result.photo],
+    renditionsBucket({ visibility, deleted_at: null }),
+  );
+  if (failed.length > 0) return jsonError("Could not update photo", 500);
 
   const { error } = await supabase
     .from("photos")
     .update({ visibility })
     .eq("id", id);
   if (error) return jsonError("Could not update photo", 500);
-
-  if (visibility === "public") {
-    const moved = await moveRenditions(supabase, [result.photo], RENDITIONS_BUCKET);
-    if (!moved) return jsonError("Could not update photo", 500);
-  }
 
   return NextResponse.json({ ok: true });
 }
@@ -73,8 +70,8 @@ export async function DELETE(_request: Request, context: RouteContext<"/api/phot
   const supabase = supabaseAdmin();
   // Deleted photos render only through the signed proxy; renditions leave the
   // public CDN before the row marks the photo deleted.
-  const moved = await moveRenditions(supabase, [result.photo], PHOTOS_BUCKET);
-  if (!moved) return jsonError("Could not delete photo", 500);
+  const { failed } = await moveRenditions(supabase, [result.photo], PHOTOS_BUCKET);
+  if (failed.length > 0) return jsonError("Could not delete photo", 500);
 
   const { error } = await supabase
     .from("photos")

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { parseBulkProgress } from "@/lib/bulk-progress";
 
 export function useServerAction() {
   const router = useRouter();
@@ -26,4 +27,52 @@ export function useServerAction() {
   }
 
   return { busy, failed, run };
+}
+
+type BulkState = {
+  busy: boolean;
+  failed: boolean;
+  done: number;
+  // Null until the first response sizes the job, and again once it is done.
+  total: number | null;
+};
+
+// Drives a batched server action to completion: the route handles one batch
+// per request and reports how many photos remain. A failed request keeps the
+// progress made so far on screen; running again continues from there.
+export function useBulkAction() {
+  const router = useRouter();
+  const [state, setState] = useState<BulkState>({
+    busy: false,
+    failed: false,
+    done: 0,
+    total: null,
+  });
+
+  async function run(request: () => Promise<Response>): Promise<boolean> {
+    let done = 0;
+    let total: number | null = null;
+    setState({ busy: true, failed: false, done, total });
+    for (;;) {
+      const response = await request().catch(() => null);
+      const body = response ? await response.json().catch(() => null) : null;
+      const step = parseBulkProgress(body);
+      if (step) {
+        done += step.done;
+        total ??= done + step.remaining;
+        setState({ busy: true, failed: false, done, total });
+      }
+      if (!response?.ok || !step) {
+        setState({ busy: false, failed: true, done, total });
+        router.refresh();
+        return false;
+      }
+      if (step.remaining === 0) break;
+    }
+    router.refresh();
+    setState({ busy: false, failed: false, done, total: null });
+    return true;
+  }
+
+  return { ...state, run };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useServerAction } from "@/app/photo-controls";
+import { useBulkAction, useServerAction } from "@/app/photo-controls";
 
 export type GuestSettingsLabels = {
   uploadsTitle: string;
@@ -8,6 +8,7 @@ export type GuestSettingsLabels = {
   allow: string;
   block: string;
   hideAll: string;
+  bulkProgress: string;
   actionFailed: string;
 };
 
@@ -23,7 +24,7 @@ export function GuestSettings({
   labels: GuestSettingsLabels;
 }) {
   const uploads = useServerAction();
-  const hideAll = useServerAction();
+  const hideAll = useBulkAction();
 
   function setBlocked(next: boolean) {
     if (next === blocked || uploads.busy) return;
@@ -40,6 +41,13 @@ export function GuestSettings({
     { value: false, label: labels.allow },
     { value: true, label: labels.block },
   ];
+
+  const hideAllValue =
+    hideAll.total === null
+      ? `${publicCount} →`
+      : labels.bulkProgress
+          .replace("{done}", String(hideAll.done))
+          .replace("{total}", String(hideAll.total));
 
   return (
     <div className="sticky bottom-0 mt-auto flex flex-col gap-0.5 bg-paper-alt px-3.5 pt-4 pb-[22px]">
@@ -76,6 +84,7 @@ export function GuestSettings({
         <button
           type="button"
           disabled={hideAll.busy || publicCount === 0}
+          aria-busy={hideAll.busy}
           onClick={() =>
             void hideAll.run(() =>
               fetch(`/api/admin/uploaders/${publicId}/hide-all`, { method: "POST" }),
@@ -84,9 +93,7 @@ export function GuestSettings({
           className="flex items-center justify-between gap-3 px-4 py-[15px] text-left transition disabled:opacity-60"
         >
           <span className="text-sm text-ink">{labels.hideAll}</span>
-          <span className="text-[13px] whitespace-nowrap text-ink/60">
-            {publicCount} →
-          </span>
+          <span className="text-[13px] whitespace-nowrap text-ink/60">{hideAllValue}</span>
         </button>
         {hideAll.failed && (
           <p className="px-4 pb-2 text-xs text-danger">{labels.actionFailed}</p>
