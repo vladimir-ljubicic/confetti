@@ -6,6 +6,7 @@ import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { DISPLAY_NAME_MAX_LENGTH, type Visibility } from "@/lib/uploader-profile";
 import { ConfettiMark } from "./confetti-mark";
 import { useSheetDismiss } from "./use-sheet-dismiss";
+import { useVisualViewport } from "./use-visual-viewport";
 
 // Fired on window when a guest saves their profile, with { displayName } as
 // detail — chrome elsewhere on the page (e.g. the header) can react to it.
@@ -26,12 +27,17 @@ export type IntroSheetLabels = {
   submitOne: string;
   submitFew: string;
   submitMany: string;
+  submitCompact: string;
   cancel: string;
   saveFailed: string;
 };
 
 // The two fields joined by a space must fit DISPLAY_NAME_MAX_LENGTH.
 const FIELD_MAX_LENGTH = Math.floor((DISPLAY_NAME_MAX_LENGTH - 1) / 2);
+
+// With less page than this on screen — the keyboard out, or a phone on its
+// side — the sheet at full size would not fit whole.
+const COMPACT_BELOW_PX = 560;
 
 function submitLabel(labels: IntroSheetLabels, locale: Locale, count: number) {
   const category = new Intl.PluralRules(INTL_LOCALES[locale]).select(count);
@@ -94,10 +100,27 @@ export function IntroSheet({
     ["private", labels.visibilityPrivateTitle, labels.visibilityPrivateSub],
   ] as const;
 
+  const viewport = useVisualViewport();
+  // Compact, the sheet gives up its ornaments so that both fields, the
+  // visibility choice and the way out all stay in view above the keyboard.
+  const compact = viewport !== null && viewport.height < COMPACT_BELOW_PX;
+
   // Portaled: an ancestor is position:sticky, whose stacking context would
-  // otherwise trap the sheet below the gallery's sticky header bars.
+  // otherwise trap the sheet below the gallery's sticky header bars. Sized to
+  // the visible part of the page, so a keyboard laid over the page (rather
+  // than shrinking it) still leaves the sheet fully on screen.
   return createPortal(
-    <div className="pointer-events-auto fixed inset-0 z-50">
+    <div
+      className="pointer-events-auto fixed inset-x-0 top-0 z-50"
+      style={
+        viewport
+          ? {
+              height: viewport.height,
+              transform: `translateY(${viewport.offsetTop}px)`,
+            }
+          : { height: "100%" }
+      }
+    >
       <button
         type="button"
         aria-label={labels.cancel}
@@ -114,32 +137,51 @@ export function IntroSheet({
         {...sheetProps}
         className="sheet-in absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col rounded-sheet bg-card pt-3 shadow-sheet"
       >
-        <span className="mb-5 h-1 w-[38px] shrink-0 self-center rounded-full bg-ink/15" />
+        <span
+          className={`h-1 w-[38px] shrink-0 self-center rounded-full bg-ink/15 ${
+            compact ? "mb-3" : "mb-5"
+          }`}
+        />
 
-        <div
-          {...scrollProps}
-          className="flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain px-[22px]"
-        >
-          <div className="flex flex-col items-center gap-[7px] text-center">
-            <ConfettiMark size={22} variant="static" />
+        {compact && (
+          <div className="mx-[22px] flex shrink-0 items-baseline justify-between gap-4 border-b border-ink/10 pb-3">
             <h2
               id={titleId}
-              className="font-serif text-sheet-title font-medium text-gold-small"
+              className="font-serif text-[22px] leading-tight font-medium text-gold-small"
             >
               {labels.title}
             </h2>
-            <p className="text-body leading-[1.55] text-ink/55">
-              {labels.explainerLine1}
-              <br />
-              {labels.explainerLine2}
-            </p>
+            <p className="text-meta text-ink/50">{labels.explainerLine2}</p>
           </div>
+        )}
+
+        <div
+          {...scrollProps}
+          className={`flex min-h-0 flex-col overflow-y-auto overscroll-contain px-[22px] ${
+            compact ? "gap-4 pt-4" : "gap-5"
+          }`}
+        >
+          {!compact && (
+            <div className="flex flex-col items-center gap-[7px] text-center">
+              <ConfettiMark size={22} variant="static" />
+              <h2
+                id={titleId}
+                className="font-serif text-sheet-title font-medium text-gold-small"
+              >
+                {labels.title}
+              </h2>
+              <p className="text-body leading-[1.55] text-ink/55">
+                {labels.explainerLine1}
+                <br />
+                {labels.explainerLine2}
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2.5">
             <label className="flex min-w-0 flex-1 flex-col gap-[7px]">
               <span className="eyebrow text-ink/50">{labels.firstNameLabel}</span>
               <input
-                autoFocus
                 required
                 type="text"
                 autoComplete="given-name"
@@ -167,8 +209,11 @@ export function IntroSheet({
             </label>
           </div>
 
-          <div className="flex flex-col gap-[9px]">
-            <span id={`${titleId}-visibility`} className="eyebrow text-ink/45">
+          <div className={compact ? undefined : "flex flex-col gap-[9px]"}>
+            <span
+              id={`${titleId}-visibility`}
+              className={compact ? "sr-only" : "eyebrow text-ink/45"}
+            >
               {labels.visibilityLabel}
             </span>
             <div
@@ -178,7 +223,30 @@ export function IntroSheet({
             >
               {visibilityCards.map(([value, title, sub]) => {
                 const selected = visibility === value;
-                return (
+                return compact ? (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setVisibility(value)}
+                    className={`flex min-h-12 flex-1 items-center gap-2.5 rounded-pill px-4 text-left transition ${
+                      selected
+                        ? "border-[1.5px] border-gold bg-gold-tint"
+                        : "border border-ink/14 bg-card"
+                    }`}
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                        selected ? "bg-gold" : "border border-ink/30"
+                      }`}
+                    />
+                    <span className={`text-[15px] ${selected ? "text-ink" : "text-ink/75"}`}>
+                      {title}
+                    </span>
+                  </button>
+                ) : (
                   <button
                     key={value}
                     type="button"
@@ -207,25 +275,47 @@ export function IntroSheet({
         </div>
 
         {/* Below the fields rather than after them, so that the way out stays
-            in reach when the keyboard leaves room for only some of them. */}
-        <div className="flex shrink-0 flex-col gap-5 px-[22px] pt-5 pb-[26px]">
-          {failed && <p className="text-center text-sm text-danger">{labels.saveFailed}</p>}
+            in reach however little of them the keyboard leaves room for. */}
+        {compact ? (
+          <div className="mt-4 flex shrink-0 flex-col gap-2 border-t border-ink/10 px-[22px] pt-3 pb-[18px]">
+            {failed && <p className="text-center text-sm text-danger">{labels.saveFailed}</p>}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex min-h-11 shrink-0 items-center px-2 text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
+              >
+                {labels.cancel}
+              </button>
+              <button
+                type="submit"
+                disabled={displayName.length === 0 || saving}
+                className="min-h-12 flex-1 rounded-pill bg-gold px-5 text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
+              >
+                {labels.submitCompact.replace("{count}", String(fileCount))}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex shrink-0 flex-col gap-5 px-[22px] pt-5 pb-[26px]">
+            {failed && <p className="text-center text-sm text-danger">{labels.saveFailed}</p>}
 
-          <button
-            type="submit"
-            disabled={displayName.length === 0 || saving}
-            className="w-full rounded-pill bg-gold py-[17px] text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
-          >
-            {submitLabel(labels, locale, fileCount)}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex min-h-11 items-center self-center text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
-          >
-            {labels.cancel}
-          </button>
-        </div>
+            <button
+              type="submit"
+              disabled={displayName.length === 0 || saving}
+              className="w-full rounded-pill bg-gold py-[17px] text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60"
+            >
+              {submitLabel(labels, locale, fileCount)}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex min-h-11 items-center self-center text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
+            >
+              {labels.cancel}
+            </button>
+          </div>
+        )}
       </form>
     </div>,
     document.body,
