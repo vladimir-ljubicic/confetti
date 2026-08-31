@@ -134,9 +134,16 @@ export default async function AdminPage({
           }
           labels={dict.downloadSheet}
           locale={locale}
-          photoCount={exportJob?.total_count ?? summary.totalCount}
-          privateCount={summary.privateCount}
-          sizeBytes={exportSizeBytes > 0 ? exportSizeBytes : null}
+          summary={summary}
+          liveZip={
+            exportJob
+              ? {
+                  includePrivate: exportJob.include_private,
+                  photoCount: exportJob.total_count,
+                  sizeBytes: exportJob.zip_size_bytes,
+                }
+              : null
+          }
           initialStatus={exportJob ? exportJobStatus(exportJob) : null}
         />
       </div>

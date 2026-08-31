@@ -113,6 +113,7 @@ export type AdminSummary = {
   privateCount: number;
   binCount: number;
   totalBytes: number;
+  privateBytes: number;
   uploaders: AdminUploaderSummary[];
   // Photos whose guest never gave a name, as one bucket; null when there are
   // none.
@@ -124,6 +125,7 @@ type SummaryRow = {
   private_count: number;
   bin_count: number;
   total_bytes: number;
+  private_bytes: number;
   uploaders: {
     public_id: string | null;
     display_name: string | null;
@@ -162,6 +164,7 @@ export async function loadAdminSummary(): Promise<AdminSummary> {
     privateCount: Number(row.private_count),
     binCount: Number(row.bin_count),
     totalBytes: Number(row.total_bytes),
+    privateBytes: Number(row.private_bytes),
     uploaders,
     unnamed:
       unnamedPhotos > 0

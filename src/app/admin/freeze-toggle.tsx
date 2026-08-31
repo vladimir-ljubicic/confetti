@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useServerAction } from "@/app/photo-controls";
+import { Segmented } from "@/app/segmented";
 
 export type FreezeToggleLabels = {
   title: string;
@@ -38,7 +39,7 @@ export function FreezeToggle({
   }
 
   function setFrozen(next: boolean) {
-    if (next === frozen || busy) return;
+    if (busy) return;
     save({ uploadsFrozen: next });
   }
 
@@ -71,24 +72,7 @@ export function FreezeToggle({
     <div className="flex flex-col rounded-t-card border border-ink/10 bg-card px-4 py-2.5">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-ink">{labels.title}</span>
-        <div className="flex shrink-0 items-center rounded-pill bg-sand p-[3px] text-meta">
-          {segments.map((segment) => (
-            <button
-              key={segment.label}
-              type="button"
-              aria-pressed={frozen === segment.value}
-              disabled={busy}
-              onClick={() => setFrozen(segment.value)}
-              className={`rounded-pill px-3 py-2 transition disabled:opacity-60 ${
-                frozen === segment.value
-                  ? "bg-gold-small text-card"
-                  : "text-ink/55 hover:text-ink active:text-ink"
-              }`}
-            >
-              {segment.label}
-            </button>
-          ))}
-        </div>
+        <Segmented segments={segments} value={frozen} onChange={setFrozen} disabled={busy} />
       </div>
       <div className="mt-1.5 flex items-center gap-3 border-t border-ink/8 pt-2.5 pb-1">
         <label className="flex min-w-0 flex-1 items-center justify-between gap-2 text-meta text-ink/60">

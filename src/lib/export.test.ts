@@ -7,6 +7,7 @@ import {
   PACKING_ETA_WARMUP_MS,
   packingEtaMs,
   parseExportStatus,
+  parsePrepareRequest,
 } from "./export";
 
 describe("formatSize", () => {
@@ -118,5 +119,18 @@ describe("link validity", () => {
       expiresAt: "2026-09-03T14:00:00.000Z",
     });
     expect(parseExportStatus({ state: "packing" })?.expiresAt).toBeNull();
+  });
+});
+
+describe("parsePrepareRequest", () => {
+  it("reads the private-photos choice", () => {
+    expect(parsePrepareRequest({ includePrivate: false })).toEqual({ includePrivate: false });
+    expect(parsePrepareRequest({ includePrivate: true })).toEqual({ includePrivate: true });
+  });
+
+  it("includes private photos when the body says nothing", () => {
+    expect(parsePrepareRequest(null)).toEqual({ includePrivate: true });
+    expect(parsePrepareRequest({})).toEqual({ includePrivate: true });
+    expect(parsePrepareRequest({ includePrivate: "no" })).toEqual({ includePrivate: true });
   });
 });

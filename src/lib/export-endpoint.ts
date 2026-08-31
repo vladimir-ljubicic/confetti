@@ -4,6 +4,7 @@ import { areUploadsFrozen } from "./event-settings";
 import {
   EXPORT_EXPIRED_STATUS,
   EXPORT_PACKING_STATUS,
+  parsePrepareRequest,
   type ExportStatus,
 } from "./export";
 import {
@@ -63,7 +64,8 @@ export async function prepareExportResponse(
   kind: ExportKind,
   request: Request,
 ): Promise<NextResponse> {
-  const prepared = await prepareExportJob(kind);
+  const { includePrivate } = parsePrepareRequest(await request.json().catch(() => null));
+  const prepared = await prepareExportJob(kind, includePrivate);
   if (!prepared) return jsonError("Uploads are still open", 409);
   const { job, created } = prepared;
   if (job.state === "packing" && (created || exportJobStale(job, new Date()))) {

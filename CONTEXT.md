@@ -47,7 +47,7 @@ The small rendition of a photo that gallery tiles render, produced on the guest'
 The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
 
 **Export job**:
-The server-side packing of one ZIP per kind (public gallery, or admin: public plus private). Preparing it starts the job or restarts a cancelled or expired one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin ZIP at any time, and the freeze replaces a ZIP whose snapshot was taken while uploads were open.
+The server-side packing of one ZIP per kind (public gallery, or admin: public photos, plus private ones when the admin asks for them). Preparing it starts the job or restarts a cancelled or expired one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin ZIP at any time, and the freeze replaces a ZIP whose snapshot was taken while uploads were open. The private-photos choice is part of the snapshot: preparing with the other choice replaces the live admin ZIP.
 
 **Link validity**:
 The week a ready ZIP stays downloadable, counted from the moment it became ready; the ready card states the last day. Past it the job is expired: the stable link answers 410, the nightly purge removes the ZIP object, and the ZIP has to be prepared again.

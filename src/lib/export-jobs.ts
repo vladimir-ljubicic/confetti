@@ -42,6 +42,7 @@ export type ExportJob = {
   job_id: string;
   state: ExportState;
   snapshot_frozen: boolean;
+  include_private: boolean;
   total_count: number;
   done_count: number;
   zip_size_bytes: number;
@@ -93,7 +94,7 @@ export function exportJobStale(job: ExportJob, now: Date): boolean {
   );
 }
 
-async function snapshotPhotos(kind: ExportKind): Promise<ExportPhoto[]> {
+async function snapshotPhotos(includePrivate: boolean): Promise<ExportPhoto[]> {
   const photos: ExportPhoto[] = [];
   for (let from = 0; ; from += SNAPSHOT_PAGE) {
     let query = supabaseAdmin()
@@ -105,7 +106,7 @@ async function snapshotPhotos(kind: ExportKind): Promise<ExportPhoto[]> {
       .is("deleted_at", null)
       .order("id", { ascending: true })
       .range(from, from + SNAPSHOT_PAGE - 1);
-    if (kind === "public") query = query.eq("visibility", "public");
+    if (!includePrivate) query = query.eq("visibility", "public");
     const { data, error } = await query;
     if (error) throw new Error(`Snapshotting photos failed: ${error.message}`);
     const rows = data as unknown as {
@@ -128,17 +129,24 @@ async function snapshotPhotos(kind: ExportKind): Promise<ExportPhoto[]> {
   }
 }
 
-// The manifest and total zip size are locked in when the job is created and
-// never recomputed; a fresh job_id marks each (re)creation.
-async function freshJobRow(kind: ExportKind) {
+// Only the admin zip can hold private photos; left to itself it does.
+function canIncludePrivate(kind: ExportKind): boolean {
+  return kind === "admin";
+}
+
+// The manifest, the private-photos choice and total zip size are locked in
+// when the job is created and never recomputed; a fresh job_id marks each
+// (re)creation.
+async function freshJobRow(kind: ExportKind, includePrivate: boolean) {
   const snapshotFrozen = await areUploadsFrozen();
-  const manifest = buildManifest(await snapshotPhotos(kind));
+  const manifest = buildManifest(await snapshotPhotos(includePrivate));
   const plan = planZip(manifest);
   return {
     kind,
     job_id: randomUUID(),
     state: "packing" as const,
     snapshot_frozen: snapshotFrozen,
+    include_private: includePrivate,
     total_count: manifest.length,
     done_count: 0,
     zip_size_bytes: plan.totalSize,
@@ -154,21 +162,28 @@ async function freshJobRow(kind: ExportKind) {
 
 // Resolves to whether this call created the row; a concurrent creator wins
 // the conflict and this one adopts its job.
-async function insertExportJob(kind: ExportKind): Promise<boolean> {
+async function insertExportJob(kind: ExportKind, includePrivate: boolean): Promise<boolean> {
   const { data, error } = await supabaseAdmin()
     .from("export_jobs")
-    .upsert(await freshJobRow(kind), { onConflict: "kind", ignoreDuplicates: true })
+    .upsert(await freshJobRow(kind, includePrivate), {
+      onConflict: "kind",
+      ignoreDuplicates: true,
+    })
     .select("kind");
   if (error) throw new Error(`Creating export job failed: ${error.message}`);
   return (data?.length ?? 0) > 0;
 }
 
-// Replaces the job in place with a fresh one; resolves to false when the job
-// was already replaced by someone else.
-async function replaceExportJob(job: ExportJob): Promise<boolean> {
+// Replaces the job in place with a fresh one, keeping its private-photos
+// choice unless given another; resolves to false when the job was already
+// replaced by someone else.
+async function replaceExportJob(
+  job: ExportJob,
+  includePrivate = job.include_private,
+): Promise<boolean> {
   const { data, error } = await supabaseAdmin()
     .from("export_jobs")
-    .update(await freshJobRow(job.kind))
+    .update(await freshJobRow(job.kind, includePrivate))
     .eq("kind", job.kind)
     .eq("job_id", job.job_id)
     .select("kind");
@@ -182,25 +197,30 @@ export async function ensureExportJob(kind: ExportKind): Promise<ExportJob | nul
   const existing = await getExportJob(kind);
   if (existing) return existing;
   if (!(await areUploadsFrozen())) return null;
-  await insertExportJob(kind);
+  await insertExportJob(kind, canIncludePrivate(kind));
   return getExportJob(kind);
 }
 
 export type PreparedExportJob = { job: ExportJob; created: boolean };
 
 // The explicit prepare action: hands back the live job, creating one when
-// there is none or the last one was cancelled or expired. The admin zip can
-// be prepared while uploads are still open; the public zip only once they
-// freeze.
+// there is none, the last one was cancelled or expired, or the live one holds
+// a different private-photos choice. The admin zip can be prepared while
+// uploads are still open; the public zip only once they freeze, and it never
+// takes private photos.
 export async function prepareExportJob(
   kind: ExportKind,
+  includePrivate: boolean,
 ): Promise<PreparedExportJob | null> {
+  const wanted = includePrivate && canIncludePrivate(kind);
   const existing = await getExportJob(kind);
-  if (existing && !exportJobReplaceable(existing)) return { job: existing, created: false };
+  if (existing && !exportJobReplaceable(existing) && existing.include_private === wanted) {
+    return { job: existing, created: false };
+  }
   if (kind === "public" && !(await areUploadsFrozen())) return null;
   const created = existing
-    ? await replaceExportJob(existing)
-    : await insertExportJob(kind);
+    ? await replaceExportJob(existing, wanted)
+    : await insertExportJob(kind, wanted);
   const job = await getExportJob(kind);
   if (!job) throw new Error("Export job vanished while preparing");
   return { job, created };

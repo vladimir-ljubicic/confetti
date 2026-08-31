@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   formatDayMonth,
   formatSize,
@@ -8,6 +8,7 @@ import {
   parseExportStatus,
   type ExportStatus,
   type PackingSample,
+  type PrepareRequest,
 } from "@/lib/export";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { formatEta } from "@/lib/upload-eta";
@@ -30,6 +31,8 @@ export type DownloadSheetLabels = {
   sizeRow: string;
   sizeValue: string;
   privateRow: string;
+  privateInclude: string;
+  privateExclude: string;
   packingProgress: string;
   readyTitle: string;
   readyCountOne: string;
@@ -99,12 +102,20 @@ export function useExportJob(
   }, []);
 
   const request = useCallback(
-    async (method: "GET" | "POST", path = endpoint): Promise<ExportStatus | null> => {
+    async (
+      method: "GET" | "POST",
+      path = endpoint,
+      body?: object,
+    ): Promise<ExportStatus | null> => {
       // Every status code carries the job status as JSON; anything else
       // (auth, server error) parses to null.
       const response = await fetch(path, {
         method,
-        headers: { accept: "application/json" },
+        headers: {
+          accept: "application/json",
+          ...(body ? { "content-type": "application/json" } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
       });
       return parseExportStatus(await response.json().catch(() => null));
     },
@@ -134,19 +145,22 @@ export function useExportJob(
 
   // Resolves to true when the sheet can close: the card now shows the job,
   // packing or already ready.
-  const prepare = useCallback(async (): Promise<boolean> => {
-    try {
-      const status = await request("POST");
-      if (!status || (status.state !== "packing" && status.state !== "ready")) {
+  const prepare = useCallback(
+    async (options?: PrepareRequest): Promise<boolean> => {
+      try {
+        const status = await request("POST", endpoint, options);
+        if (!status || (status.state !== "packing" && status.state !== "ready")) {
+          return false;
+        }
+        applyStatus(status);
+        return true;
+      } catch (error) {
+        console.error("Export prepare failed", error);
         return false;
       }
-      applyStatus(status);
-      return true;
-    } catch (error) {
-      console.error("Export prepare failed", error);
-      return false;
-    }
-  }, [request, applyStatus]);
+    },
+    [endpoint, request, applyStatus],
+  );
 
   const cancel = useCallback(async () => {
     if (!cancelPath) return;
@@ -343,6 +357,8 @@ export function ExportJobCard({
   );
 }
 
+export type ExportSheetRow = { label: string; value: string } | { label: string; control: ReactNode };
+
 export function ExportSheet({
   labels,
   rows,
@@ -352,7 +368,7 @@ export function ExportSheet({
   onCancel,
 }: {
   labels: DownloadSheetLabels;
-  rows: { label: string; value: string }[];
+  rows: ExportSheetRow[];
   failed: boolean;
   checking: boolean;
   onPrepare: () => void;
@@ -388,7 +404,11 @@ export function ExportSheet({
               }`}
             >
               <span className="text-ink">{row.label}</span>
-              <span className="text-ink/60">{row.value}</span>
+              {"control" in row ? (
+                row.control
+              ) : (
+                <span className="text-ink/60">{row.value}</span>
+              )}
             </div>
           ))}
         </div>

@@ -10,8 +10,10 @@ import { estimateRemainingMs } from "./upload-eta";
 // answers with the same JSON status. POST on the cancel path cancels a
 // packing admin job (409 when there is nothing to cancel).
 // The public zip holds public photos only and exists once uploads freeze; the
-// admin zip adds private ones, sits behind the admin session, and can be
-// prepared at any time — the freeze then replaces a zip prepared earlier.
+// admin zip sits behind the admin session, can be prepared at any time — the
+// freeze then replaces a zip prepared earlier — and takes the private-photos
+// choice in the POST body; preparing with a different choice replaces the
+// live zip.
 // A ready zip stays downloadable for a week; after that the object is purged
 // and the zip has to be prepared again.
 export const EXPORT_PUBLIC_PATH = "/api/export/public";
@@ -42,6 +44,21 @@ export function parseExportStatus(body: unknown): ExportStatus | null {
     total: typeof total === "number" ? total : 0,
     sizeBytes: typeof sizeBytes === "number" ? sizeBytes : null,
     expiresAt: typeof expiresAt === "string" ? expiresAt : null,
+  };
+}
+
+export type PrepareRequest = { includePrivate: boolean };
+export const DEFAULT_INCLUDE_PRIVATE = true;
+
+// Anything but an explicit boolean falls back to the default.
+export function parsePrepareRequest(body: unknown): PrepareRequest {
+  const includePrivate =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>).includePrivate
+      : undefined;
+  return {
+    includePrivate:
+      typeof includePrivate === "boolean" ? includePrivate : DEFAULT_INCLUDE_PRIVATE,
   };
 }
 

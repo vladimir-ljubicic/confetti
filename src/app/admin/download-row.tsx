@@ -6,6 +6,7 @@ import {
   ExportSheet,
   useExportJob,
   type DownloadSheetLabels,
+  type ExportSheetRow,
 } from "@/app/export-download";
 import {
   EXPORT_ADMIN_CANCEL_PATH,
@@ -14,41 +15,70 @@ import {
   type ExportStatus,
 } from "@/lib/export";
 import type { Locale } from "@/lib/i18n";
+import type { AdminSummary } from "@/lib/admin-gallery";
+import { DEFAULT_INCLUDE_PRIVATE } from "@/lib/export";
+import { Segmented } from "@/app/segmented";
 
-// Admin counterpart of DownloadAllButton, against the admin zip (public +
-// private photos). The sheet is informational — both zips always build.
+// The live admin zip as prepared: preparing again with the same choice hands
+// this back unchanged, so the sheet quotes its numbers over the gallery's.
+export type LiveExportZip = { includePrivate: boolean; photoCount: number; sizeBytes: number };
+
+// Admin counterpart of DownloadAllButton, against the admin zip. The sheet
+// lets the couple choose whether private photos go in; the count and size it
+// shows follow that choice.
 export function AdminDownloadRow({
   rowLabel,
   rowValue,
   labels,
   locale,
-  photoCount,
-  privateCount,
-  sizeBytes,
+  summary,
+  liveZip,
   initialStatus,
 }: {
   rowLabel: string;
   rowValue: string;
   labels: DownloadSheetLabels;
   locale: Locale;
-  photoCount: number;
-  privateCount: number;
-  sizeBytes: number | null;
+  summary: Pick<AdminSummary, "totalCount" | "privateCount" | "totalBytes" | "privateBytes">;
+  liveZip: LiveExportZip | null;
   initialStatus: ExportStatus | null;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [checking, setChecking] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [includePrivate, setIncludePrivate] = useState(
+    liveZip?.includePrivate ?? DEFAULT_INCLUDE_PRIVATE,
+  );
   const job = useExportJob(EXPORT_ADMIN_PATH, initialStatus, EXPORT_ADMIN_CANCEL_PATH);
   const cancel = job.cancel;
 
-  const rows = [
+  const zipAsChosen = liveZip?.includePrivate === includePrivate ? liveZip : null;
+  const count =
+    zipAsChosen?.photoCount ??
+    (includePrivate ? summary.totalCount : summary.totalCount - summary.privateCount);
+  const sizeBytes =
+    zipAsChosen?.sizeBytes ??
+    (includePrivate ? summary.totalBytes : summary.totalBytes - summary.privateBytes);
+  const rows: ExportSheetRow[] = [
     {
       label: labels.photosRow,
-      value: labels.photosValue.replace("{count}", String(photoCount)),
+      value: labels.photosValue.replace("{count}", String(count)),
     },
-    { label: labels.privateRow, value: String(privateCount) },
-    ...(sizeBytes !== null && sizeBytes > 0
+    {
+      label: labels.privateRow,
+      control: (
+        <Segmented
+          segments={[
+            { value: true, label: labels.privateInclude },
+            { value: false, label: labels.privateExclude },
+          ]}
+          value={includePrivate}
+          onChange={setIncludePrivate}
+          disabled={checking}
+        />
+      ),
+    },
+    ...(sizeBytes > 0
       ? [
           {
             label: labels.sizeRow,
@@ -61,7 +91,7 @@ export function AdminDownloadRow({
   async function prepare() {
     setChecking(true);
     setFailed(false);
-    const ok = await job.prepare();
+    const ok = await job.prepare({ includePrivate });
     if (ok) setSheetOpen(false);
     else setFailed(true);
     setChecking(false);
