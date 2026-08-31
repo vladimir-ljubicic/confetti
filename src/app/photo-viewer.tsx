@@ -7,6 +7,7 @@ import { pluralize, type Locale } from "@/lib/i18n";
 import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import type { Visibility } from "@/lib/uploader-profile";
+import { anchoredIndex } from "@/lib/viewer-anchor";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import { hideBrokenImage, renditionSrcs } from "./photo-image";
@@ -229,6 +230,10 @@ export function PhotoViewer({
   const [index, setIndex] = useState(startIndex);
   const currentIndex = Math.min(index, visible.length - 1);
   const current = visible[currentIndex];
+  // The place the viewer stands, mirrored outside React state so that when
+  // the slide list changes the stage can be re-anchored from the list it was
+  // actually standing in, immune to how state updates interleave.
+  const placeRef = useRef({ visible, index: startIndex });
 
   const shownCount = closingOn ? closingOn.galleryCount : galleryCount;
   const total = Math.max(
@@ -292,18 +297,33 @@ export function PhotoViewer({
   }, [dismiss]);
 
   // Snap-scroll position is the source of truth for `index` while the user
-  // swipes; it must be re-imposed instantly whenever the slide list changes
-  // (open, or a photo hidden) so the stage never animates across the feed.
+  // swipes; whenever the slide list changes (open, a photo hidden, or a
+  // background refresh) the stage re-anchors to the photo it was standing on
+  // and re-imposes its scroll instantly, so it neither animates across the
+  // feed nor drifts onto a neighbouring photo.
   const slideCount = visible.length;
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
+    const place = placeRef.current;
+    const target = anchoredIndex(place.visible, place.index, visible);
+    placeRef.current = { visible, index: target };
+    // Already standing on (or swiping around) the anchored slide: imposing
+    // now would only yank a swipe in progress.
+    if (
+      target === place.index &&
+      Math.abs(track.scrollLeft - target * track.clientWidth) <
+        track.clientWidth
+    ) {
+      return;
+    }
+    setIndex(target);
     track.scrollTo({
-      left: Math.min(currentIndex, slideCount - 1) * track.clientWidth,
+      left: target * track.clientWidth,
       behavior: "instant",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slideCount]);
+  }, [slideCount, photos]);
 
   // Swiping is its own way through the feed, so it pulls the next page in
   // before the last slide the same way scrolling the grid does.
@@ -314,15 +334,15 @@ export function PhotoViewer({
   const onScroll = useCallback(() => {
     const track = trackRef.current;
     if (!track || track.clientWidth === 0) return;
-    setIndex(
-      Math.max(
-        0,
-        Math.min(
-          Math.round(track.scrollLeft / track.clientWidth),
-          slideCount - 1,
-        ),
+    const next = Math.max(
+      0,
+      Math.min(
+        Math.round(track.scrollLeft / track.clientWidth),
+        slideCount - 1,
       ),
     );
+    placeRef.current = { ...placeRef.current, index: next };
+    setIndex(next);
   }, [slideCount]);
 
   if (!current) return null;
@@ -481,10 +501,13 @@ export function PhotoViewer({
         <span className="w-6" />
       </div>
 
+      {/* overflow-anchor off: the track re-imposes its own position when the
+          slide list changes, and the browser's scroll anchoring would shift
+          it a second time. */}
       <div
         ref={trackRef}
         onScroll={onScroll}
-        className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+        className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
           closing ? "viewer-photo-out" : "viewer-photo-in"
         }`}
       >
