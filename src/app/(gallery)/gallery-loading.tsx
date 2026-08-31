@@ -10,6 +10,7 @@ import { getDict, getLocale } from "@/lib/locale";
 import type { SortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { ConfettiMark } from "../confetti-mark";
+import { ConfettiWordmark } from "../confetti-wordmark";
 import { GridSkeleton } from "../grid-skeleton";
 import { LocaleToggle } from "../locale-toggle";
 import { SortToggleView } from "../sort-toggle";
@@ -40,12 +41,7 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
       <div className="sticky top-0 z-[4] flex items-center justify-between bg-paper px-[18px] pt-3.5 pb-3">
-        <span className="flex items-center gap-1.5">
-          <ConfettiMark size={14} variant="animated" />
-          <span className="text-[11px] text-ink/45 uppercase tracking-[0.2em]">
-            Confetti
-          </span>
-        </span>
+        <ConfettiWordmark />
         <div className="flex items-center gap-2.5">
           <LocaleToggle locale={locale} labels={{ ariaLabel: dict.localeToggle.ariaLabel }} />
           {profile && (

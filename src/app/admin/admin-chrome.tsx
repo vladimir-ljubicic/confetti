@@ -46,12 +46,12 @@ export function AdminTopRow({
         {back?.label ?? labels.backToGallery}
       </Link>
       <div className="flex items-center gap-2.5">
-        <span className="flex items-center gap-1.5">
+        <Link href="/" className="-m-1.5 flex items-center gap-1.5 p-1.5">
           <ConfettiMark size={14} />
           <span className="text-xs tracking-[0.16em] text-gold-deep uppercase">
             {labels.mark}
           </span>
-        </span>
+        </Link>
         <LocaleToggle locale={locale} labels={{ ariaLabel: labels.localeAriaLabel }} />
       </div>
     </div>

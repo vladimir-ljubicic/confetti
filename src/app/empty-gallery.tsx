@@ -4,7 +4,7 @@ import { COUPLE_NAMES } from "@/lib/couple";
 import type { Dictionary } from "@/lib/dictionaries";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
-import { ConfettiMark } from "./confetti-mark";
+import { ConfettiWordmark } from "./confetti-wordmark";
 import { LocaleToggle } from "./locale-toggle";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
@@ -27,10 +27,7 @@ export function EmptyGallery(props: EmptyGalleryProps) {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
       <div className="flex items-center justify-between px-[18px] pt-3.5">
-        <span className="flex items-center gap-1.5">
-          <ConfettiMark size={14} variant="animated" />
-          <span className="text-[11px] text-ink/45 uppercase tracking-[0.2em]">Confetti</span>
-        </span>
+        <ConfettiWordmark />
         <LocaleToggle locale={locale} labels={{ ariaLabel: dict.localeToggle.ariaLabel }} />
       </div>
 

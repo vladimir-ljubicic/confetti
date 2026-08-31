@@ -6,6 +6,7 @@ import { COUPLE_NAMES } from "@/lib/couple";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
+import { ConfettiWordmark } from "./confetti-wordmark";
 import { useGalleryCount } from "./gallery-count";
 import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
@@ -188,10 +189,7 @@ export function GalleryHeader({
         ref={topRowRef}
         className="sticky top-0 z-[4] flex items-center justify-between bg-paper px-[18px] pt-3.5 pb-3"
       >
-        <span className="flex items-center gap-1.5">
-          <ConfettiMark size={14} variant="animated" />
-          <span className="text-[11px] text-ink/45 uppercase tracking-[0.2em]">Confetti</span>
-        </span>
+        <ConfettiWordmark />
         <div className="flex items-center gap-2.5">
           <LocaleToggle locale={locale} labels={{ ariaLabel: labels.localeAriaLabel }} />
           {name && (

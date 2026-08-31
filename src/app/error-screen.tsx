@@ -2,6 +2,7 @@
 
 import type { Locale } from "@/lib/i18n";
 import { ConfettiMark } from "./confetti-mark";
+import { ConfettiWordmark } from "./confetti-wordmark";
 import { LocaleToggle } from "./locale-toggle";
 
 export function ErrorScreen({
@@ -20,10 +21,7 @@ export function ErrorScreen({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
       <div className="flex items-center justify-between px-[18px] pt-3.5 pb-3">
-        <span className="flex items-center gap-1.5">
-          <ConfettiMark size={14} />
-          <span className="text-[11px] text-ink/45 uppercase tracking-[0.2em]">Confetti</span>
-        </span>
+        <ConfettiWordmark variant="static" reload />
         <LocaleToggle locale={locale} labels={{ ariaLabel: labels.localeAriaLabel }} />
       </div>
 
