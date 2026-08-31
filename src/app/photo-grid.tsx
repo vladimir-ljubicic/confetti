@@ -20,6 +20,7 @@ import { LikePill } from "./like-pill";
 import { hideBrokenImage, publicThumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
 import { UploadTileView } from "./upload-tile";
+import { useAddressedEntry } from "./use-history-entry";
 import { useLikes } from "./use-likes";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
@@ -337,28 +338,21 @@ export function PhotoGrid({
     [columns],
   );
 
-  // A shared /?photo=<id> link opens the viewer on that photo. The param is
-  // consumed immediately so closing the viewer or reloading doesn't reopen it;
-  // the id is held on to instead, because the photo it names may only arrive
-  // with the background fetch of the full gallery.
-  const [deepLinkId, setDeepLinkId] = useState<string | null>(null);
+  // A /?photo=<id> address — a shared link, or history stepped back onto a
+  // photo the viewer was showing — opens the viewer on that photo. The id is
+  // held on to until the photo is here, because it may only arrive with the
+  // background fetch of the full gallery.
+  const { id: addressedId, clear: clearAddressed } = useAddressedEntry(
+    "photo",
+    !viewer || viewerStartId !== null,
+  );
   useEffect(() => {
-    if (!viewer) return;
-    const url = new URL(window.location.href);
-    const id = url.searchParams.get("photo");
-    if (id === null) return;
-    url.searchParams.delete("photo");
-    window.history.replaceState(null, "", url);
+    if (addressedId === null || !photoIds.has(addressedId)) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeepLinkId(id);
-  }, [viewer]);
-  useEffect(() => {
-    if (deepLinkId === null || !photoIds.has(deepLinkId)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewerStartId(deepLinkId);
-    setDeepLinkId(null);
-    revealPhoto(deepLinkId);
-  }, [deepLinkId, photoIds, revealPhoto]);
+    setViewerStartId(addressedId);
+    clearAddressed();
+    revealPhoto(addressedId);
+  }, [addressedId, clearAddressed, photoIds, revealPhoto]);
 
   if (empty) {
     return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
@@ -427,7 +421,10 @@ export function PhotoGrid({
                       <button
                         type="button"
                         aria-label={viewer.labels.open}
-                        onClick={() => setViewerStartId(entry.photo.id)}
+                        onClick={() => {
+                          clearAddressed();
+                          setViewerStartId(entry.photo.id);
+                        }}
                         className="block h-full w-full"
                       >
                         {image}

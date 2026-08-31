@@ -11,6 +11,7 @@ import { anchoredIndex } from "@/lib/viewer-anchor";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import { hideBrokenImage, renditionSrcs } from "./photo-image";
+import { useHistoryEntry } from "./use-history-entry";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 import { useSwipeDismiss } from "./use-swipe-dismiss";
@@ -292,19 +293,32 @@ export function PhotoViewer({
   );
 
   // Closing runs the exit animation first; the viewer leaves once it has.
-  const dismiss = useCallback(() => {
+  const fadeOut = useCallback(() => {
     if (closeTimer.current !== null) return;
     setClosingOn({ photos, galleryCount });
     closeTimer.current = window.setTimeout(onClose, CLOSE_MS);
   }, [photos, galleryCount, onClose]);
 
+  // Open, the viewer holds a history entry, so going back closes it. Every
+  // other way of closing steps back out of that entry, and the exit
+  // animation runs once it is gone — one way out, whichever gesture began it.
+  const leave = useHistoryEntry({
+    key: "photo",
+    id: current?.id ?? startId,
+    onBack: fadeOut,
+  });
+  const dismiss = useCallback(() => leave(), [leave]);
+
+  // With the share sheet up, Escape is its to close.
+  const sheetUp = shareState !== null;
   useEffect(() => {
+    if (sheetUp) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dismiss]);
+  }, [dismiss, sheetUp]);
 
   const swipe = useSwipeDismiss(dismiss);
 
@@ -638,8 +652,10 @@ export function PhotoViewer({
                 // not a return to the one the viewer was opened from, and
                 // fading back to a grid that is being replaced anyway reads
                 // as a stutter. Both in one commit, so neither is seen alone.
-                onClose();
-                onSelectUploader(publicId);
+                leave(() => {
+                  onClose();
+                  onSelectUploader(publicId);
+                });
               }}
               className="flex min-h-12 items-center gap-2.5 rounded-pill border border-[rgba(250,246,238,0.22)] bg-[rgba(250,246,238,0.08)] py-[5px] pr-3.5 pl-1.5 transition active:bg-[rgba(250,246,238,0.14)]"
             >

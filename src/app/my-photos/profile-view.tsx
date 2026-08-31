@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import type { Visibility } from "@/lib/uploader-profile";
 import { BulkProgress } from "../bulk-progress";
@@ -15,6 +15,7 @@ import {
   type ViewerLabels,
   type ViewerPhoto,
 } from "../photo-viewer";
+import { useAddressedEntry } from "../use-history-entry";
 import { useLikes } from "../use-likes";
 
 export type ProfileLabels = {
@@ -172,6 +173,10 @@ export function ProfileView({
   const [filter, setFilter] = useState<Filter>("all");
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const { id: addressedId, clear: clearAddressed } = useAddressedEntry(
+    "photo",
+    viewerStartId !== null,
+  );
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const visibilityAction = useBulkAction();
@@ -232,6 +237,21 @@ export function ProfileView({
       ? { displayName, publicId: "", photoCount: 0 }
       : null,
   }));
+
+  // A /my-photos?photo=<id> address — a reload, or history stepped back onto
+  // a photo the viewer was showing — reopens the viewer on it.
+  const addressedShown =
+    addressedId !== null && viewerPhotos.some((photo) => photo.id === addressedId);
+  useEffect(() => {
+    if (addressedId === null) return;
+    clearAddressed();
+    if (!addressedShown) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewerStartId(addressedId);
+    revealTile(
+      listRef.current?.querySelector(`[data-photo-id="${addressedId}"]`),
+    );
+  }, [addressedId, addressedShown, clearAddressed]);
 
   function clearPress() {
     if (pressTimer.current !== null) {

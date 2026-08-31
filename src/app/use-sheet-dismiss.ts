@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useHistoryEntry } from "./use-history-entry";
 
 // Pointer travel that tells a downward drag apart from a tap or a sideways move.
 const DRAG_THRESHOLD_PX = 6;
@@ -22,12 +23,12 @@ const VELOCITY_STALE_MS = 90;
 
 const CLOSE_MS = 200;
 
-// Drag-down-to-dismiss for a bottom sheet. Spread `sheetProps` on the panel
-// and `backdropStyle` on the element carrying the dimmed background;
-// `onDismiss` runs once the sheet has slid off screen. A panel taller than
-// the screen scrolls its content in an inner element carrying `scrollProps`:
-// there, a drag scrolls until the content is back at its top, and only then
-// pulls the sheet down.
+// Drag-down-to-dismiss for a bottom sheet, which going back also does.
+// Spread `sheetProps` on the panel and `backdropStyle` on the element
+// carrying the dimmed background; `onDismiss` runs once the sheet has slid
+// off screen. A panel taller than the screen scrolls its content in an inner
+// element carrying `scrollProps`: there, a drag scrolls until the content is
+// back at its top, and only then pulls the sheet down.
 export function useSheetDismiss(onDismiss: () => void) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -54,6 +55,18 @@ export function useSheetDismiss(onDismiss: () => void) {
     const timer = window.setTimeout(() => dismiss.current(), CLOSE_MS);
     return () => window.clearTimeout(timer);
   }, [closing]);
+
+  // Open, the sheet holds a history entry, so going back slides it away
+  // like a drag does. The entry goes with the sheet however it closes.
+  useHistoryEntry({ key: "sheet", onBack: () => setClosing(true) });
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setClosing(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   function moveTo(next: number) {
     offsetRef.current = next;
