@@ -1,6 +1,6 @@
 # Confetti redesign — spec
 
-**Source of truth:** `design_handoff_confetti_redesign/README.md` (+ `Gallery Directions.dc.html`,
+**Source of truth:** `docs/design/design_handoff_confetti_redesign/README.md` (+ `Gallery Directions.dc.html`,
 open in a browser; screen ids like `1a`, `6b` match the README). The README is high-fidelity:
 colors, type sizes, spacing, radii and copy are final — match exact hex/px values it gives.
 Do **not** copy markup from the `.dc.html` file; recreate in the existing Next.js + Tailwind
