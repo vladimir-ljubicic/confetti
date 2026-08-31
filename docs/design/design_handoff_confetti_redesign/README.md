@@ -230,6 +230,13 @@ Tapping toggles the like optimistically; the pill must still meet a 44px tap hei
 
 Tapping the photo itself opens the viewer (7a). Tapping the avatar opens the profile (8a).
 
+**Loading: infinite scroll, not pagination.** Fetch in pages of ~30 via
+`IntersectionObserver` ahead of the end, with a small inline loading indicator at the
+bottom. Never insert other guests' new photos at the top while the user is mid-scroll —
+show a glass "Нове фотографије ↑" pill (same treatment as the like pill) that scrolls to
+top and merges them on tap. The guest's own optimistic tiles still enter immediately.
+Restore scroll position when returning from the viewer.
+
 ### 1b — Frozen gallery
 
 Same screen after the couple closes uploads. Differences only:
