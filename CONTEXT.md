@@ -31,6 +31,12 @@ _Avoid_: Live, Уживо
 Sort mode: most-liked first, ties broken newest-first.
 _Avoid_: Chronological, Хронолошки, oldest-first
 
+**Select mode**:
+A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against the whole album.
+
+**Selection scope**:
+Whose photos a bulk action may reach: a guest's own (their device) or, for the admin, every guest's.
+
 **Per-guest gallery**:
 A guest's public photos only — the same set for every viewer, including the guest themselves and the admin.
 

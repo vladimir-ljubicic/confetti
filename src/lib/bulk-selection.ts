@@ -8,6 +8,10 @@ export type VisibilitySelection = { ids: string[]; visibility: Visibility };
 
 export type SelectedPhoto = { id: string; visibility: Visibility };
 
+// Whose photos a selection may reach: one guest's own, or every guest's (the
+// couple's view).
+export type SelectionScope = { uploaderId: string | null };
+
 const PAGE = 1000;
 
 export function parseSelection(body: unknown): string[] | null {
@@ -26,25 +30,24 @@ export function parseVisibilitySelection(body: unknown): VisibilitySelection | n
   return ids && visibility ? { ids, visibility } : null;
 }
 
-// The guest's live photos among the selected ids, in id order. Ids the guest
-// does not own, or that are gone, are left out. Paged so no response cap can
-// silently drop part of a large selection.
+// The live photos within scope among the selected ids, in id order. Ids out
+// of scope, or gone, are left out. Paged so no response cap can silently drop
+// part of a large selection.
 export async function resolveSelection(
   supabase: SupabaseClient,
-  deviceId: string,
   ids: readonly string[],
+  scope: SelectionScope,
 ): Promise<SelectedPhoto[]> {
   const wanted = new Set(ids);
   const photos: SelectedPhoto[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("photos")
-      .select("id, visibility")
-      .eq("uploader_id", deviceId)
+    let query = supabase.from("photos").select("id, visibility");
+    if (scope.uploaderId !== null) query = query.eq("uploader_id", scope.uploaderId);
+    const { data, error } = await query
       .is("deleted_at", null)
       .order("id")
       .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Loading own photos failed: ${error.message}`);
+    if (error) throw new Error(`Loading selected photos failed: ${error.message}`);
     const rows = data as SelectedPhoto[];
     for (const row of rows) if (wanted.has(row.id)) photos.push(row);
     if (rows.length < PAGE) return photos;

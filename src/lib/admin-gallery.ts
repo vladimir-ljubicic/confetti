@@ -1,5 +1,6 @@
 import "server-only";
 import type { AdminFilter } from "./admin-filter";
+import { SELECTION_MAX_IDS, type SelectedPhoto } from "./bulk-selection";
 import {
   encodeGalleryCursor,
   galleryCursorFilter,
@@ -97,6 +98,35 @@ export async function loadAdminPhotos({
           })
         : null,
   };
+}
+
+const SELECTION_PAGE = 1000;
+
+// Every photo the filter covers, as the grid orders them — what "select all"
+// selects, beyond the pages loaded so far.
+export async function loadAdminSelection(filter: AdminFilter): Promise<SelectedPhoto[]> {
+  if (filter.kind === "uploader" && !isUuid(filter.publicId)) return [];
+  const photos: SelectedPhoto[] = [];
+  for (let from = 0; photos.length < SELECTION_MAX_IDS; from += SELECTION_PAGE) {
+    let query = supabaseAdmin()
+      .from("photos")
+      .select("id, visibility, uploaders!inner (public_id)")
+      .not("uploaded_at", "is", null)
+      .is("deleted_at", null);
+    if (filter.kind === "private") query = query.eq("visibility", "private");
+    if (filter.kind === "uploader") {
+      query = query.eq("uploaders.public_id", filter.publicId);
+    }
+    const { data, error } = await query
+      .order("uploaded_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + SELECTION_PAGE - 1);
+    if (error) throw new Error(`Loading photos failed: ${error.message}`);
+    const rows = data as unknown as SelectedPhoto[];
+    for (const row of rows) photos.push({ id: row.id, visibility: row.visibility });
+    if (rows.length < SELECTION_PAGE) break;
+  }
+  return photos.slice(0, SELECTION_MAX_IDS);
 }
 
 export type AdminUploaderSummary = {

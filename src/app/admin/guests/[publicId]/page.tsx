@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { viewerLabels } from "@/app/viewer-labels";
 import { isAdmin } from "@/lib/admin-session";
@@ -8,7 +7,12 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { isUuid } from "@/lib/uploaders";
 import { AdminTopRow, adminChromeLabels } from "../../admin-chrome";
-import { AdminPhotoGrid, type AdminPhoto } from "../../admin-photo-grid";
+import {
+  AdminPhotoGrid,
+  type AdminPhoto,
+  type VisibilityChip,
+  type VisibilityKey,
+} from "../../admin-photo-grid";
 import { GuestHeader } from "./guest-header";
 import { GuestSettings } from "./guest-settings";
 
@@ -97,11 +101,8 @@ export default async function AdminGuestPage({
   const photos = await loadGuestPhotos(guest, publicId);
 
   const rawFilter = Array.isArray(filterParam) ? filterParam[0] : filterParam;
-  const filter =
-    rawFilter === "public" || rawFilter === "private" ? rawFilter : null;
-  const shown = filter
-    ? photos.filter((photo) => photo.visibility === filter)
-    : photos;
+  const filter: VisibilityKey =
+    rawFilter === "public" || rawFilter === "private" ? rawFilter : "all";
   const publicCount = photos.filter((photo) => photo.visibility === "public").length;
   const likeTotal = photos.reduce((total, photo) => total + photo.likeCount, 0);
 
@@ -115,35 +116,38 @@ export default async function AdminGuestPage({
     many: labels.likesMany,
   })}`;
 
-  const chips: { key: string; href: string; label: string; active: boolean }[] = [
-    {
-      key: "all",
-      href: `/admin/guests/${publicId}`,
-      label: labels.guestFilterAll.replace("{count}", String(photos.length)),
-      active: filter === null,
-    },
+  const chips: VisibilityChip[] = [
+    { key: "all", label: labels.guestFilterAll.replace("{count}", String(photos.length)) },
     {
       key: "public",
-      href: `/admin/guests/${publicId}?filter=public`,
       label: labels.guestFilterPublic.replace("{count}", String(publicCount)),
-      active: filter === "public",
     },
     {
       key: "private",
-      href: `/admin/guests/${publicId}?filter=private`,
       label: labels.guestFilterPrivate.replace(
         "{count}",
         String(photos.length - publicCount),
       ),
-      active: filter === "private",
     },
   ];
-  const chipClass = (active: boolean) =>
-    `shrink-0 rounded-pill px-3.5 py-[9px] text-[13px] whitespace-nowrap transition ${
-      active
-        ? "bg-gold-small text-card"
-        : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
-    }`;
+
+  const settings = (
+    <GuestSettings
+      publicId={publicId}
+      blocked={guest.uploadsBlocked}
+      publicCount={publicCount}
+      labels={{
+        uploadsTitle: labels.guestUploadsTitle,
+        uploadsHint: labels.guestUploadsHint,
+        allow: labels.uploadsAllow,
+        block: labels.uploadsBlock,
+        hideAll: labels.hideAllFromGuest,
+        hiding: labels.hiding,
+        bulkProgress: labels.bulkProgress,
+        actionFailed: labels.actionFailed,
+      }}
+    />
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
@@ -165,43 +169,25 @@ export default async function AdminGuestPage({
         }}
       />
 
-      <div className="flex gap-2 overflow-x-auto px-4 pb-3.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {chips.map((chip) => (
-          <Link key={chip.key} href={chip.href} className={chipClass(chip.active)}>
-            {chip.label}
-          </Link>
-        ))}
-      </div>
-
-      {shown.length === 0 ? (
-        <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
-      ) : (
+      {photos.length === 0 ? (
         <>
-          <AdminPhotoGrid
-            photos={shown}
-            privateBadge={labels.privateBadge}
-            locale={locale}
-            viewerLabels={viewerLabels(dict)}
-          />
-          <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>
+          <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
+          {settings}
         </>
+      ) : (
+        <AdminPhotoGrid
+          photos={photos}
+          visibilityChips={chips}
+          initialVisibility={filter}
+          labels={labels}
+          locale={locale}
+          viewerLabels={viewerLabels(dict)}
+        >
+          <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>
+          {settings}
+        </AdminPhotoGrid>
       )}
 
-      <GuestSettings
-        publicId={publicId}
-        blocked={guest.uploadsBlocked}
-        publicCount={publicCount}
-        labels={{
-          uploadsTitle: labels.guestUploadsTitle,
-          uploadsHint: labels.guestUploadsHint,
-          allow: labels.uploadsAllow,
-          block: labels.uploadsBlock,
-          hideAll: labels.hideAllFromGuest,
-          hiding: labels.hiding,
-          bulkProgress: labels.bulkProgress,
-          actionFailed: labels.actionFailed,
-        }}
-      />
     </main>
   );
 }

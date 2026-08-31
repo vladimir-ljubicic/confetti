@@ -39,10 +39,17 @@ describe("parseVisibilitySelection", () => {
   });
 });
 
-function fakeClient(rows: SelectedPhoto[], pages: number[] = []): SupabaseClient {
+function fakeClient(
+  rows: SelectedPhoto[],
+  pages: number[] = [],
+  filters: [string, unknown][] = [],
+): SupabaseClient {
   const query = {
     select: () => query,
-    eq: () => query,
+    eq: (column: string, value: unknown) => {
+      filters.push([column, value]);
+      return query;
+    },
     is: () => query,
     order: () => query,
     range: async (from: number, to: number) => {
@@ -63,27 +70,43 @@ function photos(count: number): SelectedPhoto[] {
 describe("resolveSelection", () => {
   it("returns the selected photos the guest owns, in id order, across pages", async () => {
     const pages: number[] = [];
+    const filters: [string, unknown][] = [];
     const rows = photos(1500);
-    const found = await resolveSelection(fakeClient(rows, pages), "device", [
-      "p01200",
-      "p00003",
-      "stranger",
-    ]);
+    const found = await resolveSelection(
+      fakeClient(rows, pages, filters),
+      ["p01200", "p00003", "stranger"],
+      { uploaderId: "device" },
+    );
     expect(found).toEqual([rows[3], rows[1200]]);
     expect(pages).toEqual([0, 1000]);
+    expect(filters).toContainEqual(["uploader_id", "device"]);
+  });
+
+  it("spans every guest's photos when the scope names no uploader", async () => {
+    const filters: [string, unknown][] = [];
+    const rows = photos(12);
+    const found = await resolveSelection(
+      fakeClient(rows, [], filters),
+      ["p00005", "p00001"],
+      { uploaderId: null },
+    );
+    expect(found).toEqual([rows[1], rows[5]]);
+    expect(filters.map(([column]) => column)).not.toContain("uploader_id");
   });
 
   it("stops after a short page", async () => {
     const pages: number[] = [];
-    await resolveSelection(fakeClient(photos(12), pages), "device", ["p00001"]);
+    await resolveSelection(fakeClient(photos(12), pages), ["p00001"], {
+      uploaderId: "device",
+    });
     expect(pages).toEqual([0]);
   });
 
   it("reads one more page when a page is full", async () => {
     const pages: number[] = [];
-    const found = await resolveSelection(fakeClient(photos(1000), pages), "device", [
-      "p00999",
-    ]);
+    const found = await resolveSelection(fakeClient(photos(1000), pages), ["p00999"], {
+      uploaderId: "device",
+    });
     expect(found).toHaveLength(1);
     expect(pages).toEqual([0, 1000]);
   });
@@ -97,8 +120,8 @@ describe("resolveSelection", () => {
       range: async () => ({ data: null, error: { message: "boom" } }),
     };
     const client = { from: () => query } as unknown as SupabaseClient;
-    await expect(resolveSelection(client, "device", ["a"])).rejects.toThrow(
-      "Loading own photos failed: boom",
-    );
+    await expect(
+      resolveSelection(client, ["a"], { uploaderId: "device" }),
+    ).rejects.toThrow("Loading selected photos failed: boom");
   });
 });

@@ -83,6 +83,45 @@ export default async function AdminPage({
     many: labels.privateMany,
   })}`;
 
+  const footer = (
+    <div className="sticky bottom-0 mt-auto flex flex-col gap-0.5 bg-paper-alt px-3.5 pt-4 pb-[22px]">
+      <FreezeToggle
+        frozen={settings.uploadsFrozen}
+        eventDateIso={settings.eventDateIso}
+        freezeOffsetDays={settings.freezeOffsetDays}
+        labels={{
+          title: labels.guestUploads,
+          open: labels.uploadsOpen,
+          frozen: labels.uploadsFrozen,
+          eventDate: labels.eventDate,
+          freezeAfterDays: labels.freezeAfterDays,
+          actionFailed: labels.actionFailed,
+        }}
+      />
+      <AdminDownloadRow
+        rowLabel={labels.downloadAll}
+        rowValue={
+          exportSizeBytes > 0
+            ? labels.downloadAllValue.replace("{size}", formatSize(exportSizeBytes))
+            : labels.downloadAllValue.replace(", {size}", "")
+        }
+        labels={dict.downloadSheet}
+        locale={locale}
+        summary={summary}
+        liveZip={
+          exportJob
+            ? {
+                includePrivate: exportJob.include_private,
+                photoCount: exportJob.total_count,
+                sizeBytes: exportJob.zip_size_bytes,
+              }
+            : null
+        }
+        initialStatus={exportJob ? exportJobStatus(exportJob) : null}
+      />
+    </div>
+  );
+
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <AdminChrome
@@ -94,59 +133,26 @@ export default async function AdminPage({
       />
 
       {summary.totalCount === 0 ? (
-        <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
-      ) : (
         <>
-          <AdminPhotoGrid
-            photos={page.photos}
-            nextCursor={page.nextCursor}
-            chips={chips}
-            initialFilter={filter}
-            privateBadge={labels.privateBadge}
-            locale={locale}
-            viewerLabels={viewerLabels(dict)}
-          />
-
-          <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>
+          <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
+          {footer}
         </>
+      ) : (
+        <AdminPhotoGrid
+          photos={page.photos}
+          nextCursor={page.nextCursor}
+          total={summary.totalCount}
+          chips={chips}
+          initialFilter={filter}
+          labels={labels}
+          locale={locale}
+          viewerLabels={viewerLabels(dict)}
+        >
+          <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>
+          {footer}
+        </AdminPhotoGrid>
       )}
 
-      <div className="sticky bottom-0 mt-auto flex flex-col gap-0.5 bg-paper-alt px-3.5 pt-4 pb-[22px]">
-        <FreezeToggle
-          frozen={settings.uploadsFrozen}
-          eventDateIso={settings.eventDateIso}
-          freezeOffsetDays={settings.freezeOffsetDays}
-          labels={{
-            title: labels.guestUploads,
-            open: labels.uploadsOpen,
-            frozen: labels.uploadsFrozen,
-            eventDate: labels.eventDate,
-            freezeAfterDays: labels.freezeAfterDays,
-            actionFailed: labels.actionFailed,
-          }}
-        />
-        <AdminDownloadRow
-          rowLabel={labels.downloadAll}
-          rowValue={
-            exportSizeBytes > 0
-              ? labels.downloadAllValue.replace("{size}", formatSize(exportSizeBytes))
-              : labels.downloadAllValue.replace(", {size}", "")
-          }
-          labels={dict.downloadSheet}
-          locale={locale}
-          summary={summary}
-          liveZip={
-            exportJob
-              ? {
-                  includePrivate: exportJob.include_private,
-                  photoCount: exportJob.total_count,
-                  sizeBytes: exportJob.zip_size_bytes,
-                }
-              : null
-          }
-          initialStatus={exportJob ? exportJobStatus(exportJob) : null}
-        />
-      </div>
     </main>
   );
 }

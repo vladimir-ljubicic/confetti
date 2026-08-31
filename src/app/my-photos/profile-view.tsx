@@ -4,13 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { selectionView } from "@/lib/selection-view";
 import type { Visibility } from "@/lib/uploader-profile";
-import { BulkProgress } from "../bulk-progress";
 import { LocaleToggle } from "../locale-toggle";
-import { useBulkAction } from "../photo-controls";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import { revealTile } from "../reveal-tile";
-import { SelectEntry, type SelectEntryLabels } from "../select-entry";
+import { SelectEntry } from "../select-entry";
+import {
+  SELECTABLE_TILE_CLASS,
+  SelectBar,
+  SelectMark,
+  SelectTopRow,
+  useSelectMode,
+  type SelectModeLabels,
+} from "../select-mode";
 import {
   PhotoViewer,
   type ViewerLabels,
@@ -19,7 +26,7 @@ import {
 import { useAddressedEntry } from "../use-history-entry";
 import { useLikes } from "../use-likes";
 
-export type ProfileLabels = SelectEntryLabels & {
+export type ProfileLabels = SelectModeLabels & {
   title: string;
   backToGallery: string;
   empty: string;
@@ -39,23 +46,6 @@ export type ProfileLabels = SelectEntryLabels & {
   filterPrivate: string;
   privateBadge: string;
   photoAlt: string;
-  exitSelect: string;
-  selectAll: string;
-  deselectAll: string;
-  selectedOne: string;
-  selectedFew: string;
-  selectedMany: string;
-  hide: string;
-  makePublic: string;
-  confirmDeleteOne: string;
-  confirmDeleteFew: string;
-  confirmDeleteMany: string;
-  delete: string;
-  hiding: string;
-  makingPublic: string;
-  deleting: string;
-  bulkProgress: string;
-  actionFailed: string;
   localeAriaLabel: string;
 };
 
@@ -71,10 +61,6 @@ export type OwnPhoto = {
 };
 
 type Filter = "all" | Visibility;
-
-const LONG_PRESS_MS = 450;
-
-const LONG_PRESS_MOVE_TOLERANCE_PX = 8;
 
 function TileImage({ src, alt }: { src: string; alt: string }) {
   return (
@@ -178,46 +164,15 @@ export function ProfileView({
     "photo",
     viewerStartId !== null,
   );
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const visibilityAction = useBulkAction();
-  const deleteAction = useBulkAction();
-  const [pendingVisibility, setPendingVisibility] = useState<Visibility | null>(null);
-  const busy = visibilityAction.busy || deleteAction.busy;
-  const running = visibilityAction.busy
-    ? {
-        label: pendingVisibility === "public" ? labels.makingPublic : labels.hiding,
-        done: visibilityAction.done,
-        total: visibilityAction.total,
-      }
-    : deleteAction.busy
-      ? { label: labels.deleting, done: deleteAction.done, total: deleteAction.total }
-      : null;
-  const failedAction = visibilityAction.failed
-    ? visibilityAction
-    : deleteAction.failed
-      ? deleteAction
-      : null;
-  // Photos deleted or re-labelled here vanish/update immediately;
-  // router.refresh() catches the server list up in the background.
-  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
-  const [visibilityOverrides, setVisibilityOverrides] = useState<
-    ReadonlyMap<string, Visibility>
-  >(new Map());
+  const mode = useSelectMode({
+    endpoints: { visibility: "/api/my-photos/visibility", delete: "/api/my-photos/delete" },
+    locale,
+    labels,
+  });
 
-  const pressTimer = useRef<number | null>(null);
-  const pressOrigin = useRef<{ x: number; y: number } | null>(null);
-  const suppressClick = useRef(false);
-
-  const all = photos
-    .filter((photo) => !removedIds.has(photo.id))
-    .map((photo) => ({
-      ...photo,
-      visibility: visibilityOverrides.get(photo.id) ?? photo.visibility,
-    }));
+  const all = selectionView(photos, mode.edits);
   const publicCount = all.filter((photo) => photo.visibility === "public").length;
   const shown = filter === "all" ? all : all.filter((photo) => photo.visibility === filter);
-  const selectedPhotos = all.filter((photo) => selectedIds.has(photo.id));
   const likeTotal = all.reduce((sum, photo) => sum + photo.likeCount, 0);
 
   // The viewer swipes through the currently filtered set, mirroring how the
@@ -254,116 +209,6 @@ export function ProfileView({
     );
   }, [addressedId, addressedShown, clearAddressed]);
 
-  function clearPress() {
-    if (pressTimer.current !== null) {
-      window.clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-    pressOrigin.current = null;
-  }
-
-  function startPress(id: string, event: React.PointerEvent) {
-    if (selectMode) return;
-    clearPress();
-    pressOrigin.current = { x: event.clientX, y: event.clientY };
-    pressTimer.current = window.setTimeout(() => {
-      suppressClick.current = true;
-      setSelectMode(true);
-      setSelectedIds(new Set([id]));
-      clearPress();
-    }, LONG_PRESS_MS);
-  }
-
-  function movePress(event: React.PointerEvent) {
-    const origin = pressOrigin.current;
-    if (!origin) return;
-    const distance = Math.hypot(event.clientX - origin.x, event.clientY - origin.y);
-    if (distance > LONG_PRESS_MOVE_TOLERANCE_PX) clearPress();
-  }
-
-  function onTileClick(id: string) {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return;
-    }
-    if (!selectMode) {
-      setViewerStartId(id);
-      return;
-    }
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
-  }
-
-  function enterSelect() {
-    setSelectMode(true);
-    setSelectedIds(new Set());
-  }
-
-  function exitSelect() {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-    visibilityAction.reset();
-    deleteAction.reset();
-  }
-
-  function post(path: string, body: object) {
-    return fetch(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
-
-  async function setSelectedVisibility(visibility: Visibility) {
-    const ids = selectedPhotos.map((photo) => photo.id);
-    setPendingVisibility(visibility);
-    const ok = await visibilityAction.run(() =>
-      post("/api/my-photos/visibility", { ids, visibility }),
-    );
-    if (!ok) return;
-    const next = new Map(visibilityOverrides);
-    for (const id of ids) next.set(id, visibility);
-    setVisibilityOverrides(next);
-    exitSelect();
-  }
-
-  async function deleteSelected() {
-    const ids = selectedPhotos.map((photo) => photo.id);
-    const confirmed = window.confirm(
-      pluralize(locale, ids.length, {
-        one: labels.confirmDeleteOne,
-        few: labels.confirmDeleteFew,
-        many: labels.confirmDeleteMany,
-      }),
-    );
-    if (!confirmed) return;
-    const ok = await deleteAction.run(() => post("/api/my-photos/delete", { ids }));
-    if (!ok) return;
-    setRemovedIds(new Set([...removedIds, ...ids]));
-    exitSelect();
-  }
-
-  function progressMade(action: { done: number; total: number | null }) {
-    if (action.total === null) return null;
-    return labels.bulkProgress
-      .replace("{done}", String(action.done))
-      .replace("{total}", String(action.total));
-  }
-
-  const allSelectedPrivate =
-    selectedPhotos.length > 0 &&
-    selectedPhotos.every((photo) => photo.visibility === "private");
-  const allShownSelected =
-    shown.length > 0 && shown.every((photo) => selectedIds.has(photo.id));
-
-  function toggleSelectAll() {
-    setSelectedIds(
-      allShownSelected ? new Set() : new Set(shown.map((photo) => photo.id)),
-    );
-  }
-
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: "all", label: labels.filterAll, count: all.length },
     { key: "public", label: labels.filterPublic, count: publicCount },
@@ -372,21 +217,8 @@ export function ProfileView({
 
   return (
     <>
-      {selectMode ? (
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[rgba(176,141,60,0.28)] bg-gold-tint py-3 pr-3 pl-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={exitSelect}
-            className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-sm text-ink transition active:bg-[rgba(176,141,60,0.18)] disabled:opacity-50"
-          >
-            <span className="text-base leading-none">✕</span>
-            {labels.exitSelect}
-          </button>
-          <span className="flex min-h-11 items-center px-3 text-[13px] whitespace-nowrap text-ink/50 tabular-nums">
-            {selectedPhotos.length} / {all.length}
-          </span>
-        </div>
+      {mode.active ? (
+        <SelectTopRow mode={mode} selected={mode.selectedAmong(all).length} total={all.length} />
       ) : (
         <div className="sticky top-0 z-10 flex items-center justify-between bg-paper py-3 pr-3 pl-2">
           <Link
@@ -443,32 +275,26 @@ export function ProfileView({
             ))}
           </div>
 
-          {!selectMode && (
-            <SelectEntry onEnter={enterSelect} labels={labels} />
-          )}
+          {!mode.active && <SelectEntry onEnter={() => mode.enter()} labels={labels} />}
 
           <ul
             ref={listRef}
-            aria-busy={busy}
+            aria-busy={mode.busy}
             className={`grid grid-cols-3 gap-1.5 px-3.5 transition-opacity ${
-              selectMode ? "pb-40" : "pb-8"
-            } ${busy ? "opacity-45" : ""}`}
+              mode.active ? "pb-40" : "pb-8"
+            } ${mode.busy ? "opacity-45" : ""}`}
           >
             {shown.map((photo) => {
-              const selected = selectMode && selectedIds.has(photo.id);
+              const selected = mode.active && mode.selectedIds.has(photo.id);
               return (
                 <li key={photo.id} data-photo-id={photo.id} className="relative">
                   <button
                     type="button"
-                    disabled={busy}
-                    aria-pressed={selectMode ? selected : undefined}
-                    onClick={() => onTileClick(photo.id)}
-                    onPointerDown={(event) => startPress(photo.id, event)}
-                    onPointerMove={movePress}
-                    onPointerUp={clearPress}
-                    onPointerCancel={clearPress}
-                    onContextMenu={(event) => event.preventDefault()}
-                    className="relative block aspect-square w-full touch-manipulation overflow-hidden rounded-tile bg-sand select-none [-webkit-touch-callout:none]"
+                    disabled={mode.busy}
+                    aria-pressed={mode.active ? selected : undefined}
+                    onClick={() => mode.tap(photo.id, () => setViewerStartId(photo.id))}
+                    {...mode.pressHandlers(photo.id)}
+                    className={`relative block aspect-square w-full overflow-hidden rounded-tile bg-sand ${SELECTABLE_TILE_CLASS}`}
                   >
                     <TileImage
                       src={
@@ -478,20 +304,12 @@ export function ProfileView({
                       }
                       alt={labels.photoAlt}
                     />
-                    {selected && <span className="absolute inset-0 bg-gold/30" />}
                     {photo.visibility === "private" && (
                       <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.7)] px-[7px] py-[3px] text-[10px] tracking-[0.06em] text-paper">
                         {labels.privateBadge}
                       </span>
                     )}
-                    {selectMode &&
-                      (selected ? (
-                        <span className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-[11px] text-card">
-                          ✓
-                        </span>
-                      ) : (
-                        <span className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full border-[1.5px] border-[rgba(255,253,248,0.85)]" />
-                      ))}
+                    {mode.active && <SelectMark selected={selected} />}
                   </button>
                 </li>
               );
@@ -500,82 +318,8 @@ export function ProfileView({
         </>
       )}
 
-      {selectMode && (
-        <div className="fixed inset-x-0 bottom-[18px] z-10 flex justify-center px-3.5">
-          {running ? (
-            <div className="flex w-full max-w-xl items-center rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card px-[18px] py-[15px] shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
-              <BulkProgress
-                label={running.label}
-                done={running.done}
-                total={running.total}
-                countLabel={labels.bulkProgress}
-              />
-            </div>
-          ) : (
-            <div className="flex w-full max-w-xl flex-col gap-2.5 rounded-[18px] border border-[rgba(43,38,32,0.09)] bg-card px-3 pt-2.5 pb-3 shadow-[0_16px_34px_-16px_rgba(43,38,32,0.45)]">
-              <div className="flex items-center justify-between gap-2.5">
-                <button
-                  type="button"
-                  aria-pressed={allShownSelected}
-                  onClick={toggleSelectAll}
-                  className="flex min-h-11 items-center gap-[9px] rounded-pill border border-gold/35 bg-gold-tint pr-[13px] pl-[11px] text-sm whitespace-nowrap text-ink transition active:bg-[#f1e6cc]"
-                >
-                  {allShownSelected ? (
-                    <span
-                      aria-hidden
-                      className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-gold text-[11px] text-card"
-                    >
-                      ✓
-                    </span>
-                  ) : (
-                    <span
-                      aria-hidden
-                      className="h-5 w-5 rounded-[5px] border-[1.5px] border-gold bg-card"
-                    />
-                  )}
-                  {allShownSelected
-                    ? labels.deselectAll
-                    : labels.selectAll.replace("{count}", String(shown.length))}
-                </button>
-                <span className="text-right text-sm whitespace-nowrap text-ink">
-                  {pluralize(locale, selectedPhotos.length, {
-                    one: labels.selectedOne,
-                    few: labels.selectedFew,
-                    many: labels.selectedMany,
-                  })}
-                </span>
-              </div>
-              {failedAction && (
-                <p className="text-xs text-danger">
-                  {progressMade(failedAction) && (
-                    <span className="tabular-nums">{progressMade(failedAction)} · </span>
-                  )}
-                  {labels.actionFailed}
-                </p>
-              )}
-              <div className="flex items-center gap-2 text-sm">
-                <button
-                  type="button"
-                  disabled={selectedPhotos.length === 0}
-                  onClick={() =>
-                    void setSelectedVisibility(allSelectedPrivate ? "public" : "private")
-                  }
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-pill border border-gold/40 text-gold-small transition active:bg-gold-tint disabled:opacity-60"
-                >
-                  {allSelectedPrivate ? labels.makePublic : labels.hide}
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedPhotos.length === 0}
-                  onClick={() => void deleteSelected()}
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-pill border border-danger/35 text-danger transition active:opacity-60 disabled:opacity-60"
-                >
-                  {labels.delete}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+      {mode.active && (
+        <SelectBar mode={mode} photos={all} shown={shown} />
       )}
 
       {viewerStartId !== null && (
