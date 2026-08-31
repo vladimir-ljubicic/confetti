@@ -118,7 +118,7 @@ export function IntroSheet({
 
         <div
           {...scrollProps}
-          className="flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain px-[22px] pb-[26px]"
+          className="flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain px-[22px]"
         >
           <div className="flex flex-col items-center gap-[7px] text-center">
             <ConfettiMark size={22} variant="static" />
@@ -204,7 +204,11 @@ export function IntroSheet({
               })}
             </div>
           </div>
+        </div>
 
+        {/* Below the fields rather than after them, so that the way out stays
+            in reach when the keyboard leaves room for only some of them. */}
+        <div className="flex shrink-0 flex-col gap-5 px-[22px] pt-5 pb-[26px]">
           {failed && <p className="text-center text-sm text-danger">{labels.saveFailed}</p>}
 
           <button
