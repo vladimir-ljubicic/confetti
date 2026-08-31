@@ -10,6 +10,7 @@ import { LocaleToggle } from "../locale-toggle";
 import { useBulkAction } from "../photo-controls";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import { revealTile } from "../reveal-tile";
+import { SelectEntry, type SelectEntryLabels } from "../select-entry";
 import {
   PhotoViewer,
   type ViewerLabels,
@@ -18,7 +19,7 @@ import {
 import { useAddressedEntry } from "../use-history-entry";
 import { useLikes } from "../use-likes";
 
-export type ProfileLabels = {
+export type ProfileLabels = SelectEntryLabels & {
   title: string;
   backToGallery: string;
   empty: string;
@@ -295,6 +296,11 @@ export function ProfileView({
     setSelectedIds(next);
   }
 
+  function enterSelect() {
+    setSelectMode(true);
+    setSelectedIds(new Set());
+  }
+
   function exitSelect() {
     setSelectMode(false);
     setSelectedIds(new Set());
@@ -441,6 +447,10 @@ export function ProfileView({
               </button>
             ))}
           </div>
+
+          {!selectMode && (
+            <SelectEntry onEnter={enterSelect} labels={labels} />
+          )}
 
           <ul
             ref={listRef}
