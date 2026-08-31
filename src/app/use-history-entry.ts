@@ -40,10 +40,30 @@ function addressWith(key: string, id: string | null): string {
 
 // Chrome lets a page add one history entry per user gesture; an entry added
 // without one makes the back button skip every entry this page has added.
-// So nothing is pushed unless a gesture is still fresh; the surface then
-// simply has no entry of its own, and going back leaves as it always did.
-function gestureFresh(): boolean {
-  return navigator.userActivation?.isActive ?? true;
+// That gesture is not the fleeting kind: it stands until the page writes to
+// history, however long a photo picker takes in between. The same
+// bookkeeping is kept here — a gesture arms it, a write spends it — and
+// nothing is pushed unarmed; the surface then simply has no entry of its
+// own, and going back leaves as it always did.
+let armed: boolean | null = null;
+
+function arm(event: Event) {
+  if (event instanceof KeyboardEvent && event.key === "Escape") return;
+  armed = true;
+}
+
+function gestureArmed(): boolean {
+  if (armed === null) {
+    armed = navigator.userActivation?.hasBeenActive ?? true;
+    for (const type of ["pointerdown", "pointerup", "keydown", "touchend"]) {
+      window.addEventListener(type, arm, { capture: true, passive: true });
+    }
+  }
+  return armed;
+}
+
+function spendGesture() {
+  armed = false;
 }
 
 // Stepping back onto the page's own entry would otherwise restore the scroll
@@ -125,7 +145,7 @@ export function useHistoryEntry({
       }
       const addressed =
         named && new URL(window.location.href).searchParams.get(key) === held;
-      pushed.current = !addressed && gestureFresh();
+      pushed.current = !addressed && gestureArmed();
       const marker = { id: held, pushed: pushed.current };
       if (pushed.current) {
         window.history.pushState(
@@ -133,12 +153,14 @@ export function useHistoryEntry({
           "",
           named ? addressWith(key, held) : undefined,
         );
+        spendGesture();
       } else if (named) {
         window.history.replaceState(
           stateWith(key, marker),
           "",
           addressWith(key, held),
         );
+        spendGesture();
       }
       return;
     }
@@ -148,6 +170,7 @@ export function useHistoryEntry({
       "",
       addressWith(key, held),
     );
+    spendGesture();
   }, [key, named, held]);
 
   // An unnamed entry nobody left still sits on top of history when its
