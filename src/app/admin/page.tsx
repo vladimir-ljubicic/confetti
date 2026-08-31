@@ -4,7 +4,7 @@ import { loadAdminPhotos, loadAdminSummary } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { getEventSettings } from "@/lib/event-settings";
 import { formatSize } from "@/lib/export";
-import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
+import { exportJobReplaceable, exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import { AdminChrome, AdminTopRow, adminChromeLabels } from "./admin-chrome";
@@ -47,7 +47,7 @@ export default async function AdminPage({
     getEventSettings(),
     getExportJob("admin").catch(() => null),
   ]);
-  const exportJob = job?.state === "cancelled" ? null : job;
+  const exportJob = job && !exportJobReplaceable(job) ? job : null;
 
   const exportSizeBytes = exportJob?.zip_size_bytes ?? summary.totalBytes;
   const guestCount = summary.uploaders.length + (summary.unnamed ? 1 : 0);

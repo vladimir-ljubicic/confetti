@@ -1,7 +1,11 @@
 import "server-only";
 import { after, NextResponse } from "next/server";
 import { areUploadsFrozen } from "./event-settings";
-import { EXPORT_PACKING_STATUS, type ExportStatus } from "./export";
+import {
+  EXPORT_EXPIRED_STATUS,
+  EXPORT_PACKING_STATUS,
+  type ExportStatus,
+} from "./export";
 import {
   cancelExportJob,
   exportJobStale,
@@ -19,12 +23,16 @@ function statusResponse(status: ExportStatus): NextResponse {
   if (status.state === "packing") {
     return NextResponse.json(status, { status: EXPORT_PACKING_STATUS });
   }
+  if (status.state === "expired") {
+    return NextResponse.json(status, { status: EXPORT_EXPIRED_STATUS });
+  }
   return NextResponse.json(status);
 }
 
 // The stable export endpoint: JSON status for clients that ask for it, a 302
 // to a fresh short-lived signed URL for everyone else once the zip is ready,
-// 202 while packing — never 404, so forwarded links keep working.
+// 202 while packing, 410 once the link has expired — never 404, so forwarded
+// links keep answering.
 export async function exportResponse(
   kind: ExportKind,
   request: Request,

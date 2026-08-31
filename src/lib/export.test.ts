@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDayMonth,
+  linkExpiresAt,
+  resolveExportState,
   formatSize,
   PACKING_ETA_WARMUP_MS,
   packingEtaMs,
@@ -22,7 +25,7 @@ describe("parseExportStatus", () => {
   it("accepts a full status", () => {
     expect(
       parseExportStatus({ state: "packing", done: 3, total: 10, sizeBytes: 42 }),
-    ).toEqual({ state: "packing", done: 3, total: 10, sizeBytes: 42 });
+    ).toEqual({ state: "packing", done: 3, total: 10, sizeBytes: 42, expiresAt: null });
   });
 
   it("rejects unknown states", () => {
@@ -38,6 +41,7 @@ describe("parseExportStatus (cancelled)", () => {
       done: 0,
       total: 0,
       sizeBytes: null,
+      expiresAt: null,
     });
   });
 });
@@ -69,5 +73,50 @@ describe("packingEtaMs", () => {
     expect(
       packingEtaMs({ done: 100, at }, { done: 142, at: at + 10_000 }, 184),
     ).toBe(10_000);
+  });
+});
+
+describe("link validity", () => {
+  it("holds through the end of the seventh Belgrade day after the zip became ready", () => {
+    expect(linkExpiresAt(new Date("2026-08-27T14:00:00Z"))).toBe(
+      "2026-09-03T21:59:59.999Z",
+    );
+    expect(formatDayMonth(linkExpiresAt(new Date("2026-08-27T14:00:00Z")))).toBe("03.09.");
+    // Late evening UTC is already the next Belgrade day.
+    expect(linkExpiresAt(new Date("2026-08-27T22:30:00Z"))).toBe(
+      "2026-09-04T21:59:59.999Z",
+    );
+  });
+
+  it("formats the expiry as a Belgrade DD.MM. date", () => {
+    expect(formatDayMonth("2026-09-03T22:30:00Z")).toBe("04.09.");
+    expect(formatDayMonth("2026-01-31T10:00:00Z")).toBe("31.01.");
+  });
+
+  it("reports a ready job as expired once its deadline has passed", () => {
+    const now = new Date("2026-09-03T14:00:00Z");
+    expect(resolveExportState("ready", "2026-09-03T14:00:00.000Z", now)).toBe("expired");
+    expect(resolveExportState("ready", "2026-09-03T14:00:01.000Z", now)).toBe("ready");
+    expect(resolveExportState("ready", null, now)).toBe("ready");
+    expect(resolveExportState("packing", "2020-01-01T00:00:00Z", now)).toBe("packing");
+  });
+
+  it("parses the expiry alongside the state", () => {
+    expect(
+      parseExportStatus({
+        state: "expired",
+        done: 184,
+        total: 184,
+        sizeBytes: 1,
+        expiresAt: "2026-09-03T14:00:00.000Z",
+      }),
+    ).toEqual({
+      state: "expired",
+      done: 184,
+      total: 184,
+      sizeBytes: 1,
+      expiresAt: "2026-09-03T14:00:00.000Z",
+    });
+    expect(parseExportStatus({ state: "packing" })?.expiresAt).toBeNull();
   });
 });

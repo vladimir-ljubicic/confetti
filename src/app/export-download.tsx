@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  EXPORT_PACKING_STATUS,
+  formatDayMonth,
   formatSize,
   packingEtaMs,
   parseExportStatus,
@@ -35,6 +35,8 @@ export type DownloadSheetLabels = {
   readyCountOne: string;
   readyCountFew: string;
   readyCountMany: string;
+  readyValidUntil: string;
+  expired: string;
   downloadNow: string;
   copyLink: string;
   linkCopied: string;
@@ -43,16 +45,23 @@ export type DownloadSheetLabels = {
 
 export type ExportCard =
   | { kind: "packing"; done: number; total: number; etaMs: number | null }
-  | { kind: "ready"; sizeBytes: number | null; total: number }
-  | { kind: "failed" };
+  | { kind: "ready"; sizeBytes: number | null; total: number; expiresAt: string | null }
+  | { kind: "failed" }
+  | { kind: "expired" };
 
 const POLL_MS = 5000;
 
 function cardFromStatus(status: ExportStatus, etaMs: number | null): ExportCard | null {
   if (status.state === "ready") {
-    return { kind: "ready", sizeBytes: status.sizeBytes, total: status.total };
+    return {
+      kind: "ready",
+      sizeBytes: status.sizeBytes,
+      total: status.total,
+      expiresAt: status.expiresAt,
+    };
   }
   if (status.state === "failed") return { kind: "failed" };
+  if (status.state === "expired") return { kind: "expired" };
   if (status.state === "cancelled") return null;
   return { kind: "packing", done: status.done, total: status.total, etaMs };
 }
@@ -91,14 +100,12 @@ export function useExportJob(
 
   const request = useCallback(
     async (method: "GET" | "POST", path = endpoint): Promise<ExportStatus | null> => {
+      // Every status code carries the job status as JSON; anything else
+      // (auth, server error) parses to null.
       const response = await fetch(path, {
         method,
         headers: { accept: "application/json" },
       });
-      if (!response.ok && response.status !== EXPORT_PACKING_STATUS) {
-        const status = parseExportStatus(await response.json().catch(() => null));
-        return status?.state === "failed" ? status : null;
-      }
       return parseExportStatus(await response.json().catch(() => null));
     },
     [endpoint],
@@ -130,7 +137,7 @@ export function useExportJob(
   const prepare = useCallback(async (): Promise<boolean> => {
     try {
       const status = await request("POST");
-      if (!status || status.state === "failed" || status.state === "cancelled") {
+      if (!status || (status.state !== "packing" && status.state !== "ready")) {
         return false;
       }
       applyStatus(status);
@@ -151,9 +158,16 @@ export function useExportJob(
     }
   }, [cancelPath, request, applyStatus]);
 
-  const downloadNow = useCallback(() => {
+  // Probes first so a card left open past the link's validity turns into the
+  // expired card instead of navigating to a dead link.
+  const downloadNow = useCallback(async () => {
+    const status = await request("GET").catch(() => null);
+    if (status && status.state !== "ready") {
+      applyStatus(status);
+      return;
+    }
     window.location.assign(endpoint);
-  }, [endpoint]);
+  }, [endpoint, request, applyStatus]);
 
   const copyStableLink = useCallback(() => {
     void navigator.clipboard
@@ -251,13 +265,17 @@ export function ExportJobCard({
     );
   }
 
-  if (card.kind === "failed") {
+  if (card.kind === "failed" || card.kind === "expired") {
     return (
       <div
         className={`flex w-full max-w-md items-center gap-3 rounded-bar border border-ink/10 bg-card py-3.5 pr-2 pl-4 shadow-card ${className}`}
       >
         <ConfettiMark size={18} />
-        <span className="min-w-0 flex-1 text-sm text-danger">{labels.failed}</span>
+        <span
+          className={`min-w-0 flex-1 text-sm ${card.kind === "failed" ? "text-danger" : "text-ink/70"}`}
+        >
+          {card.kind === "failed" ? labels.failed : labels.expired}
+        </span>
         <button
           type="button"
           onClick={onDismiss}
@@ -284,11 +302,16 @@ export function ExportJobCard({
             )}
           </span>
           <span className="text-xs text-ink/60">
-            {pluralize(locale, card.total, {
-              one: labels.readyCountOne,
-              few: labels.readyCountFew,
-              many: labels.readyCountMany,
-            })}
+            {[
+              pluralize(locale, card.total, {
+                one: labels.readyCountOne,
+                few: labels.readyCountFew,
+                many: labels.readyCountMany,
+              }),
+              ...(card.expiresAt
+                ? [labels.readyValidUntil.replace("{date}", formatDayMonth(card.expiresAt))]
+                : []),
+            ].join(" · ")}
           </span>
         </div>
         <button

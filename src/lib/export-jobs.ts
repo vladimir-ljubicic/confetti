@@ -2,7 +2,12 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { env, PHOTOS_BUCKET } from "./env";
 import { areUploadsFrozen } from "./event-settings";
-import type { ExportStatus } from "./export";
+import {
+  linkExpiresAt,
+  resolveExportState,
+  type ExportState,
+  type ExportStatus,
+} from "./export";
 import {
   belgradeClock,
   buildManifest,
@@ -35,7 +40,7 @@ export const EXPORT_STALE_MS = 3 * 60 * 1000;
 export type ExportJob = {
   kind: ExportKind;
   job_id: string;
-  state: "packing" | "ready" | "failed" | "cancelled";
+  state: ExportState;
   snapshot_frozen: boolean;
   total_count: number;
   done_count: number;
@@ -45,17 +50,30 @@ export type ExportJob = {
   crcs: (number | null)[];
   upload_url: string | null;
   error: string | null;
+  expires_at: string | null;
   updated_at: string;
 };
 
-export function exportJobStatus(job: ExportJob | null): ExportStatus {
-  if (!job) return { state: "packing", done: 0, total: 0, sizeBytes: null };
+export function exportJobState(job: ExportJob, now = new Date()): ExportState {
+  return resolveExportState(job.state, job.expires_at, now);
+}
+
+export function exportJobStatus(job: ExportJob | null, now = new Date()): ExportStatus {
+  if (!job) return { state: "packing", done: 0, total: 0, sizeBytes: null, expiresAt: null };
   return {
-    state: job.state,
+    state: exportJobState(job, now),
     done: job.done_count,
     total: job.total_count,
     sizeBytes: job.zip_size_bytes,
+    expiresAt: job.expires_at,
   };
+}
+
+// Cancelled or expired: the next prepare replaces the job instead of
+// reporting it.
+export function exportJobReplaceable(job: ExportJob, now = new Date()): boolean {
+  const state = exportJobState(job, now);
+  return state === "cancelled" || state === "expired";
 }
 
 export async function getExportJob(kind: ExportKind): Promise<ExportJob | null> {
@@ -129,6 +147,7 @@ async function freshJobRow(kind: ExportKind) {
     crcs: [],
     upload_url: null,
     error: null,
+    expires_at: null,
     updated_at: new Date().toISOString(),
   };
 }
@@ -158,7 +177,7 @@ async function replaceExportJob(job: ExportJob): Promise<boolean> {
 }
 
 // What a build worker sees: the job as it stands, created on demand only once
-// uploads are frozen. A cancelled job stays cancelled here.
+// uploads are frozen. A cancelled or expired job stays that way here.
 export async function ensureExportJob(kind: ExportKind): Promise<ExportJob | null> {
   const existing = await getExportJob(kind);
   if (existing) return existing;
@@ -170,13 +189,14 @@ export async function ensureExportJob(kind: ExportKind): Promise<ExportJob | nul
 export type PreparedExportJob = { job: ExportJob; created: boolean };
 
 // The explicit prepare action: hands back the live job, creating one when
-// there is none or the last one was cancelled. The admin zip can be prepared
-// while uploads are still open; the public zip only once they freeze.
+// there is none or the last one was cancelled or expired. The admin zip can
+// be prepared while uploads are still open; the public zip only once they
+// freeze.
 export async function prepareExportJob(
   kind: ExportKind,
 ): Promise<PreparedExportJob | null> {
   const existing = await getExportJob(kind);
-  if (existing && existing.state !== "cancelled") return { job: existing, created: false };
+  if (existing && !exportJobReplaceable(existing)) return { job: existing, created: false };
   if (kind === "public" && !(await areUploadsFrozen())) return null;
   const created = existing
     ? await replaceExportJob(existing)
@@ -214,13 +234,50 @@ async function patchJob(job: ExportJob, patch: Record<string, unknown>): Promise
   if ((data?.length ?? 0) === 0) throw new ExportSupersededError(`Export ${job.kind} superseded`);
 }
 
-export async function signedZipUrl(job: ExportJob): Promise<string | null> {
+// The signed URL never outlives the link's validity.
+export async function signedZipUrl(job: ExportJob, now = new Date()): Promise<string | null> {
+  const remainingSeconds = job.expires_at
+    ? Math.floor((Date.parse(job.expires_at) - now.getTime()) / 1000)
+    : SIGNED_URL_TTL_SECONDS;
+  if (remainingSeconds <= 0) return null;
   const { data, error } = await supabaseAdmin()
     .storage.from(EXPORTS_BUCKET)
-    .createSignedUrl(job.storage_path, SIGNED_URL_TTL_SECONDS, {
+    .createSignedUrl(job.storage_path, Math.min(SIGNED_URL_TTL_SECONDS, remainingSeconds), {
       download: job.kind === "public" ? "fotografije.zip" : "sve-fotografije.zip",
     });
   return error ? null : data.signedUrl;
+}
+
+// Removes the zip objects whose link validity lapsed before `now` and marks
+// their jobs expired, so the nightly run skips them next time. A storage
+// failure leaves the job for the next run. Resolves to the kinds purged.
+export async function purgeExpiredExports(now: Date): Promise<ExportKind[]> {
+  const supabase = supabaseAdmin();
+  const { data, error } = await supabase
+    .from("export_jobs")
+    .select("*")
+    .eq("state", "ready")
+    .lt("expires_at", now.toISOString());
+  if (error) throw new Error(`Listing expired exports failed: ${error.message}`);
+  const purged: ExportKind[] = [];
+  for (const job of (data ?? []) as ExportJob[]) {
+    const { error: storageError } = await supabase.storage
+      .from(EXPORTS_BUCKET)
+      .remove([job.storage_path]);
+    if (storageError) {
+      throw new Error(`Removing ${job.storage_path} failed: ${storageError.message}`);
+    }
+    const { error: updateError } = await supabase
+      .from("export_jobs")
+      .update({ state: "expired", updated_at: now.toISOString() })
+      .eq("kind", job.kind)
+      .eq("job_id", job.job_id);
+    if (updateError) {
+      throw new Error(`Expiring export ${job.kind} failed: ${updateError.message}`);
+    }
+    purged.push(job.kind);
+  }
+  return purged;
 }
 
 // Once uploads are frozen: a zip snapshotted while they were still open is
@@ -440,6 +497,7 @@ export async function runExportJob(
       state: "ready",
       done_count: job.total_count,
       error: null,
+      expires_at: linkExpiresAt(new Date()),
     });
     return { finished: true, retry: false };
   } catch (error) {

@@ -1,5 +1,5 @@
 // The event runs on Belgrade wall-clock time.
-const EVENT_TIME_ZONE = "Europe/Belgrade";
+export const EVENT_TIME_ZONE = "Europe/Belgrade";
 
 export const DEFAULT_EVENT_DATE_ISO = "2026-09-20";
 export const DEFAULT_FREEZE_OFFSET_DAYS = 7;
@@ -26,21 +26,25 @@ function utcOffsetAt(instant: Date): string {
   return name && name.length > 3 ? name.slice(3) : "+00:00";
 }
 
-// Uploads close at midnight (Belgrade) after the last day of the window.
-export function uploadFreezeAt(schedule: EventSchedule): Date {
-  const closesOn = addDays(schedule.eventDateIso, schedule.freezeOffsetDays);
+// The instant a Belgrade calendar day begins.
+export function belgradeMidnight(dateIso: string): Date {
   // The zone offset depends on the instant being computed, so guess with
   // summer time first and redo the arithmetic if that date is on winter time.
-  const guess = new Date(`${closesOn}T00:00:00+02:00`);
+  const guess = new Date(`${dateIso}T00:00:00+02:00`);
   const offset = utcOffsetAt(guess);
-  return offset === "+02:00" ? guess : new Date(`${closesOn}T00:00:00${offset}`);
+  return offset === "+02:00" ? guess : new Date(`${dateIso}T00:00:00${offset}`);
+}
+
+// Uploads close at midnight (Belgrade) after the last day of the window.
+export function uploadFreezeAt(schedule: EventSchedule): Date {
+  return belgradeMidnight(addDays(schedule.eventDateIso, schedule.freezeOffsetDays));
 }
 
 export function freezeDue(schedule: EventSchedule, now: Date): boolean {
   return now.getTime() >= uploadFreezeAt(schedule).getTime();
 }
 
-function belgradeDateIso(instant: Date): string {
+export function belgradeDateIso(instant: Date): string {
   // en-CA formats as YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: EVENT_TIME_ZONE,

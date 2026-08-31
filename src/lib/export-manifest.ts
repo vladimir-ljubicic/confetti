@@ -1,3 +1,4 @@
+import { EVENT_TIME_ZONE } from "./event-schedule";
 import type { DosClock } from "./zip";
 
 // One zip entry, snapshotted at freeze time. Stored in the job row so every
@@ -19,11 +20,9 @@ export type ExportPhoto = {
 
 export const UNKNOWN_UPLOADER_FOLDER = "Непознат гост";
 
-const TIMEZONE = "Europe/Belgrade";
-
 export function belgradeClock(iso: string): DosClock {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: TIMEZONE,
+    timeZone: EVENT_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
