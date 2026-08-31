@@ -791,7 +791,7 @@ export function UploadButton({
     <div
       className={
         variant === "floating"
-          ? `pointer-events-none sticky flex w-full flex-col items-center gap-3 px-3 ${
+          ? `pointer-events-none sticky mt-auto flex w-full flex-col items-center gap-3 px-3 ${
               bulkView ? "bottom-4" : "bottom-6"
             }`
           : "flex w-full flex-col items-center gap-3"

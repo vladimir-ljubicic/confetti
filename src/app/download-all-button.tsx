@@ -64,7 +64,7 @@ export function DownloadAllButton({
   }
 
   return (
-    <div className="pointer-events-none sticky bottom-6 flex w-full flex-col items-center gap-3 px-4">
+    <div className="pointer-events-none sticky bottom-6 mt-auto flex w-full flex-col items-center gap-3 px-4">
       {job.card && (
         <ExportJobCard
           card={job.card}
