@@ -13,6 +13,7 @@ import { useServerAction } from "./photo-controls";
 import { hideBrokenImage, renditionSrcs } from "./photo-image";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
+import { useSwipeDismiss } from "./use-swipe-dismiss";
 
 export type ViewerPhoto = PublicPhoto & { visibility?: Visibility };
 
@@ -300,6 +301,8 @@ export function PhotoViewer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [dismiss]);
 
+  const swipe = useSwipeDismiss(dismiss);
+
   // Snap-scroll position is the source of truth for `index` while the user
   // swipes; whenever the slide list changes (open, a photo hidden, or a
   // background refresh) the stage re-anchors to the photo it was standing on
@@ -492,11 +495,19 @@ export function PhotoViewer({
     <div
       role="dialog"
       aria-modal="true"
-      className={`fixed inset-0 z-50 flex flex-col bg-stage ${
+      className={`fixed inset-0 z-50 flex flex-col ${
         closing ? "viewer-out pointer-events-none" : "viewer-in"
       }`}
     >
-      <div className="flex items-center justify-between px-[18px] pt-[18px]">
+      <div
+        aria-hidden
+        style={swipe.fadeStyle}
+        className="absolute inset-0 -z-10 bg-stage"
+      />
+      <div
+        style={swipe.fadeStyle}
+        className="flex items-center justify-between px-[18px] pt-[18px]"
+      >
         <button
           type="button"
           onClick={dismiss}
@@ -511,71 +522,82 @@ export function PhotoViewer({
         <span className="w-6" />
       </div>
 
-      {/* overflow-anchor off: the track re-imposes its own position when the
-          slide list changes, and the browser's scroll anchoring would shift
-          it a second time. */}
+      {/* The open/close animations live one element above the swipe's
+          transform: a running animation overrides an inline transform on
+          the same element. */}
       <div
-        ref={trackRef}
-        onScroll={onScroll}
-        className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+        className={`flex min-h-0 flex-1 flex-col ${
           closing ? "viewer-photo-out" : "viewer-photo-in"
         }`}
       >
-        {trackStart > 0 && (
-          <div
-            aria-hidden
-            className="h-full flex-none"
-            style={{ width: `${trackStart * 100}%` }}
-          />
-        )}
-        {visible.slice(trackStart, trackEnd).map((photo, sliceIndex) => {
-          const slideIndex = trackStart + sliceIndex;
-          const srcs = renditionSrcs({
-            id: photo.id,
-            width: photo.width,
-            visibility: visibilityOverrides.get(photo.id) ?? photo.visibility,
-          });
-          return (
+        {/* overflow-anchor off: the track re-imposes its own position when
+            the slide list changes, and the browser's scroll anchoring would
+            shift it a second time. */}
+        <div
+          {...swipe.trackProps}
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {trackStart > 0 && (
             <div
-              key={photo.id}
-              onClick={(event) => {
-                if (event.target === event.currentTarget) dismiss();
-              }}
-              className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
-            >
-              <ViewerImage
-                src={srcs.thumb}
-                sharpSrc={srcs.viewer}
-                sharpen={Math.abs(slideIndex - currentIndex) <= 1}
-                alt={photoAltText(labels.alt, photo.uploader)}
-                onClick={(event) => tapPhoto(event, photo)}
-              />
-              {burst?.photoId === photo.id && (
-                <span
-                  key={burst.key}
-                  aria-hidden
-                  onAnimationEnd={() => setBurst(null)}
-                  className="heart-burst pointer-events-none absolute"
-                >
-                  <HeartIcon
-                    filled
-                    className="h-[92px] w-[92px] text-paper drop-shadow-[0_2px_16px_rgba(27,24,21,0.5)]"
-                  />
-                </span>
-              )}
-            </div>
-          );
-        })}
-        {trackEnd < visible.length && (
-          <div
-            aria-hidden
-            className="h-full flex-none"
-            style={{ width: `${(visible.length - trackEnd) * 100}%` }}
-          />
-        )}
+              aria-hidden
+              className="h-full flex-none"
+              style={{ width: `${trackStart * 100}%` }}
+            />
+          )}
+          {visible.slice(trackStart, trackEnd).map((photo, sliceIndex) => {
+            const slideIndex = trackStart + sliceIndex;
+            const srcs = renditionSrcs({
+              id: photo.id,
+              width: photo.width,
+              visibility: visibilityOverrides.get(photo.id) ?? photo.visibility,
+            });
+            return (
+              <div
+                key={photo.id}
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) dismiss();
+                }}
+                className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
+              >
+                <ViewerImage
+                  src={srcs.thumb}
+                  sharpSrc={srcs.viewer}
+                  sharpen={Math.abs(slideIndex - currentIndex) <= 1}
+                  alt={photoAltText(labels.alt, photo.uploader)}
+                  onClick={(event) => tapPhoto(event, photo)}
+                />
+                {burst?.photoId === photo.id && (
+                  <span
+                    key={burst.key}
+                    aria-hidden
+                    onAnimationEnd={() => setBurst(null)}
+                    className="heart-burst pointer-events-none absolute"
+                  >
+                    <HeartIcon
+                      filled
+                      className="h-[92px] w-[92px] text-paper drop-shadow-[0_2px_16px_rgba(27,24,21,0.5)]"
+                    />
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {trackEnd < visible.length && (
+            <div
+              aria-hidden
+              className="h-full flex-none"
+              style={{ width: `${(visible.length - trackEnd) * 100}%` }}
+            />
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center">
+      <div
+        style={swipe.fadeStyle}
+        className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center"
+      >
         {current.uploader &&
           // An empty publicId marks the guest's own profile view, where
           // navigating to their uploader page would be pointless.
@@ -637,7 +659,10 @@ export function PhotoViewer({
         </div>
       </div>
 
-      <div className="flex flex-col gap-[13px] px-[18px] pt-5 pb-[26px]">
+      <div
+        style={swipe.fadeStyle}
+        className="flex flex-col gap-[13px] px-[18px] pt-5 pb-[26px]"
+      >
         <div className="flex gap-[9px]">
           <a
             href={`/api/photos/${current.id}/download`}
