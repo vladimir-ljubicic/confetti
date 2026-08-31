@@ -113,8 +113,12 @@ export async function GalleryScreen({
           emptyLabel={dict.gallery.empty}
           guestEmptyLabel={dict.uploaderPage.empty}
           guestLabels={guestBarLabels(dict)}
+          // Keyed: these stream in after the grid's photos, and React's
+          // development build otherwise reports a missing key on a node that
+          // arrives late next to the view's own.
           header={
             <GalleryHeader
+              key="header"
               displayName={profile?.displayName ?? null}
               locale={locale}
               eventDateIso={settings.eventDateIso}
@@ -145,6 +149,7 @@ export async function GalleryScreen({
           footer={
             uploadsFrozen ? (
               <DownloadAllButton
+                key="footer"
                 buttonLabel={dict.gallery.downloadAll}
                 labels={dict.downloadSheet}
                 locale={locale}
@@ -154,6 +159,7 @@ export async function GalleryScreen({
               />
             ) : uploadsBlocked ? null : (
               <UploadButton
+                key="footer"
                 labels={dict.upload}
                 sheetLabels={dict.introSheet}
                 locale={locale}
