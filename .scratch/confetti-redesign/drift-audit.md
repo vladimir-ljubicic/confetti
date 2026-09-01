@@ -58,9 +58,6 @@ below use the new (ALIGN) numbering.
 - **No shared-element zoom** — generic fade+scale in/out; View Transitions API used only for locale switch and admin tabs, never photo→viewer; swipe-dismiss flings the photo off-screen instead of zooming back to the tile.
 - **No zoom gating** — the viewer has no photo zoom at all (double-tap is bound to like), so "vertical drag pans when zoomed" can't hold under browser pinch-zoom.
 
-### My photos (8b)
-- Select bar matches the **old** README, not v3: no quiet `2 / 12` in the top row; `Изабери све` is a plain top-row text button, not a checkbox chip in the action bar; deselect label `Одзначи све` vs spec `Опозови избор` (`profile-view.tsx:369-388`).
-
 ### Upload / offline
 - **Offline banner is the pink v2 design**: `bg-warning-bg #f7e9e3` + brown-orange `#8a4b2c` text (`offline-notice.tsx:32`) vs v3 "ivory banner, red `!`, red words, no pink surface".
 - Intro sheet rest state: heading block sits inside the scroller, not pinned (`intro-sheet.tsx:158-179`); compact state is correct.
