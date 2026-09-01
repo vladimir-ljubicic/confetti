@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { DISPLAY_NAME_MAX_LENGTH, type Visibility } from "@/lib/uploader-profile";
@@ -65,6 +65,7 @@ export function IntroSheet({
 }) {
   const titleId = useId();
   const { sheetProps, scrollProps, backdropStyle } = useSheetDismiss(onCancel);
+  const lastNameField = useRef<HTMLInputElement>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
@@ -72,6 +73,15 @@ export function IntroSheet({
   const [failed, setFailed] = useState(false);
 
   const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+  // Enter on the first field goes to the second rather than submitting the
+  // form, which is what the browser would otherwise do. While a keyboard is
+  // composing a word, Enter belongs to the composition.
+  function advanceToLastName(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    lastNameField.current?.focus();
+  }
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -155,39 +165,39 @@ export function IntroSheet({
           </div>
         )}
 
+        {!compact && (
+          <div className="flex shrink-0 flex-col items-center gap-[7px] px-[22px] pb-5 text-center">
+            <ConfettiMark size={22} variant="static" />
+            <h2 id={titleId} className="font-serif text-sheet-title font-medium text-gold-small">
+              {labels.title}
+            </h2>
+            <p className="text-body leading-[1.55] text-ink/55">
+              {labels.explainerLine1}
+              <br />
+              {labels.explainerLine2}
+            </p>
+          </div>
+        )}
+
         <div
           {...scrollProps}
           className={`flex min-h-0 flex-col overflow-y-auto overscroll-contain px-[22px] ${
             compact ? "gap-4 pt-4" : "gap-5"
           }`}
         >
-          {!compact && (
-            <div className="flex flex-col items-center gap-[7px] text-center">
-              <ConfettiMark size={22} variant="static" />
-              <h2
-                id={titleId}
-                className="font-serif text-sheet-title font-medium text-gold-small"
-              >
-                {labels.title}
-              </h2>
-              <p className="text-body leading-[1.55] text-ink/55">
-                {labels.explainerLine1}
-                <br />
-                {labels.explainerLine2}
-              </p>
-            </div>
-          )}
-
           <div className="flex gap-2.5">
             <label className="flex min-w-0 flex-1 flex-col gap-[7px]">
               <span className="eyebrow text-ink/50">{labels.firstNameLabel}</span>
               <input
                 required
                 type="text"
+                inputMode="text"
                 autoComplete="given-name"
+                autoCapitalize="words"
                 value={firstName}
                 maxLength={FIELD_MAX_LENGTH}
                 onChange={(event) => setFirstName(event.target.value)}
+                onKeyDown={advanceToLastName}
                 className="w-full touch-auto rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none focus:border-gold focus:bg-paper"
               />
             </label>
@@ -199,8 +209,11 @@ export function IntroSheet({
                 </span>
               </span>
               <input
+                ref={lastNameField}
                 type="text"
+                inputMode="text"
                 autoComplete="family-name"
+                autoCapitalize="words"
                 value={lastName}
                 maxLength={FIELD_MAX_LENGTH}
                 onChange={(event) => setLastName(event.target.value)}
