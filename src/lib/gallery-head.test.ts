@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { headCoversView, holdNewPhotos, mergeGallery } from "./gallery-head";
+import {
+  admitPhotos,
+  headCoversView,
+  holdNewPhotos,
+  mergeGallery,
+} from "./gallery-head";
 
 describe("headCoversView", () => {
   describe("with a gallery-wide head", () => {
@@ -124,5 +129,27 @@ describe("holdNewPhotos", () => {
       shown: [photo("a")],
       held: [],
     });
+  });
+});
+
+describe("admitPhotos", () => {
+  const photo = (id: string) => ({ id });
+
+  it("admits nothing while the gallery is still arriving", () => {
+    expect(admitPhotos(null, [photo("a")])).toBe(null);
+  });
+
+  it("admits the announced photos on top of what the grid already showed", () => {
+    expect(admitPhotos(new Set(["a"]), [photo("b"), photo("c")])).toEqual(
+      new Set(["a", "b", "c"]),
+    );
+  });
+
+  it("leaves every photo it was not given held", () => {
+    expect(admitPhotos(new Set(["a"]), [photo("b")])).toEqual(new Set(["a", "b"]));
+  });
+
+  it("leaves the grid as it was when nothing was announced", () => {
+    expect(admitPhotos(new Set(["a"]), [])).toEqual(new Set(["a"]));
   });
 });

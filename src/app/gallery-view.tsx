@@ -111,15 +111,18 @@ export function GalleryView({
     [ordered, guestId],
   );
 
-  // A guest's gallery announces only what it would itself show; the rest keep
-  // waiting until the whole gallery is back on screen.
+  // A guest's gallery announces only what it would itself show, and its pill
+  // admits only that: the rest keep waiting for the pill of the gallery they
+  // belong to, rather than entering under a scroll nobody was looking at.
   const heldHere = useMemo(
     () =>
       guestId === null
-        ? held.length
-        : held.filter((photo) => photo.uploader?.publicId === guestId).length,
+        ? held
+        : held.filter((photo) => photo.uploader?.publicId === guestId),
     [held, guestId],
   );
+
+  const revealHeldHere = useCallback(() => reveal(heldHere), [reveal, heldHere]);
 
   const likeTotal = useMemo(
     () => (complete ? sumLikes(photos) + sumLikes(held) : initialLikeTotal),
@@ -175,7 +178,7 @@ export function GalleryView({
 
   return (
     <SortProvider sort={sort} onChange={changeSort}>
-      <NewPhotosProvider count={heldHere} reveal={reveal}>
+      <NewPhotosProvider count={heldHere.length} reveal={revealHeldHere}>
         <GalleryStatsProvider
           count={complete || initialGuest === null ? photos.length : null}
           likeTotal={likeTotal}

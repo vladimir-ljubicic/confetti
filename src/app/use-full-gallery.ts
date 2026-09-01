@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  admitPhotos,
   holdNewPhotos,
   mergeGallery,
   type FullGallery,
@@ -30,12 +31,14 @@ const photoIds = (photos: PublicPhoto[]) =>
 // The first fetch is the gallery as the guest opened it, and enters whole.
 // After it, only the guest's own photos join the grid by themselves: everyone
 // else's wait in `held` until `reveal` admits them, so no photo inserts itself
-// under a scroll.
+// under a scroll. `reveal` admits the photos it is given rather than all of
+// `held` — the caller narrows the grid, so only the caller knows which of them
+// a pill just spoke for.
 export function useFullGallery(headPhotos: PublicPhoto[]): {
   photos: PublicPhoto[];
   complete: boolean;
   held: PublicPhoto[];
-  reveal: () => void;
+  reveal: (photos: PublicPhoto[]) => void;
 } {
   const [full, setFull] = useState<FullGallery<PublicPhoto> | null>(null);
 
@@ -120,7 +123,11 @@ export function useFullGallery(headPhotos: PublicPhoto[]): {
     [gallery, admitted],
   );
 
-  const reveal = useCallback(() => setAdmitted(photoIds(gallery)), [gallery]);
+  const reveal = useCallback(
+    (photos: PublicPhoto[]) =>
+      setAdmitted((current) => admitPhotos(current, photos)),
+    [],
+  );
 
   return { photos: shown, complete: full !== null, held, reveal };
 }

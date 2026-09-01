@@ -14,3 +14,13 @@ them.
       appear, others' are held
 
 Refs: ALIGN §2 6a; REVIEW §1; README 1a Loading.
+
+## Comments
+
+A pill admits only the photos it announced. `reveal` takes them rather than
+emptying `held`: on a guest's gallery the pill counts that guest's held photos,
+so admitting every held photo let the rest of the gallery in behind it — and
+the way back out restores its old scroll offset, dropping them in above the
+reader with no pill and no scroll to the top. `admitPhotos` in `gallery-head.ts`
+is the union, and `gallery-view.tsx` hands the pill the held photos its own
+grid would show.

@@ -42,6 +42,21 @@ export function mergeGallery<T extends { id: string }>(
   return merged;
 }
 
+// The ids the grid may show once the guest lets in the photos one pill
+// announced: what it was already showing, plus those alone — a pill speaks for
+// the gallery it hangs over, and photos outside that gallery keep waiting for
+// a pill of their own. Nothing is admitted while `admitted` is null, where the
+// grid is still showing everything and holds nothing back.
+export function admitPhotos<T extends { id: string }>(
+  admitted: ReadonlySet<string> | null,
+  photos: T[],
+): ReadonlySet<string> | null {
+  if (admitted === null) return null;
+  const next = new Set(admitted);
+  for (const photo of photos) next.add(photo.id);
+  return next;
+}
+
 // The gallery split into what the grid may show and what waits behind the
 // "new photos" pill. A photo the grid has already admitted stays, carrying
 // whatever fresher like count and place the gallery now gives it, and the
