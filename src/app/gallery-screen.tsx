@@ -167,6 +167,7 @@ export async function GalleryScreen({
                 key="footer"
                 labels={dict.upload}
                 sheetLabels={dict.introSheet}
+                recoveryLabels={dict.recovery}
                 locale={locale}
                 needsProfile={!profile}
                 limits={{

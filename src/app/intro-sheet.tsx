@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { INTL_LOCALES, type Locale } from "@/lib/i18n";
 import { DISPLAY_NAME_MAX_LENGTH, type Visibility } from "@/lib/uploader-profile";
 import { ConfettiMark } from "./confetti-mark";
+import { RecoverySheet, type RecoverySheetLabels } from "./recovery-sheet";
+import { SheetShell } from "./sheet-shell";
 import { useSheetDismiss } from "./use-sheet-dismiss";
 import { useVisualViewport } from "./use-visual-viewport";
 
@@ -30,7 +31,12 @@ export type IntroSheetLabels = {
   submitCompact: string;
   cancel: string;
   saveFailed: string;
+  recoverLink: string;
 };
+
+function announceProfile(displayName: string) {
+  window.dispatchEvent(new CustomEvent(PROFILE_SAVED_EVENT, { detail: { displayName } }));
+}
 
 // The two fields joined by a space must fit DISPLAY_NAME_MAX_LENGTH.
 const FIELD_MAX_LENGTH = Math.floor((DISPLAY_NAME_MAX_LENGTH - 1) / 2);
@@ -52,12 +58,14 @@ function submitLabel(labels: IntroSheetLabels, locale: Locale, count: number) {
 
 export function IntroSheet({
   labels,
+  recoveryLabels,
   locale,
   fileCount,
   onSaved,
   onCancel,
 }: {
   labels: IntroSheetLabels;
+  recoveryLabels: RecoverySheetLabels;
   locale: Locale;
   fileCount: number;
   onSaved: () => void;
@@ -71,6 +79,7 @@ export function IntroSheet({
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
   const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
@@ -94,9 +103,7 @@ export function IntroSheet({
         body: JSON.stringify({ displayName, defaultVisibility: visibility }),
       });
       if (!response.ok) throw new Error(`Saving profile failed (${response.status})`);
-      window.dispatchEvent(
-        new CustomEvent(PROFILE_SAVED_EVENT, { detail: { displayName } }),
-      );
+      announceProfile(displayName);
       onSaved();
     } catch (error) {
       console.error("Saving profile failed", error);
@@ -104,6 +111,16 @@ export function IntroSheet({
       setSaving(false);
     }
   }
+
+  const recoverButton = (
+    <button
+      type="button"
+      onClick={() => setRecovering(true)}
+      className="flex min-h-11 items-center px-2 text-[13px] text-gold-small underline underline-offset-4 transition hover:text-gold-deep active:text-gold-deep"
+    >
+      {labels.recoverLink}
+    </button>
+  );
 
   const visibilityCards = [
     ["public", labels.visibilityPublicTitle, labels.visibilityPublicSub],
@@ -115,30 +132,8 @@ export function IntroSheet({
   // visibility choice and the way out all stay in view above the keyboard.
   const compact = viewport !== null && viewport.height < COMPACT_BELOW_PX;
 
-  // Portaled: an ancestor is position:sticky, whose stacking context would
-  // otherwise trap the sheet below the gallery's sticky header bars. Sized to
-  // the visible part of the page, so a keyboard laid over the page (rather
-  // than shrinking it) still leaves the sheet fully on screen.
-  return createPortal(
-    <div
-      className="pointer-events-auto fixed inset-x-0 top-0 z-50"
-      style={
-        viewport
-          ? {
-              height: viewport.height,
-              transform: `translateY(${viewport.offsetTop}px)`,
-            }
-          : { height: "100%" }
-      }
-    >
-      <button
-        type="button"
-        aria-label={labels.cancel}
-        onClick={onCancel}
-        style={backdropStyle}
-        className="scrim-in absolute inset-0 cursor-default bg-ink/[0.42] [backdrop-filter:blur(3px)_opacity(0.5)]"
-      />
-
+  return (
+    <SheetShell closeLabel={labels.cancel} onCancel={onCancel} backdropStyle={backdropStyle}>
       <form
         role="dialog"
         aria-modal="true"
@@ -304,6 +299,7 @@ export function IntroSheet({
                 {labels.submitCompact.replace("{count}", String(fileCount))}
               </button>
             </div>
+            <div className="flex justify-center">{recoverButton}</div>
           </div>
         ) : (
           <div className="flex shrink-0 flex-col gap-5 px-[22px] pt-5 pb-[26px]">
@@ -316,17 +312,30 @@ export function IntroSheet({
             >
               {submitLabel(labels, locale, fileCount)}
             </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex min-h-11 items-center self-center text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
-            >
-              {labels.cancel}
-            </button>
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="flex min-h-11 items-center px-2 text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
+              >
+                {labels.cancel}
+              </button>
+              {recoverButton}
+            </div>
           </div>
         )}
       </form>
-    </div>,
-    document.body,
+
+      {recovering && (
+        <RecoverySheet
+          labels={recoveryLabels}
+          onRecovered={(recoveredName) => {
+            if (recoveredName) announceProfile(recoveredName);
+            onSaved();
+          }}
+          onCancel={() => setRecovering(false)}
+        />
+      )}
+    </SheetShell>
   );
 }

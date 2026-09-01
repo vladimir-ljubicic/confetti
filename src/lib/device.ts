@@ -18,6 +18,12 @@ export async function getOrCreateDeviceId(): Promise<string> {
   const existing = await getDeviceId();
   if (existing) return existing;
   const id = crypto.randomUUID();
-  (await cookies()).set(DEVICE_COOKIE, id, longLivedHttpOnlyCookie());
+  await setDeviceId(id);
   return id;
+}
+
+// The uploader id is the device identity, so handing this device a recovered
+// uploader's id is the whole of the re-link.
+export async function setDeviceId(id: string): Promise<void> {
+  (await cookies()).set(DEVICE_COOKIE, id, longLivedHttpOnlyCookie());
 }

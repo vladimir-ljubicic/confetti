@@ -105,6 +105,7 @@ function EmptyGalleryBody({
           variant={hasTiles ? "floating" : "inline"}
           labels={dict.upload}
           sheetLabels={dict.introSheet}
+          recoveryLabels={dict.recovery}
           locale={locale}
           needsProfile={needsProfile}
           limits={limits}

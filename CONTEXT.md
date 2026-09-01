@@ -8,6 +8,9 @@ Wedding photo-sharing gallery: guests upload photos via an event link, browse an
 A person who opened the event link and can upload photos and like others'. The code's persistence term is `uploader`.
 _Avoid_: User, visitor
 
+**Recovery code**:
+The six characters a guest carries between devices. Their identity is otherwise the device cookie alone, so a cleared browser or a new phone would orphan their photos for good. The code is minted with their uploader record and never changes after; redeeming it on another device hands that device the identity and folds whatever it had already gathered — its photos and its likes — into it. Its alphabet leaves out I, L, O and U, so a code cannot be misread and cannot spell a word, and redeeming reads I and L back as 1 and O as 0. Wrong guesses are counted per device and capped.
+
 **Photo visibility**:
 A photo is either public (shown in galleries) or private (visible only to its owner and the admin).
 

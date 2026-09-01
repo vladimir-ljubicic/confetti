@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { formatRecoveryCode } from "@/lib/recovery-code";
 import { selectionView } from "@/lib/selection-view";
 import type { Visibility } from "@/lib/uploader-profile";
 import { LocaleToggle } from "../locale-toggle";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import { PrivateBadge } from "../private-badge";
+import { RecoverySheet, type RecoverySheetLabels } from "../recovery-sheet";
 import { revealTile } from "../reveal-tile";
 import { SelectEntry } from "../select-entry";
 import {
@@ -47,6 +49,11 @@ export type ProfileLabels = SelectModeLabels & {
   filterPrivate: string;
   privateBadge: string;
   photoAlt: string;
+  recoveryTitle: string;
+  recoveryHint: string;
+  recoveryCopy: string;
+  recoveryCopied: string;
+  recoveryEnter: string;
   localeAriaLabel: string;
 };
 
@@ -142,20 +149,101 @@ function DefaultVisibilityCard({
   );
 }
 
+const COPIED_LABEL_MS = 2000;
+
+function RecoveryCard({ code, labels }: { code: string; labels: ProfileLabels }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), COPIED_LABEL_MS);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(formatRecoveryCode(code));
+      setCopied(true);
+    } catch (error) {
+      console.error("Copying the recovery code failed", error);
+    }
+  }
+
+  return (
+    <section className="mx-3.5 mb-3.5 flex items-center justify-between gap-3 rounded-card bg-sand px-4 py-[13px]">
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <span className="eyebrow text-ink-muted">{labels.recoveryTitle}</span>
+        <span className="font-mono text-[19px] tracking-[0.18em] text-ink">
+          {formatRecoveryCode(code)}
+        </span>
+        <p className="text-[13px] leading-[1.4] text-ink/70">{labels.recoveryHint}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => void copy()}
+        className="flex min-h-11 shrink-0 items-center rounded-pill bg-card px-3.5 text-meta text-ink-muted transition hover:text-ink active:text-ink"
+      >
+        {copied ? labels.recoveryCopied : labels.recoveryCopy}
+      </button>
+    </section>
+  );
+}
+
+// The way back for a guest whose device has no identity at all: a cleared
+// browser, or a phone that has never been here.
+function RecoveryEntry({
+  labels,
+  recoveryLabels,
+}: {
+  labels: ProfileLabels;
+  recoveryLabels: RecoverySheetLabels;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mx-3.5 mb-3.5 flex min-h-11 items-center justify-center rounded-card border border-ink/14 px-4 text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
+      >
+        {labels.recoveryEnter}
+      </button>
+      {open && (
+        <RecoverySheet
+          labels={recoveryLabels}
+          onRecovered={() => {
+            setOpen(false);
+            router.refresh();
+          }}
+          onCancel={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
 export function ProfileView({
   photos,
   defaultVisibility,
   displayName,
+  recoveryCode,
   locale,
   labels,
+  recoveryLabels,
   viewerLabels,
   download,
 }: {
   photos: OwnPhoto[];
   defaultVisibility: Visibility | null;
   displayName: string | null;
+  // Null when this device carries no identity, which is who the way back in
+  // is offered to.
+  recoveryCode: string | null;
   locale: Locale;
   labels: ProfileLabels;
+  recoveryLabels: RecoverySheetLabels;
   viewerLabels: ViewerLabels;
   // Server-rendered download surface, threaded through so it can quote the
   // guest's own zip as the server knows it.
@@ -256,6 +344,12 @@ export function ProfileView({
 
       {defaultVisibility && (
         <DefaultVisibilityCard value={defaultVisibility} labels={labels} />
+      )}
+
+      {recoveryCode ? (
+        <RecoveryCard code={recoveryCode} labels={labels} />
+      ) : (
+        <RecoveryEntry labels={labels} recoveryLabels={recoveryLabels} />
       )}
 
       {all.length === 0 ? (

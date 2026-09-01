@@ -347,7 +347,7 @@ export async function signedZipUrl(job: ExportJob, now = new Date()): Promise<st
   return error ? null : data.signedUrl;
 }
 
-async function removeZipObject(path: string): Promise<void> {
+export async function removeZipObject(path: string): Promise<void> {
   const { error } = await supabaseAdmin().storage.from(EXPORTS_BUCKET).remove([path]);
   if (error) throw new Error(`Removing ${path} failed: ${error.message}`);
 }

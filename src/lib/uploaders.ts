@@ -1,11 +1,13 @@
 import "server-only";
+import { generateRecoveryCode } from "./recovery-code";
 import { supabaseAdmin } from "./supabase-server";
-import type { Visibility } from "./uploader-profile";
+import type { ProfileRequest, Visibility } from "./uploader-profile";
 
 export type UploaderProfile = {
   displayName: string;
   defaultVisibility: Visibility;
   uploadsBlocked: boolean;
+  recoveryCode: string;
 };
 
 export type PublicUploader = {
@@ -42,7 +44,7 @@ export async function getUploaderProfile(
 ): Promise<UploaderProfile | null> {
   const { data, error } = await supabaseAdmin()
     .from("uploaders")
-    .select("display_name, default_visibility, uploads_blocked")
+    .select("display_name, default_visibility, uploads_blocked, recovery_code")
     .eq("id", deviceId)
     .maybeSingle();
   if (error) throw new Error(`Loading uploader failed: ${error.message}`);
@@ -51,5 +53,30 @@ export async function getUploaderProfile(
     displayName: data.display_name,
     defaultVisibility: data.default_visibility as Visibility,
     uploadsBlocked: data.uploads_blocked as boolean,
+    recoveryCode: data.recovery_code as string,
   };
+}
+
+// Postgres unique_violation: two devices drew the same recovery code.
+const UNIQUE_VIOLATION = "23505";
+const MINT_RETRIES = 3;
+
+// Returns the guest's recovery code, minted on the way in and unchanged by
+// every later save.
+export async function saveUploaderProfile(
+  deviceId: string,
+  profile: ProfileRequest,
+): Promise<string> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { data, error } = await supabaseAdmin().rpc("save_uploader_profile", {
+      device_id: deviceId,
+      display_name: profile.displayName,
+      default_visibility: profile.defaultVisibility,
+      recovery_code: generateRecoveryCode(),
+    });
+    if (!error) return data as string;
+    if (error.code !== UNIQUE_VIOLATION || attempt >= MINT_RETRIES) {
+      throw new Error(`Saving profile failed: ${error.message}`);
+    }
+  }
 }

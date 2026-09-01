@@ -75,8 +75,10 @@ export default async function MyPhotosPage() {
         photos={own.photos}
         defaultVisibility={profile?.defaultVisibility ?? null}
         displayName={profile?.displayName ?? null}
+        recoveryCode={profile?.recoveryCode ?? null}
         locale={locale}
         labels={{ ...dict.myPhotos, localeAriaLabel: dict.localeToggle.ariaLabel }}
+        recoveryLabels={dict.recovery}
         viewerLabels={viewerLabels(dict)}
         download={
           <DownloadMineButton

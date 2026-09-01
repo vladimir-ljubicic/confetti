@@ -35,6 +35,7 @@ import {
   type RetryRun,
 } from "./failure-sheet";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
+import type { RecoverySheetLabels } from "./recovery-sheet";
 import { useSort } from "./sort-context";
 import { BatchSummary, BulkMiniBar } from "./upload-minibar";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
@@ -303,6 +304,7 @@ async function runUploadPool<T>(
 export function UploadButton({
   labels,
   sheetLabels,
+  recoveryLabels,
   locale,
   needsProfile,
   limits,
@@ -311,6 +313,7 @@ export function UploadButton({
 }: {
   labels: UploadLabels;
   sheetLabels: IntroSheetLabels;
+  recoveryLabels: RecoverySheetLabels;
   locale: Locale;
   needsProfile: boolean;
   limits: UploadLimitProps;
@@ -1307,6 +1310,7 @@ export function UploadButton({
       {dialogOpen && (
         <IntroSheet
           labels={sheetLabels}
+          recoveryLabels={recoveryLabels}
           locale={locale}
           fileCount={pendingFiles.length}
           onSaved={() => {
