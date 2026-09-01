@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_EXPORT,
+  exportAutoCreates,
+  exportDownloadName,
+  exportStoragePath,
+  exportTakesPrivate,
+  exportTargetQuery,
+  parseExportTarget,
+  PUBLIC_EXPORT,
+  uploaderExport,
   formatDayMonth,
   linkExpiresAt,
   resolveExportState,
@@ -132,5 +141,47 @@ describe("parsePrepareRequest", () => {
     expect(parsePrepareRequest(null)).toEqual({ includePrivate: true });
     expect(parsePrepareRequest({})).toEqual({ includePrivate: true });
     expect(parsePrepareRequest({ includePrivate: "no" })).toEqual({ includePrivate: true });
+  });
+});
+
+const GUEST = "11111111-2222-3333-4444-555555555555";
+
+describe("export targets", () => {
+  it("gives each target its own object in the bucket", () => {
+    expect(exportStoragePath(PUBLIC_EXPORT)).toBe("public.zip");
+    expect(exportStoragePath(ADMIN_EXPORT)).toBe("admin.zip");
+    expect(exportStoragePath(uploaderExport(GUEST))).toBe(`uploader/${GUEST}.zip`);
+  });
+
+  it("names the download after whose photos it holds", () => {
+    expect(exportDownloadName(PUBLIC_EXPORT)).toBe("fotografije.zip");
+    expect(exportDownloadName(ADMIN_EXPORT)).toBe("sve-fotografije.zip");
+    expect(exportDownloadName(uploaderExport(GUEST))).toBe("moje-fotografije.zip");
+  });
+
+  it("keeps private photos out of the public zip only", () => {
+    expect(exportTakesPrivate(PUBLIC_EXPORT)).toBe(false);
+    expect(exportTakesPrivate(ADMIN_EXPORT)).toBe(true);
+    expect(exportTakesPrivate(uploaderExport(GUEST))).toBe(true);
+  });
+
+  it("never creates a guest's zip without being asked", () => {
+    expect(exportAutoCreates(PUBLIC_EXPORT)).toBe(true);
+    expect(exportAutoCreates(ADMIN_EXPORT)).toBe(true);
+    expect(exportAutoCreates(uploaderExport(GUEST))).toBe(false);
+  });
+
+  it("round-trips through the build worker's query string", () => {
+    for (const target of [PUBLIC_EXPORT, ADMIN_EXPORT, uploaderExport(GUEST)]) {
+      const params = new URLSearchParams(exportTargetQuery(target));
+      expect(parseExportTarget(params.get("kind"), params.get("uploader"))).toEqual(target);
+    }
+  });
+
+  it("rejects a mismatched kind and uploader", () => {
+    expect(parseExportTarget("uploader", null)).toBeNull();
+    expect(parseExportTarget("public", GUEST)).toBeNull();
+    expect(parseExportTarget("nope", null)).toBeNull();
+    expect(parseExportTarget(null, null)).toBeNull();
   });
 });

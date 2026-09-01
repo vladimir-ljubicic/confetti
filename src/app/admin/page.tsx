@@ -3,7 +3,7 @@ import { parseAdminFilter } from "@/lib/admin-filter";
 import { loadAdminPhotos, loadAdminSummary } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { getEventSettings } from "@/lib/event-settings";
-import { formatSize } from "@/lib/export";
+import { ADMIN_EXPORT, formatSize } from "@/lib/export";
 import { exportJobReplaceable, exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
@@ -45,7 +45,7 @@ export default async function AdminPage({
     loadAdminSummary(),
     loadAdminPhotos({ filter }),
     getEventSettings(),
-    getExportJob("admin").catch(() => null),
+    getExportJob(ADMIN_EXPORT).catch(() => null),
   ]);
   const exportJob = job && !exportJobReplaceable(job) ? job : null;
 

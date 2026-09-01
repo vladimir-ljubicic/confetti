@@ -3,10 +3,19 @@ import { randomUUID } from "node:crypto";
 import { env, PHOTOS_BUCKET } from "./env";
 import { areUploadsFrozen } from "./event-settings";
 import {
+  exportAutoCreates,
+  exportDownloadName,
+  exportStoragePath,
+  exportTakesPrivate,
+  exportTargetQuery,
+  exportUploaderId,
   linkExpiresAt,
   resolveExportState,
+  SHARED_EXPORT_TARGETS,
+  type ExportKind,
   type ExportState,
   type ExportStatus,
+  type ExportTarget,
 } from "./export";
 import {
   belgradeClock,
@@ -26,9 +35,6 @@ import {
   type ZipPlan,
 } from "./zip";
 
-export type ExportKind = "public" | "admin";
-export const EXPORT_KINDS: ExportKind[] = ["public", "admin"];
-
 export const EXPORTS_BUCKET = "exports";
 const SIGNED_URL_TTL_SECONDS = 24 * 60 * 60;
 // Supabase's resumable endpoint expects fixed 6 MiB chunks (except the last).
@@ -39,6 +45,7 @@ export const EXPORT_STALE_MS = 3 * 60 * 1000;
 
 export type ExportJob = {
   kind: ExportKind;
+  uploader_id: string | null;
   job_id: string;
   state: ExportState;
   snapshot_frozen: boolean;
@@ -54,6 +61,12 @@ export type ExportJob = {
   expires_at: string | null;
   updated_at: string;
 };
+
+export function exportJobTarget(job: ExportJob): ExportTarget {
+  return job.uploader_id === null
+    ? { kind: job.kind as "public" | "admin" }
+    : { kind: "uploader", uploaderId: job.uploader_id };
+}
 
 export function exportJobState(job: ExportJob, now = new Date()): ExportState {
   return resolveExportState(job.state, job.expires_at, now);
@@ -77,12 +90,30 @@ export function exportJobReplaceable(job: ExportJob, now = new Date()): boolean 
   return state === "cancelled" || state === "expired";
 }
 
-export async function getExportJob(kind: ExportKind): Promise<ExportJob | null> {
-  const { data, error } = await supabaseAdmin()
-    .from("export_jobs")
-    .select("*")
-    .eq("kind", kind)
-    .maybeSingle();
+// The filters that pick out one target's row: the shared zips are the rows
+// without an uploader. Typed against the two methods it calls, since threading
+// a Supabase builder's own type through a generic blows the instantiation
+// depth.
+type TargetFilters = {
+  eq(column: string, value: string): TargetFilters;
+  is(column: string, value: null): TargetFilters;
+};
+
+function atTarget<T>(query: T, target: ExportTarget): T {
+  const uploaderId = exportUploaderId(target);
+  const scoped = (query as TargetFilters).eq("kind", target.kind);
+  return (
+    uploaderId === null
+      ? scoped.is("uploader_id", null)
+      : scoped.eq("uploader_id", uploaderId)
+  ) as T;
+}
+
+export async function getExportJob(target: ExportTarget): Promise<ExportJob | null> {
+  const { data, error } = await atTarget(
+    supabaseAdmin().from("export_jobs").select("*"),
+    target,
+  ).maybeSingle();
   if (error) throw new Error(`Loading export job failed: ${error.message}`);
   return (data as ExportJob | null) ?? null;
 }
@@ -94,7 +125,11 @@ export function exportJobStale(job: ExportJob, now: Date): boolean {
   );
 }
 
-async function snapshotPhotos(includePrivate: boolean): Promise<ExportPhoto[]> {
+async function snapshotPhotos(
+  target: ExportTarget,
+  includePrivate: boolean,
+): Promise<ExportPhoto[]> {
+  const uploaderId = exportUploaderId(target);
   const photos: ExportPhoto[] = [];
   for (let from = 0; ; from += SNAPSHOT_PAGE) {
     let query = supabaseAdmin()
@@ -106,6 +141,7 @@ async function snapshotPhotos(includePrivate: boolean): Promise<ExportPhoto[]> {
       .is("deleted_at", null)
       .order("id", { ascending: true })
       .range(from, from + SNAPSHOT_PAGE - 1);
+    if (uploaderId !== null) query = query.eq("uploader_id", uploaderId);
     if (!includePrivate) query = query.eq("visibility", "public");
     const { data, error } = await query;
     if (error) throw new Error(`Snapshotting photos failed: ${error.message}`);
@@ -129,20 +165,37 @@ async function snapshotPhotos(includePrivate: boolean): Promise<ExportPhoto[]> {
   }
 }
 
-// Only the admin zip can hold private photos; left to itself it does.
-function canIncludePrivate(kind: ExportKind): boolean {
-  return kind === "admin";
+async function livePhotoCount(uploaderId: string): Promise<number> {
+  const { count, error } = await supabaseAdmin()
+    .from("photos")
+    .select("id", { count: "exact", head: true })
+    .eq("uploader_id", uploaderId)
+    .not("uploaded_at", "is", null)
+    .is("deleted_at", null);
+  if (error) throw new Error(`Counting a guest's photos failed: ${error.message}`);
+  return count ?? 0;
+}
+
+// A guest's own zip is a snapshot of photos they are still adding to, so a
+// finished one falls out of date as soon as their count moves. One still
+// packing is already building the snapshot they just asked for, and replacing
+// it would strand the upload it has in flight. The shared zips snapshot the
+// frozen gallery, which no longer moves.
+async function exportJobOutdated(job: ExportJob): Promise<boolean> {
+  if (job.uploader_id === null || job.state === "packing") return false;
+  return (await livePhotoCount(job.uploader_id)) !== job.total_count;
 }
 
 // The manifest, the private-photos choice and total zip size are locked in
 // when the job is created and never recomputed; a fresh job_id marks each
 // (re)creation.
-async function freshJobRow(kind: ExportKind, includePrivate: boolean) {
+async function freshJobRow(target: ExportTarget, includePrivate: boolean) {
   const snapshotFrozen = await areUploadsFrozen();
-  const manifest = buildManifest(await snapshotPhotos(includePrivate));
+  const manifest = buildManifest(await snapshotPhotos(target, includePrivate));
   const plan = planZip(manifest);
   return {
-    kind,
+    kind: target.kind,
+    uploader_id: exportUploaderId(target),
     job_id: randomUUID(),
     state: "packing" as const,
     snapshot_frozen: snapshotFrozen,
@@ -150,7 +203,7 @@ async function freshJobRow(kind: ExportKind, includePrivate: boolean) {
     total_count: manifest.length,
     done_count: 0,
     zip_size_bytes: plan.totalSize,
-    storage_path: `${kind}.zip`,
+    storage_path: exportStoragePath(target),
     manifest,
     crcs: [],
     upload_url: null,
@@ -162,11 +215,14 @@ async function freshJobRow(kind: ExportKind, includePrivate: boolean) {
 
 // Resolves to whether this call created the row; a concurrent creator wins
 // the conflict and this one adopts its job.
-async function insertExportJob(kind: ExportKind, includePrivate: boolean): Promise<boolean> {
+async function insertExportJob(
+  target: ExportTarget,
+  includePrivate: boolean,
+): Promise<boolean> {
   const { data, error } = await supabaseAdmin()
     .from("export_jobs")
-    .upsert(await freshJobRow(kind, includePrivate), {
-      onConflict: "kind",
+    .upsert(await freshJobRow(target, includePrivate), {
+      onConflict: "kind,uploader_id",
       ignoreDuplicates: true,
     })
     .select("kind");
@@ -181,61 +237,72 @@ async function replaceExportJob(
   job: ExportJob,
   includePrivate = job.include_private,
 ): Promise<boolean> {
-  const { data, error } = await supabaseAdmin()
-    .from("export_jobs")
-    .update(await freshJobRow(job.kind, includePrivate))
-    .eq("kind", job.kind)
+  const target = exportJobTarget(job);
+  const { data, error } = await atTarget(
+    supabaseAdmin()
+      .from("export_jobs")
+      .update(await freshJobRow(target, includePrivate)),
+    target,
+  )
     .eq("job_id", job.job_id)
     .select("kind");
   if (error) throw new Error(`Replacing export job failed: ${error.message}`);
   return (data?.length ?? 0) > 0;
 }
 
-// What a build worker sees: the job as it stands, created on demand only once
-// uploads are frozen. A cancelled or expired job stays that way here.
-export async function ensureExportJob(kind: ExportKind): Promise<ExportJob | null> {
-  const existing = await getExportJob(kind);
+// What a build worker sees: the job as it stands. A shared zip is created on
+// demand once uploads are frozen; a guest's own zip is never created here, only
+// by their prepare. A cancelled or expired job stays that way.
+export async function ensureExportJob(target: ExportTarget): Promise<ExportJob | null> {
+  const existing = await getExportJob(target);
   if (existing) return existing;
-  if (!(await areUploadsFrozen())) return null;
-  await insertExportJob(kind, canIncludePrivate(kind));
-  return getExportJob(kind);
+  if (!exportAutoCreates(target) || !(await areUploadsFrozen())) return null;
+  await insertExportJob(target, exportTakesPrivate(target));
+  return getExportJob(target);
 }
 
 export type PreparedExportJob = { job: ExportJob; created: boolean };
 
 // The explicit prepare action: hands back the live job, creating one when
-// there is none, the last one was cancelled or expired, or the live one holds
-// a different private-photos choice. The admin zip can be prepared while
-// uploads are still open; the public zip only once they freeze, and it never
-// takes private photos.
+// there is none, the last one was cancelled or expired, the live one holds a
+// different private-photos choice, or — for a guest's own zip — their photos
+// have moved since it was snapshotted. The admin zip and a guest's own can be
+// prepared while uploads are still open; the public zip only once they freeze,
+// and it never takes private photos.
 export async function prepareExportJob(
-  kind: ExportKind,
+  target: ExportTarget,
   includePrivate: boolean,
 ): Promise<PreparedExportJob | null> {
-  const wanted = includePrivate && canIncludePrivate(kind);
-  const existing = await getExportJob(kind);
-  if (existing && !exportJobReplaceable(existing) && existing.include_private === wanted) {
+  const wanted = includePrivate && exportTakesPrivate(target);
+  const existing = await getExportJob(target);
+  if (
+    existing &&
+    !exportJobReplaceable(existing) &&
+    existing.include_private === wanted &&
+    !(await exportJobOutdated(existing))
+  ) {
     return { job: existing, created: false };
   }
-  if (kind === "public" && !(await areUploadsFrozen())) return null;
+  if (target.kind === "public" && !(await areUploadsFrozen())) return null;
   const created = existing
     ? await replaceExportJob(existing, wanted)
-    : await insertExportJob(kind, wanted);
-  const job = await getExportJob(kind);
+    : await insertExportJob(target, wanted);
+  const job = await getExportJob(target);
   if (!job) throw new Error("Export job vanished while preparing");
   return { job, created };
 }
 
 // Cancels the job only while it is packing; resolves to the job as it stands
 // either way.
-export async function cancelExportJob(kind: ExportKind): Promise<ExportJob | null> {
-  const { error } = await supabaseAdmin()
-    .from("export_jobs")
-    .update({ state: "cancelled", updated_at: new Date().toISOString() })
-    .eq("kind", kind)
-    .eq("state", "packing");
+export async function cancelExportJob(target: ExportTarget): Promise<ExportJob | null> {
+  const { error } = await atTarget(
+    supabaseAdmin()
+      .from("export_jobs")
+      .update({ state: "cancelled", updated_at: new Date().toISOString() }),
+    target,
+  ).eq("state", "packing");
   if (error) throw new Error(`Cancelling export job failed: ${error.message}`);
-  return getExportJob(kind);
+  return getExportJob(target);
 }
 
 // Thrown when a progress write finds the job no longer packing under the same
@@ -243,15 +310,19 @@ export async function cancelExportJob(kind: ExportKind): Promise<ExportJob | nul
 class ExportSupersededError extends Error {}
 
 async function patchJob(job: ExportJob, patch: Record<string, unknown>): Promise<void> {
-  const { data, error } = await supabaseAdmin()
-    .from("export_jobs")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("kind", job.kind)
+  const { data, error } = await atTarget(
+    supabaseAdmin()
+      .from("export_jobs")
+      .update({ ...patch, updated_at: new Date().toISOString() }),
+    exportJobTarget(job),
+  )
     .eq("job_id", job.job_id)
     .eq("state", "packing")
     .select("kind");
   if (error) throw new Error(`Updating export job failed: ${error.message}`);
-  if ((data?.length ?? 0) === 0) throw new ExportSupersededError(`Export ${job.kind} superseded`);
+  if ((data?.length ?? 0) === 0) {
+    throw new ExportSupersededError(`Export ${job.storage_path} superseded`);
+  }
 }
 
 // The signed URL never outlives the link's validity.
@@ -263,15 +334,20 @@ export async function signedZipUrl(job: ExportJob, now = new Date()): Promise<st
   const { data, error } = await supabaseAdmin()
     .storage.from(EXPORTS_BUCKET)
     .createSignedUrl(job.storage_path, Math.min(SIGNED_URL_TTL_SECONDS, remainingSeconds), {
-      download: job.kind === "public" ? "fotografije.zip" : "sve-fotografije.zip",
+      download: exportDownloadName(exportJobTarget(job)),
     });
   return error ? null : data.signedUrl;
 }
 
+async function removeZipObject(path: string): Promise<void> {
+  const { error } = await supabaseAdmin().storage.from(EXPORTS_BUCKET).remove([path]);
+  if (error) throw new Error(`Removing ${path} failed: ${error.message}`);
+}
+
 // Removes the zip objects whose link validity lapsed before `now` and marks
 // their jobs expired, so the nightly run skips them next time. A storage
-// failure leaves the job for the next run. Resolves to the kinds purged.
-export async function purgeExpiredExports(now: Date): Promise<ExportKind[]> {
+// failure leaves the job for the next run. Resolves to the zips purged.
+export async function purgeExpiredExports(now: Date): Promise<string[]> {
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from("export_jobs")
@@ -279,42 +355,39 @@ export async function purgeExpiredExports(now: Date): Promise<ExportKind[]> {
     .eq("state", "ready")
     .lt("expires_at", now.toISOString());
   if (error) throw new Error(`Listing expired exports failed: ${error.message}`);
-  const purged: ExportKind[] = [];
+  const purged: string[] = [];
   for (const job of (data ?? []) as ExportJob[]) {
-    const { error: storageError } = await supabase.storage
-      .from(EXPORTS_BUCKET)
-      .remove([job.storage_path]);
-    if (storageError) {
-      throw new Error(`Removing ${job.storage_path} failed: ${storageError.message}`);
-    }
-    const { error: updateError } = await supabase
-      .from("export_jobs")
-      .update({ state: "expired", updated_at: now.toISOString() })
-      .eq("kind", job.kind)
-      .eq("job_id", job.job_id);
+    await removeZipObject(job.storage_path);
+    const { error: updateError } = await atTarget(
+      supabase
+        .from("export_jobs")
+        .update({ state: "expired", updated_at: now.toISOString() }),
+      exportJobTarget(job),
+    ).eq("job_id", job.job_id);
     if (updateError) {
-      throw new Error(`Expiring export ${job.kind} failed: ${updateError.message}`);
+      throw new Error(`Expiring export ${job.storage_path} failed: ${updateError.message}`);
     }
-    purged.push(job.kind);
+    purged.push(job.storage_path);
   }
   return purged;
 }
 
 // Once uploads are frozen: a zip snapshotted while they were still open is
 // replaced, and every build without a live worker is started. Idempotent, so
-// both the freeze and its daily check call it. Resolves to the kinds kicked.
+// both the freeze and its daily check call it. A guest's own zip is theirs to
+// ask for, so the sweep leaves it alone. Resolves to the kinds kicked.
 export async function startFrozenExportBuilds(origin: string): Promise<ExportKind[]> {
   const kicked: ExportKind[] = [];
-  for (const kind of EXPORT_KINDS) {
-    let job = await getExportJob(kind);
+  for (const target of SHARED_EXPORT_TARGETS) {
+    let job = await getExportJob(target);
     let replaced = false;
     if (job && !job.snapshot_frozen && (await replaceExportJob(job))) {
-      job = await getExportJob(kind);
+      job = await getExportJob(target);
       replaced = true;
     }
     if (!job || replaced || exportJobStale(job, new Date())) {
-      await kickExportBuild(origin, kind);
-      kicked.push(kind);
+      await kickExportBuild(origin, target);
+      kicked.push(target.kind);
     }
   }
   return kicked;
@@ -322,13 +395,14 @@ export async function startFrozenExportBuilds(origin: string): Promise<ExportKin
 
 export const EXPORT_BUILD_PATH = "/api/export/build";
 
-export function kickExportBuild(origin: string, kind: ExportKind): Promise<void> {
-  return fetch(`${origin}${EXPORT_BUILD_PATH}?kind=${kind}`, {
+export function kickExportBuild(origin: string, target: ExportTarget): Promise<void> {
+  const query = exportTargetQuery(target);
+  return fetch(`${origin}${EXPORT_BUILD_PATH}?${query}`, {
     method: "POST",
     headers: { authorization: `Bearer ${env.cronSecret()}` },
   }).then(
     () => undefined,
-    (error) => console.error(`Kicking ${kind} export build failed`, error),
+    (error) => console.error(`Kicking export build (${query}) failed`, error),
   );
 }
 
@@ -439,10 +513,10 @@ export type ExportRunResult = { finished: boolean; retry: boolean };
 // chunks. Every upload offset is a 6 MiB multiple, so a later invocation can
 // resume by regenerating bytes from the entry that spans the stored offset.
 export async function runExportJob(
-  kind: ExportKind,
+  target: ExportTarget,
   deadline: number,
 ): Promise<ExportRunResult> {
-  const job = await ensureExportJob(kind);
+  const job = await ensureExportJob(target);
   if (!job || job.state !== "packing") return { finished: true, retry: false };
 
   try {
@@ -453,6 +527,9 @@ export async function runExportJob(
     let uploadUrl = job.upload_url;
     let resumedOffset = uploadUrl ? await tusOffset(uploadUrl) : null;
     if (uploadUrl === null || resumedOffset === null) {
+      // A job that was replaced or cancelled mid-upload leaves the object
+      // holding its key, and a fresh resumable upload cannot write over one.
+      await removeZipObject(job.storage_path);
       uploadUrl = await createTusUpload(job.storage_path, plan.totalSize);
       resumedOffset = 0;
       await patchJob(job, { upload_url: uploadUrl });
@@ -523,7 +600,7 @@ export async function runExportJob(
   } catch (error) {
     if (error instanceof ExportSupersededError) return { finished: true, retry: false };
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Export ${kind} packing failed`, error);
+    console.error(`Export ${exportStoragePath(target)} packing failed`, error);
     await patchJob(job, {
       ...(error instanceof FatalExportError ? { state: "failed" } : {}),
       error: message,

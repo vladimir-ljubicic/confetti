@@ -1,10 +1,18 @@
 import { getDeviceId } from "@/lib/device";
+import { uploaderExport } from "@/lib/export";
+import {
+  exportJobReplaceable,
+  exportJobStatus,
+  getExportJob,
+  type ExportJob,
+} from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadViewerLikes } from "@/lib/public-photos";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { getUploaderProfile, type UploaderProfile } from "@/lib/uploaders";
 import { viewerLabels } from "../viewer-labels";
+import { DownloadMineButton } from "./download-mine";
 import { ProfileView, type OwnPhoto } from "./profile-view";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +25,16 @@ type OwnPhotoRow = {
   uploaded_at: string;
   image_width: number | null;
   image_height: number | null;
+  size_bytes: number;
 };
 
-async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
+type OwnPhotos = { photos: OwnPhoto[]; totalBytes: number };
+
+async function loadOwnPhotos(deviceId: string): Promise<OwnPhotos> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height, size_bytes",
     )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)
@@ -32,16 +43,19 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   if (error) throw new Error(`Loading own photos failed: ${error.message}`);
   const rows = data as OwnPhotoRow[];
   const viewerLikes = await loadViewerLikes(deviceId);
-  return rows.map((photo) => ({
-    id: photo.id,
-    uploadedAt: photo.uploaded_at,
-    width: photo.image_width,
-    height: photo.image_height,
-    originalFilename: photo.original_filename,
-    visibility: photo.visibility,
-    likeCount: photo.like_count,
-    likedByViewer: viewerLikes.has(photo.id),
-  }));
+  return {
+    photos: rows.map((photo) => ({
+      id: photo.id,
+      uploadedAt: photo.uploaded_at,
+      width: photo.image_width,
+      height: photo.image_height,
+      originalFilename: photo.original_filename,
+      visibility: photo.visibility,
+      likeCount: photo.like_count,
+      likedByViewer: viewerLikes.has(photo.id),
+    })),
+    totalBytes: rows.reduce((sum, photo) => sum + photo.size_bytes, 0),
+  };
 }
 
 export default async function MyPhotosPage() {
@@ -50,23 +64,42 @@ export default async function MyPhotosPage() {
 
   const deviceId = await getDeviceId();
   let profile: UploaderProfile | null = null;
-  let photos: OwnPhoto[] = [];
+  let own: OwnPhotos = { photos: [], totalBytes: 0 };
+  let job: ExportJob | null = null;
   if (deviceId) {
-    [profile, photos] = await Promise.all([
+    [profile, own, job] = await Promise.all([
       getUploaderProfile(deviceId),
       loadOwnPhotos(deviceId),
+      getExportJob(uploaderExport(deviceId)).catch(() => null),
     ]);
   }
+  // A cancelled or expired job is one the next prepare replaces, so it stands
+  // for no zip the guest can be offered.
+  const exportJob = job && !exportJobReplaceable(job) ? job : null;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <ProfileView
-        photos={photos}
+        photos={own.photos}
         defaultVisibility={profile?.defaultVisibility ?? null}
         displayName={profile?.displayName ?? null}
         locale={locale}
         labels={{ ...dict.myPhotos, localeAriaLabel: dict.localeToggle.ariaLabel }}
         viewerLabels={viewerLabels(dict)}
+        download={
+          <DownloadMineButton
+            labels={{
+              ...dict.downloadSheet,
+              title: dict.myPhotos.download,
+              intro: dict.myPhotos.downloadIntro,
+              download: dict.myPhotos.download,
+            }}
+            locale={locale}
+            photoCount={own.photos.length}
+            sizeBytes={own.totalBytes}
+            initialStatus={exportJob ? exportJobStatus(exportJob) : null}
+          />
+        }
       />
     </main>
   );

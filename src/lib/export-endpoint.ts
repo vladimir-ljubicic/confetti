@@ -4,8 +4,10 @@ import { areUploadsFrozen } from "./event-settings";
 import {
   EXPORT_EXPIRED_STATUS,
   EXPORT_PACKING_STATUS,
+  exportAutoCreates,
   parsePrepareRequest,
   type ExportStatus,
+  type ExportTarget,
 } from "./export";
 import {
   cancelExportJob,
@@ -15,7 +17,6 @@ import {
   kickExportBuild,
   prepareExportJob,
   signedZipUrl,
-  type ExportKind,
 } from "./export-jobs";
 import { jsonError } from "./http";
 
@@ -35,19 +36,19 @@ function statusResponse(status: ExportStatus): NextResponse {
 // 202 while packing, 410 once the link has expired — never 404, so forwarded
 // links keep answering.
 export async function exportResponse(
-  kind: ExportKind,
+  target: ExportTarget,
   request: Request,
 ): Promise<NextResponse> {
-  const job = await getExportJob(kind);
+  const job = await getExportJob(target);
   const status = exportJobStatus(job);
 
   // Self-healing: traffic kicks a build that never started or lost its worker.
   const shouldKick = job
     ? exportJobStale(job, new Date())
-    : await areUploadsFrozen().catch(() => false);
+    : exportAutoCreates(target) && (await areUploadsFrozen().catch(() => false));
   if (shouldKick) {
     const origin = new URL(request.url).origin;
-    after(() => kickExportBuild(origin, kind));
+    after(() => kickExportBuild(origin, target));
   }
 
   if (!job || status.state !== "ready") return statusResponse(status);
@@ -61,22 +62,22 @@ export async function exportResponse(
 
 // Prepare: makes sure a job exists and has a worker, then reports its status.
 export async function prepareExportResponse(
-  kind: ExportKind,
+  target: ExportTarget,
   request: Request,
 ): Promise<NextResponse> {
   const { includePrivate } = parsePrepareRequest(await request.json().catch(() => null));
-  const prepared = await prepareExportJob(kind, includePrivate);
+  const prepared = await prepareExportJob(target, includePrivate);
   if (!prepared) return jsonError("Uploads are still open", 409);
   const { job, created } = prepared;
   if (job.state === "packing" && (created || exportJobStale(job, new Date()))) {
     const origin = new URL(request.url).origin;
-    after(() => kickExportBuild(origin, kind));
+    after(() => kickExportBuild(origin, target));
   }
   return statusResponse(exportJobStatus(job));
 }
 
-export async function cancelExportResponse(kind: ExportKind): Promise<NextResponse> {
-  const job = await cancelExportJob(kind);
+export async function cancelExportResponse(target: ExportTarget): Promise<NextResponse> {
+  const job = await cancelExportJob(target);
   if (!job) return jsonError("Nothing to cancel", 409);
   return statusResponse(exportJobStatus(job));
 }

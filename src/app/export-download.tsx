@@ -207,6 +207,41 @@ export function useExportJob(
   };
 }
 
+// The sheet's half of a download surface, which all three of them share: the
+// button opens the sheet, a prepare that lands closes it and leaves the job to
+// the card, and one that does not says so where the guest is still looking.
+export function useExportSurface(
+  endpoint: string,
+  initialStatus: ExportStatus | null,
+  cancelPath: string | null = null,
+) {
+  const job = useExportJob(endpoint, initialStatus, cancelPath);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const { prepare: prepareJob } = job;
+
+  const prepare = useCallback(
+    async (options?: PrepareRequest) => {
+      setChecking(true);
+      setFailed(false);
+      if (await prepareJob(options)) setSheetOpen(false);
+      else setFailed(true);
+      setChecking(false);
+    },
+    [prepareJob],
+  );
+
+  const open = useCallback(() => {
+    setSheetOpen(true);
+    setFailed(false);
+  }, []);
+
+  const close = useCallback(() => setSheetOpen(false), []);
+
+  return { job, sheetOpen, checking, failed, open, close, prepare };
+}
+
 export function ExportJobCard({
   card,
   labels,

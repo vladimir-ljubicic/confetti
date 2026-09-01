@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   ExportJobCard,
   ExportSheet,
-  useExportJob,
+  useExportSurface,
   type DownloadSheetLabels,
   type ExportSheetRow,
 } from "@/app/export-download";
@@ -43,14 +43,15 @@ export function AdminDownloadRow({
   liveZip: LiveExportZip | null;
   initialStatus: ExportStatus | null;
 }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [includePrivate, setIncludePrivate] = useState(
     liveZip?.includePrivate ?? DEFAULT_INCLUDE_PRIVATE,
   );
-  const job = useExportJob(EXPORT_ADMIN_PATH, initialStatus, EXPORT_ADMIN_CANCEL_PATH);
-  const cancel = job.cancel;
+  const surface = useExportSurface(
+    EXPORT_ADMIN_PATH,
+    initialStatus,
+    EXPORT_ADMIN_CANCEL_PATH,
+  );
+  const cancel = surface.job.cancel;
 
   const zipAsChosen = liveZip?.includePrivate === includePrivate ? liveZip : null;
   const count =
@@ -74,7 +75,7 @@ export function AdminDownloadRow({
           ]}
           value={includePrivate}
           onChange={setIncludePrivate}
-          disabled={checking}
+          disabled={surface.checking}
         />
       ),
     },
@@ -88,26 +89,17 @@ export function AdminDownloadRow({
       : []),
   ];
 
-  async function prepare() {
-    setChecking(true);
-    setFailed(false);
-    const ok = await job.prepare({ includePrivate });
-    if (ok) setSheetOpen(false);
-    else setFailed(true);
-    setChecking(false);
-  }
-
   return (
     <>
-      {job.card && (
+      {surface.job.card && (
         <ExportJobCard
-          card={job.card}
+          card={surface.job.card}
           labels={labels}
           locale={locale}
-          copied={job.copied}
-          onDownload={job.downloadNow}
-          onCopy={job.copyStableLink}
-          onDismiss={job.dismissCard}
+          copied={surface.job.copied}
+          onDownload={surface.job.downloadNow}
+          onCopy={surface.job.copyStableLink}
+          onDismiss={surface.job.dismissCard}
           onCancel={cancel ? () => void cancel() : undefined}
           className="mb-2"
         />
@@ -115,24 +107,21 @@ export function AdminDownloadRow({
 
       <button
         type="button"
-        onClick={() => {
-          setSheetOpen(true);
-          setFailed(false);
-        }}
+        onClick={surface.open}
         className="flex items-center justify-between gap-3 rounded-b-card border border-t-0 border-ink/10 bg-card px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand"
       >
         <span className="text-sm text-ink">{rowLabel}</span>
         <span className="text-[13px] whitespace-nowrap text-ink/50">{rowValue}</span>
       </button>
 
-      {sheetOpen && (
+      {surface.sheetOpen && (
         <ExportSheet
           labels={labels}
           rows={rows}
-          failed={failed}
-          checking={checking}
-          onPrepare={() => void prepare()}
-          onCancel={() => setSheetOpen(false)}
+          failed={surface.failed}
+          checking={surface.checking}
+          onPrepare={() => void surface.prepare({ includePrivate })}
+          onCancel={surface.close}
         />
       )}
     </>

@@ -100,8 +100,11 @@ The drag that closes the full-screen viewer, upwards or downwards alike: past 11
 **Photo zoom**:
 The travel of one photo between its gallery tile and the viewer's stage, in both directions, as a single picture moving rather than one appearing over another. It leaves from the tile the guest tapped and returns to the tile of the last photo they saw, wherever swiping through the viewer left them, while the gallery around it dissolves into the dark stage. The tile stands empty for as long as the stage holds its photo: one photo is in one place. Where a browser cannot run it the viewer fades in and out instead, and the dismiss drag flings the photo off screen.
 
+**Export target**:
+Whose photos a ZIP holds. Two are shared, packed once for everyone: the public gallery, and the admin's — public photos, plus private ones when the admin asks for them. The third is a guest's own, every photo their device uploaded and private ones with it, and there is one of those per guest.
+
 **Export job**:
-The server-side packing of one ZIP per kind (public gallery, or admin: public photos, plus private ones when the admin asks for them). Preparing it starts the job or restarts a cancelled or expired one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin ZIP at any time, and the freeze replaces a ZIP whose snapshot was taken while uploads were open. The private-photos choice is part of the snapshot: preparing with the other choice replaces the live admin ZIP.
+The server-side packing of one ZIP per export target. Preparing it starts the job or restarts a cancelled or expired one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin's and a guest's own at any time. The freeze replaces a shared ZIP whose snapshot was taken while uploads were open and leaves a guest's own alone — theirs exists only once they ask for it. The private-photos choice is part of the snapshot: preparing with the other choice replaces the live admin ZIP.
 
 **Link validity**:
 The week a ready ZIP stays downloadable, counted from the moment it became ready; the ready card states the last day. Past it the job is expired: the stable link answers 410, the nightly purge removes the ZIP object, and the ZIP has to be prepared again.

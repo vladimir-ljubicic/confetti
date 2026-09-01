@@ -4,6 +4,7 @@ import {
   DEFAULT_FREEZE_OFFSET_DAYS,
 } from "@/lib/event-schedule";
 import { getEventSettings } from "@/lib/event-settings";
+import { PUBLIC_EXPORT } from "@/lib/export";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import {
@@ -67,7 +68,7 @@ export async function GalleryScreen({
     isAdmin(),
     // Only the frozen gallery shows it, but asking alongside the rest keeps it
     // off the critical path once frozen — which is where the gallery stays.
-    getExportJob("public").catch(() => null),
+    getExportJob(PUBLIC_EXPORT).catch(() => null),
   ]);
   const uploadsFrozen = settings.uploadsFrozen;
 

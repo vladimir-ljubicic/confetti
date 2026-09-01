@@ -2,21 +2,92 @@ import { addDays, belgradeDateIso, belgradeMidnight } from "./event-schedule";
 import { belgradeClock } from "./export-manifest";
 import { estimateRemainingMs } from "./upload-eta";
 
+// Whose photos a zip holds. The two shared zips are built once for everyone:
+// public holds the public gallery, admin holds everything the couple can see.
+// A guest's own zip holds their photos alone, public and private alike.
+export type ExportKind = "public" | "admin" | "uploader";
+
+export type ExportTarget =
+  | { kind: "public" | "admin" }
+  | { kind: "uploader"; uploaderId: string };
+
+export const PUBLIC_EXPORT: ExportTarget = { kind: "public" };
+export const ADMIN_EXPORT: ExportTarget = { kind: "admin" };
+export const SHARED_EXPORT_TARGETS: ExportTarget[] = [PUBLIC_EXPORT, ADMIN_EXPORT];
+
+export function uploaderExport(uploaderId: string): ExportTarget {
+  return { kind: "uploader", uploaderId };
+}
+
+export function exportUploaderId(target: ExportTarget): string | null {
+  return target.kind === "uploader" ? target.uploaderId : null;
+}
+
+// How a target crosses a URL, so the build worker can be kicked for one.
+export function exportTargetQuery(target: ExportTarget): string {
+  const uploaderId = exportUploaderId(target);
+  return `kind=${target.kind}${uploaderId ? `&uploader=${uploaderId}` : ""}`;
+}
+
+export function parseExportTarget(
+  kind: string | null,
+  uploaderId: string | null,
+): ExportTarget | null {
+  if (kind === "public" || kind === "admin") return uploaderId ? null : { kind };
+  if (kind === "uploader" && uploaderId) return { kind, uploaderId };
+  return null;
+}
+
+// One object per target in the exports bucket; a guest's sits in its own folder.
+export function exportStoragePath(target: ExportTarget): string {
+  const uploaderId = exportUploaderId(target);
+  return uploaderId ? `uploader/${uploaderId}.zip` : `${target.kind}.zip`;
+}
+
+// What each kind of zip is: the name the browser saves it under, whether
+// private photos may go in, and whether traffic alone may create it. A guest's
+// own is theirs to ask for, so nothing creates it on their behalf.
+const EXPORT_KINDS: Record<
+  ExportKind,
+  { downloadName: string; takesPrivate: boolean; autoCreates: boolean }
+> = {
+  public: { downloadName: "fotografije.zip", takesPrivate: false, autoCreates: true },
+  admin: { downloadName: "sve-fotografije.zip", takesPrivate: true, autoCreates: true },
+  uploader: { downloadName: "moje-fotografije.zip", takesPrivate: true, autoCreates: false },
+};
+
+export function exportDownloadName(target: ExportTarget): string {
+  return EXPORT_KINDS[target.kind].downloadName;
+}
+
+export function exportTakesPrivate(target: ExportTarget): boolean {
+  return EXPORT_KINDS[target.kind].takesPrivate;
+}
+
+export function exportAutoCreates(target: ExportTarget): boolean {
+  return EXPORT_KINDS[target.kind].autoCreates;
+}
+
 // Contract for the export endpoints. GET: 302 to a fresh signed URL when the
 // zip is ready (JSON status instead when the client asks for
 // application/json), 202 Accepted while it is still packing, 410 Gone once
 // the link's validity has lapsed; never 404. POST: prepares the zip — creates
 // the job when there is none or the last one was cancelled or expired — and
-// answers with the same JSON status. POST on the cancel path cancels a
-// packing admin job (409 when there is nothing to cancel).
+// answers with the same JSON status. POST on a cancel path cancels that
+// target's packing job (409 when there is nothing to cancel).
 // The public zip holds public photos only and exists once uploads freeze; the
 // admin zip sits behind the admin session, can be prepared at any time — the
 // freeze then replaces a zip prepared earlier — and takes the private-photos
 // choice in the POST body; preparing with a different choice replaces the
-// live zip.
+// live zip. The own-photos zip sits behind the device cookie, holds every
+// photo that device uploaded, and can likewise be prepared at any time; since
+// the guest keeps uploading, preparing it again once their photos have moved
+// replaces it rather than handing back the older snapshot.
 // A ready zip stays downloadable for a week; after that the object is purged
 // and the zip has to be prepared again.
 export const EXPORT_PUBLIC_PATH = "/api/export/public";
+export const EXPORT_MINE_PATH = "/api/export/mine";
+export const EXPORT_MINE_CANCEL_PATH = "/api/export/mine/cancel";
 export const EXPORT_ADMIN_PATH = "/api/export/admin";
 export const EXPORT_ADMIN_CANCEL_PATH = "/api/export/admin/cancel";
 export const EXPORT_PACKING_STATUS = 202;

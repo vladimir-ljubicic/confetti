@@ -1,5 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { parseExportTarget } from "@/lib/export";
 import { kickExportBuild, runExportJob } from "@/lib/export-jobs";
 import { jsonError } from "@/lib/http";
 
@@ -16,14 +17,15 @@ export async function POST(request: Request) {
     return jsonError("Unauthorized", 401);
   }
   const url = new URL(request.url);
-  const kind = url.searchParams.get("kind");
-  if (kind !== "public" && kind !== "admin") {
-    return jsonError("Unknown export kind", 400);
-  }
+  const target = parseExportTarget(
+    url.searchParams.get("kind"),
+    url.searchParams.get("uploader"),
+  );
+  if (!target) return jsonError("Unknown export target", 400);
 
   after(async () => {
-    const result = await runExportJob(kind, Date.now() + BUDGET_MS);
-    if (!result.finished && result.retry) await kickExportBuild(url.origin, kind);
+    const result = await runExportJob(target, Date.now() + BUDGET_MS);
+    if (!result.finished && result.retry) await kickExportBuild(url.origin, target);
   });
   return NextResponse.json({ started: true }, { status: 202 });
 }

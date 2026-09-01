@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
 import { EXPORT_PUBLIC_PATH, formatSize, type ExportStatus } from "@/lib/export";
 import type { Locale } from "@/lib/i18n";
 import {
   ExportJobCard,
   ExportSheet,
-  useExportJob,
+  useExportSurface,
   type DownloadSheetLabels,
 } from "./export-download";
 import { useGalleryCount } from "./gallery-stats";
 
-// Guest variant of the download surface: frozen-gallery button, 13a sheet
-// over the public zip (no private-photo row), 13b/13c job card above it.
+// Gallery variant of the download surface: a pinned button under the frozen
+// gallery, a sheet over the public zip (no private-photo row, which only the
+// couple choose), and the job card above it.
 export function DownloadAllButton({
   buttonLabel,
   labels,
@@ -30,10 +30,7 @@ export function DownloadAllButton({
   sizeBytes: number | null;
   initialStatus: ExportStatus | null;
 }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const job = useExportJob(EXPORT_PUBLIC_PATH, initialStatus);
+  const surface = useExportSurface(EXPORT_PUBLIC_PATH, initialStatus);
   const galleryCount = useGalleryCount();
 
   const rows = [
@@ -54,49 +51,37 @@ export function DownloadAllButton({
       : []),
   ];
 
-  async function prepare() {
-    setChecking(true);
-    setFailed(false);
-    const ok = await job.prepare();
-    if (ok) setSheetOpen(false);
-    else setFailed(true);
-    setChecking(false);
-  }
-
   return (
     <div className="pointer-events-none sticky bottom-6 mt-auto flex w-full flex-col items-center gap-3 px-4">
-      {job.card && (
+      {surface.job.card && (
         <ExportJobCard
-          card={job.card}
+          card={surface.job.card}
           labels={labels}
           locale={locale}
-          copied={job.copied}
-          onDownload={job.downloadNow}
-          onCopy={job.copyStableLink}
-          onDismiss={job.dismissCard}
+          copied={surface.job.copied}
+          onDownload={surface.job.downloadNow}
+          onCopy={surface.job.copyStableLink}
+          onDismiss={surface.job.dismissCard}
           className="pointer-events-auto"
         />
       )}
 
       <button
         type="button"
-        onClick={() => {
-          setSheetOpen(true);
-          setFailed(false);
-        }}
+        onClick={surface.open}
         className="pointer-events-auto rounded-pill border border-ink/18 bg-card px-[26px] py-4 text-base font-medium text-gold-small shadow-[0_10px_24px_-14px_rgb(43_38_32/0.4)] transition hover:bg-gold-tint active:bg-sand"
       >
         {buttonLabel}
       </button>
 
-      {sheetOpen && (
+      {surface.sheetOpen && (
         <ExportSheet
           labels={labels}
           rows={rows}
-          failed={failed}
-          checking={checking}
-          onPrepare={() => void prepare()}
-          onCancel={() => setSheetOpen(false)}
+          failed={surface.failed}
+          checking={surface.checking}
+          onPrepare={() => void surface.prepare()}
+          onCancel={surface.close}
         />
       )}
     </div>

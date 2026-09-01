@@ -1,9 +1,10 @@
+import { PUBLIC_EXPORT } from "@/lib/export";
 import { exportResponse, prepareExportResponse } from "@/lib/export-endpoint";
 
 export async function GET(request: Request) {
-  return exportResponse("public", request);
+  return exportResponse(PUBLIC_EXPORT, request);
 }
 
 export async function POST(request: Request) {
-  return prepareExportResponse("public", request);
+  return prepareExportResponse(PUBLIC_EXPORT, request);
 }
