@@ -115,6 +115,7 @@ export async function GalleryScreen({
           guestEmptyLabel={dict.uploaderPage.empty}
           guestLabels={guestBarLabels(dict)}
           backToTopLabel={dict.gallery.backToTop}
+          scrubLabels={dict.scrubRail}
           // Keyed: these stream in after the grid's photos, and React's
           // development build otherwise reports a missing key on a node that
           // arrives late next to the view's own.

@@ -19,6 +19,7 @@ import { shortUploaderName } from "@/lib/uploader-name";
 import { LikePill } from "./like-pill";
 import { hideBrokenImage, publicThumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
+import { useScrubbing } from "./scrub-rail";
 import { UploadTileView } from "./upload-tile";
 import { useAddressedEntry } from "./use-history-entry";
 import { useLikes } from "./use-likes";
@@ -195,6 +196,7 @@ export function PhotoGrid({
 }) {
   const queue = useUploadQueue();
   const likes = useLikes();
+  const scrubbing = useScrubbing();
   const [viewerStartId, setViewerStartId] = useState<string | null>(null);
   const tiles = useMemo(
     () => (showUploadTiles ? (queue?.tiles ?? []) : []),
@@ -369,97 +371,106 @@ export function PhotoGrid({
 
   return (
     <>
-      <div
-        ref={gridRef}
-        className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26"
-      >
-        {columns.map((column, columnIndex) => {
-          const { start, end, topSpacer, bottomSpacer } = windows[columnIndex];
-          return (
-            <ul
-              key={columnIndex}
-              ref={columnIndex === 0 ? columnRef : undefined}
-              className="flex flex-col gap-2"
-            >
-              {topSpacer > 0 && <li aria-hidden style={{ height: topSpacer }} />}
-              {column.slice(start, end).map(({ entry, order }) => {
-                if (entry.kind === "tile") {
-                  return (
-                    queue && (
-                      <UploadTileView
-                        key={`tile-${entry.tile.id}`}
-                        tile={entry.tile}
-                        labels={queue.labels}
-                        likes={likes}
-                        likeLabels={likeLabels}
-                        offline={queue.offline}
-                      />
-                    )
+        <div
+          ref={gridRef}
+          className="grid w-full grid-cols-2 items-start gap-2 px-3 pb-26"
+        >
+          {columns.map((column, columnIndex) => {
+            const { start, end, topSpacer, bottomSpacer } = windows[columnIndex];
+            return (
+              <ul
+                key={columnIndex}
+                ref={columnIndex === 0 ? columnRef : undefined}
+                className="flex flex-col gap-2"
+              >
+                {topSpacer > 0 && <li aria-hidden style={{ height: topSpacer }} />}
+                {column.slice(start, end).map(({ entry, order }) => {
+                  if (entry.kind === "tile") {
+                    return (
+                      queue && (
+                        <UploadTileView
+                          key={`tile-${entry.tile.id}`}
+                          tile={entry.tile}
+                          labels={queue.labels}
+                          likes={likes}
+                          likeLabels={likeLabels}
+                          offline={queue.offline}
+                        />
+                      )
+                    );
+                  }
+                  const image = (
+                    <GalleryImage
+                      src={publicThumbSrc(entry.photo.id)}
+                      alt={photoAltText(altLabels, entry.photo.uploader)}
+                      width={entry.photo.width}
+                      height={entry.photo.height}
+                      eager={order < EAGER_TILES}
+                      {...absorbProps(entry.photo)}
+                    />
                   );
-                }
-                const image = (
-                  <GalleryImage
-                    src={publicThumbSrc(entry.photo.id)}
-                    alt={photoAltText(altLabels, entry.photo.uploader)}
-                    width={entry.photo.width}
-                    height={entry.photo.height}
-                    eager={order < EAGER_TILES}
-                    {...absorbProps(entry.photo)}
-                  />
-                );
-                return (
-                  <li
-                    key={entry.photo.id}
-                    style={{ aspectRatio: tileAspect(entry.photo) }}
-                    // A photo taking over from its own upload tile is already
-                    // on screen and must not fade in a second time.
-                    className={`group relative overflow-hidden rounded-tile bg-sand ${
-                      absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
-                    }`}
-                  >
-                    {viewer ? (
-                      <button
-                        type="button"
-                        aria-label={viewer.labels.open}
-                        onClick={() => {
-                          clearAddressed();
-                          setViewerStartId(entry.photo.id);
-                        }}
-                        className="block h-full w-full"
-                      >
-                        {image}
-                      </button>
-                    ) : (
-                      image
-                    )}
-                    {showUploader && entry.photo.uploader && onSelectUploader && (
-                      <UploaderLabel
-                        uploader={entry.photo.uploader}
-                        onSelect={onSelectUploader}
-                      />
-                    )}
-                    {likeLabels && (
-                      <LikePill
-                        state={likes.stateFor(entry.photo.id, {
-                          liked: entry.photo.likedByViewer,
-                          count: entry.photo.likeCount,
-                        })}
-                        onToggle={() =>
-                          void likes.toggle(entry.photo.id, {
-                            liked: entry.photo.likedByViewer,
-                            count: entry.photo.likeCount,
-                          })
-                        }
-                        labels={likeLabels}
-                      />
-                    )}
-                    {downloadLabel && (
-                      <a
-                        href={`/api/photos/${entry.photo.id}/download`}
-                        className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
-                      >
-                        {downloadLabel}
-                      </a>
+                  return (
+                    <li
+                      key={entry.photo.id}
+                      style={{ aspectRatio: tileAspect(entry.photo) }}
+                      // A photo taking over from its own upload tile is already
+                      // on screen and must not fade in a second time.
+                      className={`group relative overflow-hidden rounded-tile bg-sand ${
+                        absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
+                      }`}
+                    >
+                      {/* A drag down the rail passes hundreds of tiles at a
+                          stroke. Each keeps its place and the flat ground it
+                          stands on until the finger lifts, so the handful the
+                          drag comes to rest on are the only ones whose images
+                          are ever asked for. */}
+                      {!scrubbing && (
+                        <>
+                        {viewer ? (
+                          <button
+                            type="button"
+                            aria-label={viewer.labels.open}
+                            onClick={() => {
+                              clearAddressed();
+                              setViewerStartId(entry.photo.id);
+                            }}
+                            className="block h-full w-full"
+                          >
+                            {image}
+                          </button>
+                        ) : (
+                          image
+                        )}
+                        {showUploader && entry.photo.uploader && onSelectUploader && (
+                          <UploaderLabel
+                            uploader={entry.photo.uploader}
+                            onSelect={onSelectUploader}
+                          />
+                        )}
+                        {likeLabels && (
+                          <LikePill
+                            state={likes.stateFor(entry.photo.id, {
+                              liked: entry.photo.likedByViewer,
+                              count: entry.photo.likeCount,
+                            })}
+                            onToggle={() =>
+                              void likes.toggle(entry.photo.id, {
+                                liked: entry.photo.likedByViewer,
+                                count: entry.photo.likeCount,
+                              })
+                            }
+                            labels={likeLabels}
+                          />
+                        )}
+                        {downloadLabel && (
+                          <a
+                            href={`/api/photos/${entry.photo.id}/download`}
+                            className="absolute right-2 bottom-2 rounded-full bg-white/80 px-3 py-1 text-xs text-ink opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
+                          >
+                            {downloadLabel}
+                          </a>
+                        )}
+                      </>
                     )}
                   </li>
                 );

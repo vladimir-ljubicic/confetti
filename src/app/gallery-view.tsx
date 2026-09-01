@@ -13,6 +13,7 @@ import { headCoversView } from "@/lib/gallery-head";
 import type { Locale } from "@/lib/i18n";
 import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
+import type { ScrubLabels } from "@/lib/scrub-rail";
 import { comparePhotos, sumLikes, type SortMode } from "@/lib/sort-mode";
 import { restartLatest, resumeSort, type SortScroll } from "@/lib/sort-scroll";
 import { BackToTop } from "./back-to-top";
@@ -22,6 +23,7 @@ import { GuestBar, type GuestBarLabels } from "./guest-bar";
 import { NewPhotosProvider } from "./new-photos";
 import type { ViewerLabels } from "./photo-viewer";
 import { PhotoGrid } from "./photo-grid";
+import { ScrubProvider, ScrubRail } from "./scrub-rail";
 import { SortProvider } from "./sort-context";
 import { useFullGallery } from "./use-full-gallery";
 
@@ -48,6 +50,7 @@ export function GalleryView({
   guestEmptyLabel,
   guestLabels,
   backToTopLabel,
+  scrubLabels,
   header,
   footer,
 }: {
@@ -74,6 +77,7 @@ export function GalleryView({
   guestEmptyLabel: string;
   guestLabels: GuestBarLabels;
   backToTopLabel: string;
+  scrubLabels: ScrubLabels;
   header: ReactNode;
   footer: ReactNode;
 }) {
@@ -235,53 +239,61 @@ export function GalleryView({
   );
 
   return (
-    <SortProvider sort={sort} onChange={changeSort} onLatest={showLatest}>
-      <NewPhotosProvider count={heldHere.length} reveal={revealHeldHere}>
-        <GalleryStatsProvider
-          count={complete || initialGuest === null ? photos.length : null}
-          likeTotal={likeTotal}
-        >
-          {guest ? (
-            <GuestBar
-              displayName={guest.displayName}
-              photoCount={guest.photoCount}
-              likeTotal={guest.likeTotal}
-              viewerName={viewerName}
-              locale={locale}
-              labels={guestLabels}
-              onBack={leaveGuest}
-            />
-          ) : (
-            header
-          )}
-
-          <div className="flex flex-1 flex-col pt-3.5">
-            {gridPending ? (
-              <GridSkeleton />
-            ) : (
-              <PhotoGrid
-                photos={shown}
-                emptyLabel={guest ? guestEmptyLabel : emptyLabel}
-                altLabels={altLabels}
-                likeLabels={likeLabels}
-                showUploadTiles={guest === null}
-                viewer={{
-                  canManageAll,
-                  labels: viewerLabels,
-                  locale,
-                  galleryCount: guest ? guest.photoCount : photos.length,
-                }}
-                showUploader
-                onSelectUploader={selectGuest}
+    <ScrubProvider>
+      <SortProvider sort={sort} onChange={changeSort} onLatest={showLatest}>
+        <NewPhotosProvider count={heldHere.length} reveal={revealHeldHere}>
+          <GalleryStatsProvider
+            count={complete || initialGuest === null ? photos.length : null}
+            likeTotal={likeTotal}
+          >
+            {guest ? (
+              <GuestBar
+                displayName={guest.displayName}
+                photoCount={guest.photoCount}
+                likeTotal={guest.likeTotal}
+                viewerName={viewerName}
+                locale={locale}
+                labels={guestLabels}
+                onBack={leaveGuest}
               />
+            ) : (
+              header
             )}
 
-            {guest === null && footer}
-          </div>
+            <div className="flex flex-1 flex-col pt-3.5">
+              {gridPending ? (
+                <GridSkeleton />
+              ) : (
+                <PhotoGrid
+                  photos={shown}
+                  emptyLabel={guest ? guestEmptyLabel : emptyLabel}
+                  altLabels={altLabels}
+                  likeLabels={likeLabels}
+                  showUploadTiles={guest === null}
+                  viewer={{
+                    canManageAll,
+                    labels: viewerLabels,
+                    locale,
+                    galleryCount: guest ? guest.photoCount : photos.length,
+                  }}
+                  showUploader
+                  onSelectUploader={selectGuest}
+                />
+              )}
 
-          <BackToTop label={backToTopLabel} />
-        </GalleryStatsProvider>
-      </NewPhotosProvider>
-    </SortProvider>
+              {guest === null && footer}
+            </div>
+
+            <BackToTop label={backToTopLabel} />
+            <ScrubRail
+              photos={shown}
+              sort={sort}
+              locale={locale}
+              labels={scrubLabels}
+            />
+          </GalleryStatsProvider>
+        </NewPhotosProvider>
+      </SortProvider>
+    </ScrubProvider>
   );
 }

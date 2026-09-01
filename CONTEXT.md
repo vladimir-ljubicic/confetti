@@ -61,6 +61,12 @@ The glass pill announcing other guests' photos that arrived after the gallery wa
 **Back to top**:
 The round ↑ in the bottom-left corner of the gallery, within thumb reach and across the screen from the centred upload pill so the two never meet. It arrives once the guest is two screens down and leaves again within half a screen of the top, and it lands at the top at once rather than scrolling there.
 
+**Scrub rail**:
+The way through a gallery too long to flick: a thin rail down its right edge, mounted only above three hundred photos, invisible until something scrolls and gone again a moment after it stops. Dragging its thumb moves the gallery by the fraction of the rail the thumb has travelled, and a bubble beside the thumb states where that lands in the terms the list is ordered by — the day and time of day in latest, the like band in popular, never a date, since every photo is from the same wedding. What the drag flies past stays flat on its tile; only the photos the finger comes to rest on are fetched.
+
+**Like band**:
+The company a photo's likes put it in — the album's dearest tenth, and the two bands beneath it — drawn at the like counts the album's own distribution falls on rather than at numbers fixed in advance, and left out when the album cannot fill it. What the scrub rail states in the popular order. The bands stop where the album's likes do: a photo nobody has liked is said to have none rather than put in a band, and one under every band is said only to have been liked.
+
 **Select mode**:
 A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against the whole album.
 

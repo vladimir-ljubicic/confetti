@@ -38,6 +38,15 @@ const en = {
     uploadWindowMany:
       "Photo uploads are open for {count} more days — after that, download the full gallery.",
   },
+  scrubRail: {
+    morning: "morning",
+    afternoon: "afternoon",
+    evening: "evening",
+    night: "night",
+    dearest: "Dearest",
+    loved: "Loved",
+    noLikes: "No likes",
+  },
   viewer: {
     open: "Open photo",
     close: "Close",
@@ -341,6 +350,15 @@ const sr: Dictionary = {
       "Додавање фотографија је отворено још {count} дана — после тога преузмите целу галерију.",
     uploadWindowMany:
       "Додавање фотографија је отворено још {count} дана — после тога преузмите целу галерију.",
+  },
+  scrubRail: {
+    morning: "јутро",
+    afternoon: "поподне",
+    evening: "вече",
+    night: "ноћ",
+    dearest: "Најдраже",
+    loved: "Вољене",
+    noLikes: "Без лајкова",
   },
   viewer: {
     open: "Отвори фотографију",
