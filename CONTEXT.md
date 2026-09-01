@@ -52,6 +52,9 @@ _Avoid_: Chronological, Хронолошки, oldest-first
 **Sort gate**:
 The like floor under which the sort toggle is not offered at all. Below ten likes across the photos an order would rearrange, latest and popular come out all but the same, so the control would read as broken. The whole gallery's total gates the gallery header; one guest's own total gates their gallery.
 
+**Sort scroll memory**:
+Where the guest was standing in each order, kept for as long as the gallery stays loaded. Switching orders lands instantly at the place they left the one they enter, and at its top the first time — the same distance down latest and popular is not the same photos. The ways in that mean the top of the latest order — the wordmark home and a fresh upload — forget it instead, and it is dropped whole whenever the orders stop holding the same photos: narrowing to a guest's gallery, widening back, or letting in the photos the new photos pill announced.
+
 **New photos pill**:
 The glass pill announcing other guests' photos that arrived after the gallery was loaded. They stay out of the grid until the guest taps it, which admits them and brings the top of the gallery on screen. The guest's own photos never wait behind it.
 

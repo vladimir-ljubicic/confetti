@@ -1,12 +1,20 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { headCoversView } from "@/lib/gallery-head";
 import type { Locale } from "@/lib/i18n";
 import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { comparePhotos, sumLikes, type SortMode } from "@/lib/sort-mode";
+import { restartLatest, resumeSort, type SortScroll } from "@/lib/sort-scroll";
 import { GalleryStatsProvider } from "./gallery-stats";
 import { GridSkeleton } from "./grid-skeleton";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
@@ -85,6 +93,21 @@ export function GalleryView({
   // History entries this view pushed itself, and so may step back through. A
   // guest's gallery opened directly has none, and leaving it pushes instead.
   const pushed = useRef(0);
+  // Where the guest was standing in each order of the gallery on screen. Any
+  // change to which photos an order holds — narrowing to a guest, widening
+  // back, letting in the photos the pill announced — empties it, since the
+  // places it keeps no longer name anything.
+  const scrollMemory = useRef<SortScroll>({});
+  // Where the next order is to be entered, applied once it has laid itself
+  // out: the two orders deal the same photos into columns of different
+  // heights, and a page still as tall as the outgoing one clamps the scroll.
+  const landing = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (landing.current === null) return;
+    window.scrollTo(0, landing.current);
+    landing.current = null;
+  }, [sort]);
 
   const { photos, complete, held, reveal } = useFullGallery(headPhotos);
   // A view outside what the server rendered — another order of the gallery
@@ -122,7 +145,10 @@ export function GalleryView({
     [held, guestId],
   );
 
-  const revealHeldHere = useCallback(() => reveal(heldHere), [reveal, heldHere]);
+  const revealHeldHere = useCallback(() => {
+    scrollMemory.current = {};
+    reveal(heldHere);
+  }, [reveal, heldHere]);
 
   const likeTotal = useMemo(
     () => (complete ? sumLikes(photos) + sumLikes(held) : initialLikeTotal),
@@ -144,6 +170,7 @@ export function GalleryView({
 
   const selectGuest = useCallback((publicId: string) => {
     pushed.current += 1;
+    scrollMemory.current = {};
     setSelected((current) => ({ ...current, guestId: publicId }));
     window.history.pushState(
       null,
@@ -154,6 +181,7 @@ export function GalleryView({
   }, []);
 
   const leaveGuest = useCallback(() => {
+    scrollMemory.current = {};
     if (pushed.current > 0) {
       pushed.current -= 1;
       window.history.back();
@@ -165,19 +193,46 @@ export function GalleryView({
   }, []);
 
   // The chosen order rides in the address so a reload and a shared link keep
-  // it, without adding a step to go back through. Choosing the current order
-  // again still brings the top of the gallery on screen.
-  const changeSort = useCallback((next: SortMode) => {
-    setSort(next);
-    const url = new URL(window.location.href);
-    if (next === "latest") url.searchParams.delete("sort");
-    else url.searchParams.set("sort", next);
-    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-    window.scrollTo(0, 0);
-  }, []);
+  // it, without adding a step to go back through.
+  const goToSort = useCallback(
+    (next: SortMode, move: { memory: SortScroll; scrollTo: number }) => {
+      scrollMemory.current = move.memory;
+      // The order already on screen lays out no differently for being chosen
+      // again, so its top is there to be reached straight away.
+      if (next === sort) {
+        window.scrollTo(0, move.scrollTo);
+      } else {
+        landing.current = move.scrollTo;
+        setSort(next);
+      }
+      const url = new URL(window.location.href);
+      if (next === "latest") url.searchParams.delete("sort");
+      else url.searchParams.set("sort", next);
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    },
+    [sort],
+  );
+
+  const changeSort = useCallback(
+    (next: SortMode) =>
+      goToSort(
+        next,
+        resumeSort(scrollMemory.current, sort, next, window.scrollY),
+      ),
+    [sort, goToSort],
+  );
+
+  const showLatest = useCallback(
+    () =>
+      goToSort(
+        "latest",
+        restartLatest(scrollMemory.current, sort, window.scrollY),
+      ),
+    [sort, goToSort],
+  );
 
   return (
-    <SortProvider sort={sort} onChange={changeSort}>
+    <SortProvider sort={sort} onChange={changeSort} onLatest={showLatest}>
       <NewPhotosProvider count={heldHere.length} reveal={revealHeldHere}>
         <GalleryStatsProvider
           count={complete || initialGuest === null ? photos.length : null}

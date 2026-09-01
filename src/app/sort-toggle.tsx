@@ -47,14 +47,14 @@ export function SortToggleView({
 export function SortToggle({ labels }: { labels: SortToggleLabels }) {
   const sortContext = useSort();
   if (!sortContext) return null;
-  const { sort, setSort } = sortContext;
+  const { sort, resumeSort } = sortContext;
 
   return (
     <SortToggleView
       labels={labels}
       active={sort}
       onSelect={(mode) => {
-        if (mode !== sort) setSort(mode);
+        if (mode !== sort) resumeSort(mode);
       }}
     />
   );

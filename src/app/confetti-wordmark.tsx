@@ -45,7 +45,7 @@ export function ConfettiWordmark({
         }
         if (!sortContext) return;
         event.preventDefault();
-        sortContext.setSort("latest");
+        sortContext.showLatest();
       }}
       className={BOX}
     >

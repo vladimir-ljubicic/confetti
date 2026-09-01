@@ -5,7 +5,9 @@ import type { SortMode } from "@/lib/sort-mode";
 
 const SortContext = createContext<{
   sort: SortMode;
-  setSort: (sort: SortMode) => void;
+  resumeSort: (sort: SortMode) => void;
+  // The top of the latest order, however far down another one the guest is.
+  showLatest: () => void;
 } | null>(null);
 
 // The whole gallery is loaded, so the toggle reorders it where it stands. The
@@ -15,14 +17,18 @@ const SortContext = createContext<{
 export function SortProvider({
   sort,
   onChange,
+  onLatest,
   children,
 }: {
   sort: SortMode;
   onChange: (sort: SortMode) => void;
+  onLatest: () => void;
   children: ReactNode;
 }) {
   return (
-    <SortContext.Provider value={{ sort, setSort: onChange }}>
+    <SortContext.Provider
+      value={{ sort, resumeSort: onChange, showLatest: onLatest }}
+    >
       {children}
     </SortContext.Provider>
   );

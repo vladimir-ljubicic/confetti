@@ -1038,7 +1038,7 @@ export function UploadButton({
   async function startBatch(files: File[]) {
     // New photos land at the head of the latest order; a gallery in popular
     // order, or scrolled away from its top, would put them out of sight.
-    sortContext?.setSort("latest");
+    sortContext?.showLatest();
     if (queue && files.length <= OPTIMISTIC_TILE_MAX) {
       await startTileBatch(files);
     } else {
