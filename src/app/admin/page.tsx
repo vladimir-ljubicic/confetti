@@ -1,5 +1,10 @@
 import { viewerLabels } from "@/app/viewer-labels";
-import { parseAdminFilter } from "@/lib/admin-filter";
+import {
+  adminFilterUrl,
+  adminGalleryFilter,
+  parseAdminFilter,
+  type AdminFilter,
+} from "@/lib/admin-filter";
 import { loadAdminPhotos, loadAdminSummary } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { getEventSettings } from "@/lib/event-settings";
@@ -40,7 +45,7 @@ export default async function AdminPage({
     );
   }
 
-  const filter = parseAdminFilter(await searchParams);
+  const filter = adminGalleryFilter(parseAdminFilter(await searchParams));
   const [summary, page, settings, exportJob] = await Promise.all([
     loadAdminSummary(),
     loadAdminPhotos({ filter }),
@@ -50,19 +55,26 @@ export default async function AdminPage({
 
   const exportSizeBytes = exportJob?.zip_size_bytes ?? summary.totalBytes;
   const guestCount = summary.uploaders.length + (summary.unnamed ? 1 : 0);
+  const chip = (filter: AdminFilter, label: string, count: number): AdminFilterChip => ({
+    filter,
+    label,
+    count,
+    href: adminFilterUrl(filter),
+  });
   const chips: AdminFilterChip[] = [
-    { kind: "all", label: labels.filterAll, count: summary.totalCount },
-    {
-      kind: "private",
-      label: labels.filterPrivate.replace("{count}", String(summary.privateCount)),
-      count: summary.privateCount,
-    },
-    ...summary.uploaders.map((uploader) => ({
-      kind: "uploader" as const,
-      publicId: uploader.publicId,
-      label: `${uploader.displayName} ${uploader.photoCount}`,
-      count: uploader.photoCount,
-    })),
+    chip({}, labels.filterAll, summary.totalCount),
+    chip(
+      { visibility: "private" },
+      labels.filterPrivate.replace("{count}", String(summary.privateCount)),
+      summary.privateCount,
+    ),
+    ...summary.uploaders.map((uploader) =>
+      chip(
+        { uploader: uploader.publicId },
+        `${uploader.displayName} ${uploader.photoCount}`,
+        uploader.photoCount,
+      ),
+    ),
   ];
 
   const count = (total: number, forms: { one: string; few: string; many: string }) =>

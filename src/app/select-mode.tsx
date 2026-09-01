@@ -230,7 +230,8 @@ export function SelectMark({ selected }: { selected: boolean }) {
   );
 }
 
-// `total` is the whole album, whatever filter is on.
+// `total` is everything the grid stands for, whatever filter is on: the whole
+// album on the admin gallery, one guest's photos on their page.
 export function SelectTopRow({
   mode,
   selected,

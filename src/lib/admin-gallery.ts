@@ -41,7 +41,7 @@ export async function loadAdminPhotos({
   filter: AdminFilter;
   cursor?: GalleryCursor | null;
 }): Promise<AdminPhotoPage> {
-  if (filter.kind === "uploader" && !isUuid(filter.publicId)) return EMPTY_PAGE;
+  if (filter.uploader !== undefined && !isUuid(filter.uploader)) return EMPTY_PAGE;
 
   let query = supabaseAdmin()
     .from("photos")
@@ -52,9 +52,11 @@ export async function loadAdminPhotos({
     )
     .not("uploaded_at", "is", null)
     .is("deleted_at", null);
-  if (filter.kind === "private") query = query.eq("visibility", "private");
-  if (filter.kind === "uploader") {
-    query = query.eq("uploaders.public_id", filter.publicId);
+  if (filter.visibility !== undefined) {
+    query = query.eq("visibility", filter.visibility);
+  }
+  if (filter.uploader !== undefined) {
+    query = query.eq("uploaders.public_id", filter.uploader);
   }
   if (cursor) query = query.or(galleryCursorFilter("latest", cursor));
   const { data, error } = await query
@@ -106,7 +108,7 @@ const SELECTION_PAGE = 1000;
 // Every photo the filter covers, as the grid orders them — what "select all"
 // selects, beyond the pages loaded so far.
 export async function loadAdminSelection(filter: AdminFilter): Promise<SelectedPhoto[]> {
-  if (filter.kind === "uploader" && !isUuid(filter.publicId)) return [];
+  if (filter.uploader !== undefined && !isUuid(filter.uploader)) return [];
   const photos: SelectedPhoto[] = [];
   for (let from = 0; photos.length < SELECTION_MAX_IDS; from += SELECTION_PAGE) {
     let query = supabaseAdmin()
@@ -114,9 +116,11 @@ export async function loadAdminSelection(filter: AdminFilter): Promise<SelectedP
       .select("id, visibility, uploaders!inner (public_id)")
       .not("uploaded_at", "is", null)
       .is("deleted_at", null);
-    if (filter.kind === "private") query = query.eq("visibility", "private");
-    if (filter.kind === "uploader") {
-      query = query.eq("uploaders.public_id", filter.publicId);
+    if (filter.visibility !== undefined) {
+      query = query.eq("visibility", filter.visibility);
+    }
+    if (filter.uploader !== undefined) {
+      query = query.eq("uploaders.public_id", filter.uploader);
     }
     const { data, error } = await query
       .order("uploaded_at", { ascending: false })
@@ -128,6 +132,36 @@ export async function loadAdminSelection(filter: AdminFilter): Promise<SelectedP
     if (rows.length < SELECTION_PAGE) break;
   }
   return photos.slice(0, SELECTION_MAX_IDS);
+}
+
+export type AdminGuestSummary = {
+  photoCount: number;
+  publicCount: number;
+  likeTotal: number;
+  totalBytes: number;
+};
+
+// The numbers one guest's page shows across its heading, chips and download
+// row, counted in the database so the page only ever holds a page of photos.
+export async function loadAdminGuestSummary(
+  uploaderId: string,
+): Promise<AdminGuestSummary> {
+  const { data, error } = await supabaseAdmin().rpc("admin_guest_summary", {
+    uploader_id: uploaderId,
+  });
+  if (error) throw new Error(`Loading guest summary failed: ${error.message}`);
+  const row = data as {
+    photo_count: number;
+    public_count: number;
+    like_total: number;
+    total_bytes: number;
+  };
+  return {
+    photoCount: Number(row.photo_count),
+    publicCount: Number(row.public_count),
+    likeTotal: Number(row.like_total),
+    totalBytes: Number(row.total_bytes),
+  };
 }
 
 export type AdminUploaderSummary = {

@@ -20,7 +20,6 @@ import { useShownTiles, useTileEntrance } from "@/app/use-tile-entrance";
 import {
   adminFilterKey,
   adminFilterSearch,
-  adminFilterUrl,
   type AdminFilter,
 } from "@/lib/admin-filter";
 import type { AdminPhoto } from "@/lib/admin-gallery";
@@ -28,15 +27,17 @@ import type { SelectedPhoto } from "@/lib/bulk-selection";
 import type { Locale } from "@/lib/i18n";
 import { selectionView } from "@/lib/selection-view";
 import { tileEnterDelay } from "@/lib/tile-entrance";
-import type { Visibility } from "@/lib/uploader-profile";
 
 export type { AdminFilter, AdminPhoto };
 
-export type AdminFilterChip = AdminFilter & { label: string; count: number };
-
-export type VisibilityKey = "all" | Visibility;
-
-export type VisibilityChip = { key: VisibilityKey; label: string };
+export type AdminFilterChip = {
+  filter: AdminFilter;
+  label: string;
+  count: number;
+  // The address the grid rewrites itself to when this chip is pressed; the
+  // whole gallery and one guest's page word the same filter differently.
+  href: string;
+};
 
 export type AdminGridLabels = SelectModeLabels & { privateBadge: string; empty: string };
 
@@ -87,27 +88,21 @@ function AdminTile({
 
 export function AdminPhotoGrid({
   photos,
-  nextCursor = null,
+  nextCursor,
   total,
   chips,
   initialFilter,
-  visibilityChips,
-  initialVisibility = "all",
   labels,
   locale,
   viewerLabels,
   children,
 }: {
   photos: AdminPhoto[];
-  nextCursor?: string | null;
-  // The whole album's size when the grid holds only a page of it.
-  total?: number;
-  // Admin filters, paged from the feed. Without them the grid holds every
-  // photo it will show and filters by visibility on its own.
-  chips?: AdminFilterChip[];
-  initialFilter?: AdminFilter;
-  visibilityChips?: VisibilityChip[];
-  initialVisibility?: VisibilityKey;
+  nextCursor: string | null;
+  // The whole album's size, of which the grid holds a page.
+  total: number;
+  chips: AdminFilterChip[];
+  initialFilter: AdminFilter;
   labels: AdminGridLabels;
   locale: Locale;
   viewerLabels: ViewerLabels;
@@ -120,15 +115,10 @@ export function AdminPhotoGrid({
   const listRef = useRef<HTMLUListElement>(null);
   // What the grid is showing, and what the pressed chip promises it will show
   // — the two differ only while the new first page is on its way.
-  const [shown, setShown] = useState({
-    filter: initialFilter ?? ({ kind: "all" } as AdminFilter),
-    photos,
-    nextCursor,
-  });
+  const [shown, setShown] = useState({ filter: initialFilter, photos, nextCursor });
   const [active, setActive] = useState(shown.filter);
   const [switching, setSwitching] = useState(false);
   const wanted = useRef(adminFilterKey(shown.filter));
-  const [visibilityKey, setVisibilityKey] = useState<VisibilityKey>(initialVisibility);
   const mode = useSelectMode({ endpoints: SELECT_ENDPOINTS, locale, labels });
 
   const {
@@ -137,34 +127,24 @@ export function AdminPhotoGrid({
     loading,
     loadMore,
     sentinelRef,
-  } = usePhotoFeed(
-    shown.photos,
-    chips && {
-      endpoint: ADMIN_FEED,
-      search: adminFilterSearch(shown.filter),
-      nextCursor: shown.nextCursor,
-    },
-  );
+  } = usePhotoFeed(shown.photos, {
+    endpoint: ADMIN_FEED,
+    search: adminFilterSearch(shown.filter),
+    nextCursor: shown.nextCursor,
+  });
   const shownKey = adminFilterKey(shown.filter);
-  const shownVisibility =
-    shown.filter.kind === "private"
-      ? "private"
-      : visibilityKey === "all"
-        ? undefined
-        : visibilityKey;
-  const visible = selectionView(loaded, mode.edits, shownVisibility);
+  const visible = selectionView(loaded, mode.edits, shown.filter.visibility);
   const shownTiles = useShownTiles(
     useMemo(() => new Set(loaded.map((photo) => photo.id)), [loaded]),
   );
 
-  // With paged chips, "select all" must reach the photos not loaded yet, so
-  // selecting fetches the filter's whole id list.
+  // "Select all" must reach the photos not loaded yet, so selecting fetches the
+  // filter's whole id list.
   const [selection, setSelection] = useState<{ key: string; photos: SelectedPhoto[] } | null>(
     null,
   );
-  const wantSelection = mode.active && chips !== undefined;
   useEffect(() => {
-    if (!wantSelection) return;
+    if (!mode.active) return;
     let stale = false;
     void fetch(`${ADMIN_SELECTION}?${adminFilterSearch(shown.filter)}`)
       .then((response) =>
@@ -178,20 +158,20 @@ export function AdminPhotoGrid({
     return () => {
       stale = true;
     };
-  }, [wantSelection, shown.filter, shownKey]);
+  }, [mode.active, shown.filter, shownKey]);
   const selectable =
     selection?.key === shownKey
-      ? selectionView(selection.photos, mode.edits, shownVisibility)
+      ? selectionView(selection.photos, mode.edits, shown.filter.visibility)
       : visible;
-  const albumTotal = total ?? selectionView(loaded, mode.edits).length;
 
   // The address is rewritten in place — no navigation — so the view survives a
   // reload and can still be handed on as a link.
-  function select(next: AdminFilter) {
+  function select(chip: AdminFilterChip) {
+    const next = chip.filter;
     const key = adminFilterKey(next);
     if (key === wanted.current) return;
     wanted.current = key;
-    window.history.replaceState(null, "", adminFilterUrl(next));
+    window.history.replaceState(null, "", chip.href);
     setActive(next);
     setSwitching(true);
     mode.select([]);
@@ -213,20 +193,10 @@ export function AdminPhotoGrid({
       });
   }
 
-  function selectVisibility(key: VisibilityKey) {
-    if (key === visibilityKey) return;
-    const url = new URL(window.location.href);
-    if (key === "all") url.searchParams.delete("filter");
-    else url.searchParams.set("filter", key);
-    window.history.replaceState(null, "", url);
-    setVisibilityKey(key);
-    mode.select([]);
-  }
-
   const activeKey = adminFilterKey(active);
   // The viewer counts the whole filtered set, not just the pages loaded so far.
-  const galleryCount = chips?.find(
-    (chip) => adminFilterKey(chip) === shownKey,
+  const galleryCount = chips.find(
+    (chip) => adminFilterKey(chip.filter) === shownKey,
   )?.count;
   const busy = mode.busy || switching;
 
@@ -236,44 +206,26 @@ export function AdminPhotoGrid({
         <SelectTopRow
           mode={mode}
           selected={mode.selectedAmong(selectable).length}
-          total={albumTotal}
+          total={total}
         />
       )}
-      {chips && (
-        <div className={CHIP_ROW_CLASS}>
-          {chips.map((chip) => {
-            const key = adminFilterKey(chip);
-            return (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={key === activeKey}
-                disabled={mode.busy}
-                onClick={() => select(chip)}
-                className={chipClass(key === activeKey)}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {visibilityChips && (
-        <div className={CHIP_ROW_CLASS}>
-          {visibilityChips.map((chip) => (
+      <div className={CHIP_ROW_CLASS}>
+        {chips.map((chip) => {
+          const key = adminFilterKey(chip.filter);
+          return (
             <button
-              key={chip.key}
+              key={key}
               type="button"
-              aria-pressed={chip.key === visibilityKey}
+              aria-pressed={key === activeKey}
               disabled={mode.busy}
-              onClick={() => selectVisibility(chip.key)}
-              className={chipClass(chip.key === visibilityKey)}
+              onClick={() => select(chip)}
+              className={chipClass(key === activeKey)}
             >
               {chip.label}
             </button>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {!mode.active && visible.length > 0 && (
         <SelectEntry onEnter={() => mode.enter()} labels={labels} />
@@ -331,16 +283,14 @@ export function AdminPhotoGrid({
           })}
         </ul>
       )}
-      {chips && (
-        <div ref={sentinelRef} className="flex items-center justify-center pt-4">
-          {(loading || switching) && (
-            <span
-              aria-hidden
-              className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
-            />
-          )}
-        </div>
-      )}
+      <div ref={sentinelRef} className="flex items-center justify-center pt-4">
+        {(loading || switching) && (
+          <span
+            aria-hidden
+            className="h-5 w-5 animate-spin rounded-full border-2 border-ink/15 border-t-gold"
+          />
+        )}
+      </div>
       {mode.active ? (
         <SelectBar mode={mode} photos={selectable} shown={selectable} />
       ) : (

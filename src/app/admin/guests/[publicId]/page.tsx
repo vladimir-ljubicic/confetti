@@ -1,5 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { viewerLabels } from "@/app/viewer-labels";
+import {
+  adminGuestUrl,
+  parseAdminFilter,
+  type AdminFilter,
+} from "@/lib/admin-filter";
+import { loadAdminGuestSummary, loadAdminPhotos } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
 import { uploaderExport } from "@/lib/export";
 import { exportJobStatus, liveExportJob } from "@/lib/export-jobs";
@@ -9,12 +15,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { isUuid } from "@/lib/uploaders";
 import { AdminTopRow, adminChromeLabels } from "../../admin-chrome";
-import {
-  AdminPhotoGrid,
-  type AdminPhoto,
-  type VisibilityChip,
-  type VisibilityKey,
-} from "../../admin-photo-grid";
+import { AdminPhotoGrid, type AdminFilterChip } from "../../admin-photo-grid";
 import { GuestDownloadRow } from "./guest-download-row";
 import { GuestHeader } from "./guest-header";
 import { GuestSettings } from "./guest-settings";
@@ -43,56 +44,6 @@ async function loadGuest(publicId: string): Promise<Guest | null> {
   };
 }
 
-type GuestPhotoRow = {
-  id: string;
-  original_filename: string;
-  visibility: Visibility;
-  like_count: number;
-  uploaded_at: string;
-  image_width: number | null;
-  image_height: number | null;
-  size_bytes: number;
-};
-
-type GuestPhotos = { photos: AdminPhoto[]; totalBytes: number };
-
-async function loadGuestPhotos(guest: Guest, publicId: string): Promise<GuestPhotos> {
-  const { data, error } = await supabaseAdmin()
-    .from("photos")
-    .select(
-      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height, size_bytes",
-    )
-    .eq("uploader_id", guest.id)
-    .not("uploaded_at", "is", null)
-    .is("deleted_at", null)
-    .order("uploaded_at", { ascending: false });
-  if (error) throw new Error(`Loading photos failed: ${error.message}`);
-  const rows = data as unknown as GuestPhotoRow[];
-  // The viewer's uploader pill shows the guest's public photo count, matching
-  // their public gallery page.
-  const publicRows = rows.filter((row) => row.visibility === "public");
-  return {
-    photos: rows.map((photo) => ({
-      id: photo.id,
-      uploadedAt: photo.uploaded_at,
-      width: photo.image_width,
-      height: photo.image_height,
-      originalFilename: photo.original_filename,
-      likeCount: photo.like_count,
-      likedByViewer: false,
-      ownedByViewer: false,
-      visibility: photo.visibility,
-      uploader: {
-        displayName: guest.displayName,
-        publicId,
-        photoCount: publicRows.length,
-        likeTotal: publicRows.reduce((sum, row) => sum + row.like_count, 0),
-      },
-    })),
-    totalBytes: rows.reduce((sum, row) => sum + row.size_bytes, 0),
-  };
-}
-
 export default async function AdminGuestPage({
   params,
   searchParams,
@@ -112,47 +63,59 @@ export default async function AdminGuestPage({
 
   const guest = await loadGuest(publicId);
   if (!guest) notFound();
-  const [{ photos, totalBytes }, exportJob] = await Promise.all([
-    loadGuestPhotos(guest, publicId),
+
+  const filter: AdminFilter = {
+    uploader: publicId,
+    visibility: parseAdminFilter({ filter: filterParam }).visibility,
+  };
+  const [summary, page, exportJob] = await Promise.all([
+    loadAdminGuestSummary(guest.id),
+    loadAdminPhotos({ filter }),
     liveExportJob(uploaderExport(guest.id)),
   ]);
 
-  const rawFilter = Array.isArray(filterParam) ? filterParam[0] : filterParam;
-  const filter: VisibilityKey =
-    rawFilter === "public" || rawFilter === "private" ? rawFilter : "all";
-  const publicCount = photos.filter((photo) => photo.visibility === "public").length;
-  const likeTotal = photos.reduce((total, photo) => total + photo.likeCount, 0);
-
-  const countsLine = `${pluralize(locale, photos.length, {
+  const countsLine = `${pluralize(locale, summary.photoCount, {
     one: labels.photosOne,
     few: labels.photosFew,
     many: labels.photosMany,
-  })} · ${pluralize(locale, likeTotal, {
+  })} · ${pluralize(locale, summary.likeTotal, {
     one: labels.likesOne,
     few: labels.likesFew,
     many: labels.likesMany,
   })}`;
 
-  const chips: VisibilityChip[] = [
-    { key: "all", label: labels.guestFilterAll.replace("{count}", String(photos.length)) },
-    {
-      key: "public",
-      label: labels.guestFilterPublic.replace("{count}", String(publicCount)),
-    },
-    {
-      key: "private",
-      label: labels.guestFilterPrivate.replace(
-        "{count}",
-        String(photos.length - publicCount),
-      ),
-    },
+  const privateCount = summary.photoCount - summary.publicCount;
+  const chip = (
+    visibility: Visibility | undefined,
+    label: string,
+    count: number,
+  ): AdminFilterChip => {
+    const chipFilter = { uploader: publicId, visibility };
+    return { filter: chipFilter, label, count, href: adminGuestUrl(chipFilter) };
+  };
+  const chips: AdminFilterChip[] = [
+    chip(
+      undefined,
+      labels.guestFilterAll.replace("{count}", String(summary.photoCount)),
+      summary.photoCount,
+    ),
+    chip(
+      "public",
+      labels.guestFilterPublic.replace("{count}", String(summary.publicCount)),
+      summary.publicCount,
+    ),
+    chip(
+      "private",
+      labels.guestFilterPrivate.replace("{count}", String(privateCount)),
+      privateCount,
+    ),
   ];
 
   const settings = (
     <GuestSettings
       publicId={publicId}
       blocked={guest.uploadsBlocked}
-      publicCount={publicCount}
+      publicCount={summary.publicCount}
       labels={{
         uploadsTitle: labels.guestUploadsTitle,
         uploadsHint: labels.guestUploadsHint,
@@ -174,8 +137,8 @@ export default async function AdminGuestPage({
             intro: labels.downloadGuestIntro,
           }}
           locale={locale}
-          photoCount={photos.length}
-          sizeBytes={totalBytes}
+          photoCount={summary.photoCount}
+          sizeBytes={summary.totalBytes}
           initialStatus={exportJob ? exportJobStatus(exportJob) : null}
         />
       }
@@ -202,16 +165,18 @@ export default async function AdminGuestPage({
         }}
       />
 
-      {photos.length === 0 ? (
+      {summary.photoCount === 0 ? (
         <>
           <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
           {settings}
         </>
       ) : (
         <AdminPhotoGrid
-          photos={photos}
-          visibilityChips={chips}
-          initialVisibility={filter}
+          photos={page.photos}
+          nextCursor={page.nextCursor}
+          total={summary.photoCount}
+          chips={chips}
+          initialFilter={filter}
           labels={labels}
           locale={locale}
           viewerLabels={viewerLabels(dict)}
@@ -220,7 +185,6 @@ export default async function AdminGuestPage({
           {settings}
         </AdminPhotoGrid>
       )}
-
     </main>
   );
 }

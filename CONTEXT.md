@@ -76,8 +76,11 @@ The way through a gallery too long to flick: a thin rail down its right edge, mo
 **Like band**:
 The company a photo's likes put it in — the album's dearest tenth, and the two bands beneath it — drawn at the like counts the album's own distribution falls on rather than at numbers fixed in advance, and left out when the album cannot fill it. What the scrub rail states in the popular order. The bands stop where the album's likes do: a photo nobody has liked is said to have none rather than put in a band, and one under every band is said only to have been liked.
 
+**Admin filter**:
+The slice of photos an admin grid shows: one guest, one visibility, or both. Whichever grid carries it — the whole album's or one guest's page — the chips work the same way: they rewrite the address in place rather than navigating, and the feed answers with a page of thirty that the scroll extends. Both halves travel in the query string; a guest's own page already names them in its address, so only the visibility does.
+
 **Select mode**:
-A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against the whole album.
+A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against everything the grid stands for — the whole album, or one guest's photos on their page.
 
 **Selection scope**:
 Whose photos a bulk action may reach: a guest's own (their device) or, for the admin, every guest's.
