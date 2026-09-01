@@ -3,6 +3,7 @@ import {
   failureDetail,
   formatPhotoSize,
   groupFailures,
+  splitRetryTargets,
   type BatchFailure,
 } from "./batch-failures";
 
@@ -110,5 +111,32 @@ describe("failureDetail", () => {
     expect(
       failureDetail(failure({ reason: "not-an-image" }), detailLabels, "sr", null),
     ).toBe("Неподржан формат");
+  });
+});
+
+describe("splitRetryTargets", () => {
+  const tile = (id: number, tileId: number | null) => ({
+    ...failure({ id }),
+    tileId,
+  });
+
+  it("sends a failure that still has a tile back through that tile", () => {
+    const withTile = tile(1, 7);
+    const fromBulk = tile(2, null);
+
+    expect(splitRetryTargets([withTile, fromBulk])).toEqual({
+      tiles: [withTile],
+      files: [fromBulk],
+    });
+  });
+
+  it("keeps the order the failures came in", () => {
+    const first = tile(1, 7);
+    const second = tile(2, 8);
+    expect(splitRetryTargets([first, second]).tiles).toEqual([first, second]);
+  });
+
+  it("handles an empty list", () => {
+    expect(splitRetryTargets([])).toEqual({ tiles: [], files: [] });
   });
 });

@@ -62,3 +62,16 @@ export function failureDetail(
   const uploaded = labels.uploadedPercent.replace("{percent}", String(percent));
   return `${uploaded} · ${size}`;
 }
+
+// A failure whose tile is still in the grid goes back up through that tile; one
+// from a bulk batch has no tile and starts a fresh batch from its file.
+export function splitRetryTargets<T extends { tileId: number | null }>(
+  entries: readonly T[],
+): { tiles: (T & { tileId: number })[]; files: T[] } {
+  return {
+    tiles: entries.filter(
+      (entry): entry is T & { tileId: number } => entry.tileId !== null,
+    ),
+    files: entries.filter((entry) => entry.tileId === null),
+  };
+}

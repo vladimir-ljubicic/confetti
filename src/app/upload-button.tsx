@@ -21,6 +21,7 @@ import {
 } from "@/lib/upload-limits";
 import {
   groupFailures,
+  splitRetryTargets,
   type BatchFailure,
 } from "@/lib/batch-failures";
 import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
@@ -29,7 +30,7 @@ import { pluralize, type Locale } from "@/lib/i18n";
 import { FailureSheet, type FailureSheetLabels } from "./failure-sheet";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
 import { useSort } from "./sort-context";
-import { BulkMiniBar, BulkSummary, RejectedCard } from "./upload-minibar";
+import { BatchSummary, BulkMiniBar } from "./upload-minibar";
 import { useUploadQueue } from "./upload-queue";
 
 // Fixed by Supabase's resumable upload endpoint; other sizes are rejected.
@@ -64,12 +65,7 @@ type UploadLabels = FailureSheetLabels & {
   bulkFailedOne: string;
   bulkFailedFew: string;
   bulkFailedMany: string;
-  rejectedOne: string;
-  rejectedFew: string;
-  rejectedMany: string;
-  rejectedTooLargeOne: string;
-  rejectedTooLargeFew: string;
-  rejectedTooLargeMany: string;
+  bulkFailedSee: string;
 };
 
 type UploadLimitProps = {
@@ -77,7 +73,7 @@ type UploadLimitProps = {
   maxFileBytes: number;
 };
 
-type TileItem = { id: number; file: File };
+type TileItem = { id: number; file: File; previewUrl: string };
 
 type TileController = {
   cancelled: boolean;
@@ -95,18 +91,10 @@ type BulkView =
       etaMs: number | null;
       previewUrl: string | null;
     }
-  | { phase: "summary"; done: number; failedCount: number };
+  | { phase: "summary" };
 
 // The file rides along so a retry does not have to ask for it again.
-type BatchFailureEntry = BatchFailure & { file: File };
-
-type UnretryableView = {
-  count: number;
-  previewUrl: string | null;
-  uploaded: number;
-  tooLarge: number;
-  notAnImage: number;
-};
+type BatchFailureEntry = BatchFailure & { file: File; tileId: number | null };
 
 type BulkRun = {
   cancelled: boolean;
@@ -254,6 +242,24 @@ async function uploadFile(
   return photoId;
 }
 
+// Uploads run three at a time, drawing from a queue a worker may push back to
+// when its item has to wait for the connection.
+async function runUploadPool<T>(
+  pending: T[],
+  upload: (item: T) => Promise<void>,
+): Promise<void> {
+  await Promise.all(
+    Array.from(
+      { length: Math.min(CONCURRENT_UPLOADS, pending.length) },
+      async () => {
+        for (let item = pending.shift(); item; item = pending.shift()) {
+          await upload(item);
+        }
+      },
+    ),
+  );
+}
+
 export function UploadButton({
   labels,
   sheetLabels,
@@ -284,8 +290,6 @@ export function UploadButton({
   const [bulkView, setBulkView] = useState<BulkView | null>(null);
   const [frozenNotice, setFrozenNotice] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
-  const [unretryableView, setUnretryableView] =
-    useState<UnretryableView | null>(null);
   const [failures, setFailures] = useState<BatchFailureEntry[]>([]);
   const [failureSheetOpen, setFailureSheetOpen] = useState(false);
   const [batchUploaded, setBatchUploaded] = useState(0);
@@ -301,7 +305,6 @@ export function UploadButton({
     "{max}",
     String(limits.maxBatch),
   );
-  const maxFileMb = Math.round(limits.maxFileBytes / (1024 * 1024));
 
   function waitForOnline(): Promise<void> {
     if (queue) return queue.waitForOnline();
@@ -322,30 +325,44 @@ export function UploadButton({
     file: File,
     reason: UploadFailureReason,
     uploadedBytes: number,
+    tile: TileItem | null = null,
   ) {
     failuresRef.current.push({
       id: failureIdRef.current++,
       file,
-      previewUrl: URL.createObjectURL(file),
+      // A tile owns its preview already; a bulk failure has none of its own.
+      previewUrl: tile ? tile.previewUrl : URL.createObjectURL(file),
+      tileId: tile?.id ?? null,
       reason,
       sizeBytes: file.size,
       uploadedBytes,
     });
+    setFailures([...failuresRef.current]);
   }
 
-  function unretryableFailures(): BatchFailureEntry[] {
-    return groupFailures(failuresRef.current).unretryable;
+  function tileFailures(tileId: number): BatchFailureEntry[] {
+    return failuresRef.current.filter((entry) => entry.tileId === tileId);
   }
 
   function dropFailures(entries: BatchFailureEntry[]) {
+    if (entries.length === 0) return;
     const ids = new Set(entries.map((entry) => entry.id));
-    for (const entry of entries) URL.revokeObjectURL(entry.previewUrl);
+    for (const entry of entries) {
+      if (entry.tileId === null) URL.revokeObjectURL(entry.previewUrl);
+    }
     failuresRef.current = failuresRef.current.filter(
       (entry) => !ids.has(entry.id),
     );
     setFailures([...failuresRef.current]);
     if (failuresRef.current.length === 0) setFailureSheetOpen(false);
-    if (unretryableFailures().length === 0) setUnretryableView(null);
+  }
+
+  // Leaving a photo out takes its tile with it.
+  function skipFailures(entries: BatchFailureEntry[]) {
+    dropFailures(entries);
+    for (const entry of entries) {
+      if (entry.tileId !== null) dropTile(entry.tileId);
+    }
   }
 
   function clearFailures() {
@@ -353,34 +370,54 @@ export function UploadButton({
   }
 
   // Whatever is left of the batch goes back up; the sheet stays open for
-  // rows the guest has not dealt with yet.
+  // rows the guest has not dealt with yet, while the tiles and the mini-bar
+  // report the attempt in the summary card's place.
   function retryFailures(entries: BatchFailureEntry[]) {
     clearSummaryTimer();
+    setBulkView(null);
     if (entries.length === 0) {
-      setBulkView(null);
       setFailureSheetOpen(false);
       return;
     }
+    const { tiles, files } = splitRetryTargets(entries);
     dropFailures(entries);
-    void startBatch(entries.map((entry) => entry.file));
+    if (tiles.length > 0) {
+      void retryTiles(
+        tiles.map((entry) => ({
+          id: entry.tileId,
+          file: entry.file,
+          previewUrl: entry.previewUrl,
+        })),
+      );
+    }
+    if (files.length > 0) void startBatch(files.map((entry) => entry.file));
   }
 
   function discardFailures() {
-    clearFailures();
+    clearSummaryTimer();
+    skipFailures(failuresRef.current);
     setBulkView(null);
   }
 
-  function showUnretryable(uploaded: number) {
-    const unretryable = unretryableFailures();
-    if (unretryable.length === 0) return;
-    setUnretryableView({
-      count: unretryable.length,
-      previewUrl: unretryable[0].previewUrl,
-      uploaded,
-      tooLarge: unretryable.filter((entry) => entry.reason === "too-large").length,
-      notAnImage: unretryable.filter((entry) => entry.reason === "not-an-image")
-        .length,
-    });
+  function armSummaryTimer() {
+    clearSummaryTimer();
+    summaryTimerRef.current = window.setTimeout(
+      () => setBulkView(null),
+      failuresRef.current.length > 0 ? SUMMARY_FAILED_TTL_MS : SUMMARY_TTL_MS,
+    );
+  }
+
+  function showSummary(uploaded: number) {
+    // A batch the guest cancelled outright landed nothing and failed nothing,
+    // so it has nothing to close.
+    if (uploaded === 0 && failuresRef.current.length === 0) return;
+    setBulkView({ phase: "summary" });
+    armSummaryTimer();
+  }
+
+  function closeFailureSheet() {
+    setFailureSheetOpen(false);
+    if (bulkView?.phase === "summary") armSummaryTimer();
   }
 
   function askForProfile(files: File[]) {
@@ -394,6 +431,8 @@ export function UploadButton({
     if (controller?.removeTimer) window.clearTimeout(controller.removeTimer);
     controllers.current.delete(id);
     queue?.removeTiles([id]);
+    const stale = tileFailures(id);
+    if (stale.length > 0) dropFailures(stale);
   }
 
   function cancelTile(id: number) {
@@ -409,17 +448,23 @@ export function UploadButton({
   async function uploadTile(item: TileItem, batchSize: number): Promise<void> {
     const controller = controllers.current.get(item.id);
     if (!controller || controller.cancelled || controller.done) return;
+    dropFailures(tileFailures(item.id));
     const rejection = precheck(item.file);
     if (rejection) {
       queue?.patchTile(item.id, { status: "failed", reason: rejection });
+      recordFailure(item.file, rejection, 0, item);
       return;
     }
     queue?.patchTile(item.id, { status: "uploading", percent: 0 });
+    let uploadedBytes = 0;
     try {
       const photoId = await uploadFile(
         item.file,
         batchSize,
-        (percent) => queue?.patchTile(item.id, { percent }),
+        (percent) => {
+          uploadedBytes = (percent / 100) * item.file.size;
+          queue?.patchTile(item.id, { percent });
+        },
         {
           isCancelled: () => controller.cancelled,
           onTusStart: (abort) => {
@@ -455,6 +500,7 @@ export function UploadButton({
       }
       console.error("Upload failed", error);
       queue?.patchTile(item.id, { status: "failed", reason });
+      recordFailure(item.file, reason, uploadedBytes, item);
     }
   }
 
@@ -465,6 +511,9 @@ export function UploadButton({
     queue?.patchTile(item.id, { reason: null });
     try {
       await uploadTile(item, 1);
+      if (controllers.current.get(item.id)?.done) {
+        setBatchUploaded((count) => count + 1);
+      }
       router.refresh();
     } catch (error) {
       if (error instanceof OfflineError) {
@@ -485,6 +534,10 @@ export function UploadButton({
     }
   }
 
+  function retryTiles(items: TileItem[]) {
+    return runUploadPool([...items], (item) => retryTile(item));
+  }
+
   function restoreTile(item: TileItem) {
     const controller = controllers.current.get(item.id);
     if (!controller || controller.done) return;
@@ -500,6 +553,7 @@ export function UploadButton({
     const tileItems: TileItem[] = files.map((file) => ({
       id: tileIdRef.current++,
       file,
+      previewUrl: URL.createObjectURL(file),
     }));
     for (const item of tileItems) {
       controllers.current.set(item.id, {
@@ -511,7 +565,7 @@ export function UploadButton({
     }
     const tiles = tileItems.map((item) => ({
       id: item.id,
-      previewUrl: URL.createObjectURL(item.file),
+      previewUrl: item.previewUrl,
       width: null,
       height: null,
       status: "queued" as const,
@@ -535,6 +589,8 @@ export function UploadButton({
     }
     setBatchTileIds(new Set(tileItems.map((item) => item.id)));
     setBatchActive(true);
+    clearSummaryTimer();
+    setBulkView(null);
     setFrozenNotice(false);
     setLimitNotice(null);
 
@@ -543,49 +599,51 @@ export function UploadButton({
     let abort: "profile" | "frozen" | "limit" | null = null;
     let limitMessage = labels.rateLimited;
     let uploaded = 0;
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENT_UPLOADS, pending.length) }, async () => {
-        for (let item = pending.shift(); item; item = pending.shift()) {
-          if (abort) {
-            if (abort === "profile") retryFiles.push(item.file);
-            dropTile(item.id);
-            continue;
-          }
-          try {
-            await uploadTile(item, files.length);
-            if (controllers.current.get(item.id)?.done) uploaded += 1;
-          } catch (error) {
-            if (error instanceof OfflineError) {
-              pending.push(item);
-              await waitForOnline();
-              continue;
-            }
-            dropTile(item.id);
-            if (error instanceof ProfileRequiredError) {
-              abort = "profile";
-              retryFiles.push(item.file);
-            } else if (error instanceof UploadsFrozenError) {
-              abort = "frozen";
-            } else if (error instanceof RateLimitedError) {
-              abort = "limit";
-              limitMessage =
-                error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
-            }
-          }
+    await runUploadPool(pending, async (item) => {
+      if (abort) {
+        if (abort === "profile") retryFiles.push(item.file);
+        dropTile(item.id);
+        return;
+      }
+      try {
+        await uploadTile(item, files.length);
+        if (controllers.current.get(item.id)?.done) uploaded += 1;
+      } catch (error) {
+        if (error instanceof OfflineError) {
+          pending.push(item);
+          await waitForOnline();
+          return;
         }
-      }),
-    );
+        dropTile(item.id);
+        if (error instanceof ProfileRequiredError) {
+          abort = "profile";
+          retryFiles.push(item.file);
+        } else if (error instanceof UploadsFrozenError) {
+          abort = "frozen";
+        } else if (error instanceof RateLimitedError) {
+          abort = "limit";
+          limitMessage =
+            error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
+        }
+      }
+    });
 
     setBatchActive(false);
     setBatchUploaded((count) => count + uploaded);
-    showUnretryable(uploaded);
     if (abort === "profile") {
       askForProfile(retryFiles);
       return;
     }
-    if (abort === "frozen") setFrozenNotice(true);
-    if (abort === "limit") setLimitNotice(limitMessage);
     router.refresh();
+    if (abort === "frozen") {
+      setFrozenNotice(true);
+      return;
+    }
+    if (abort === "limit") {
+      setLimitNotice(limitMessage);
+      return;
+    }
+    showSummary(uploaded);
   }
 
   async function acquireWakeLock() {
@@ -692,7 +750,7 @@ export function UploadButton({
     };
     document.addEventListener("visibilitychange", reacquireWakeLock);
 
-    const pending: TileItem[] = files.map((file, index) => ({ id: index, file }));
+    const pending = files.map((file, index) => ({ id: index, file }));
     const retryFiles: File[] = [];
     let abort: "profile" | "frozen" | "limit" | null = null;
     let limitMessage = labels.rateLimited;
@@ -700,86 +758,82 @@ export function UploadButton({
     const syncWaiting = () =>
       queue?.setBulkWaiting(pending.length + offlineWaiting);
     try {
-      await Promise.all(
-        Array.from({ length: Math.min(CONCURRENT_UPLOADS, pending.length) }, async () => {
-          for (let item = pending.shift(); item; item = pending.shift()) {
-            if (run.cancelled) continue;
-            if (abort) {
-              if (abort === "profile") retryFiles.push(item.file);
-              continue;
-            }
-            const rejection = precheck(item.file);
-            if (rejection) {
-              recordFailure(item.file, rejection, 0);
-              continue;
-            }
-            let requeue = false;
-            run.inFlight.push({ id: item.id, url: URL.createObjectURL(item.file) });
-            syncPreview();
-            try {
-              await uploadFile(
-                item.file,
-                total,
-                (percent) =>
-                  run.uploadedBytes.set(item.id, (percent / 100) * item.file.size),
-                {
-                  isCancelled: () => run.cancelled,
-                  onTusStart: (abortTus) => run.aborts.set(item.id, abortTus),
-                },
-              );
-              run.uploadedBytes.set(item.id, item.file.size);
-              done += 1;
-              sinceRefresh += 1;
-              patchUploading({ current: Math.min(done + 1, total) });
-              if (sinceRefresh >= BULK_REFRESH_EVERY) {
-                sinceRefresh = 0;
-                router.refresh();
-              }
-            } catch (error) {
-              const uploadedBytes = run.uploadedBytes.get(item.id) ?? 0;
-              run.uploadedBytes.delete(item.id);
-              if (error instanceof UploadCancelledError || run.cancelled) {
-                // Cancelled files are neither done nor failed.
-              } else if (error instanceof ProfileRequiredError) {
-                abort = "profile";
-                retryFiles.push(item.file);
-              } else if (error instanceof UploadsFrozenError) {
-                abort = "frozen";
-              } else if (error instanceof RateLimitedError) {
-                abort = "limit";
-                limitMessage =
-                  error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
-              } else {
-                const reason = classifyUploadFailure(error);
-                if (!isRetryableFailure(reason)) {
-                  recordFailure(item.file, reason, 0);
-                } else if (!navigator.onLine) {
-                  requeue = true;
-                } else {
-                  console.error("Upload failed", error);
-                  recordFailure(item.file, reason, uploadedBytes);
-                }
-              }
-            } finally {
-              run.aborts.delete(item.id);
-              const index = run.inFlight.findIndex((entry) => entry.id === item.id);
-              if (index >= 0) {
-                URL.revokeObjectURL(run.inFlight[index].url);
-                run.inFlight.splice(index, 1);
-              }
-              syncPreview();
-            }
-            if (requeue) {
-              pending.push(item);
-              offlineWaiting += 1;
-              syncWaiting();
-              await Promise.race([waitForOnline(), cancelSignal]);
-              offlineWaiting -= 1;
-              syncWaiting();
+      await runUploadPool(pending, async (item) => {
+        if (run.cancelled) return;
+        if (abort) {
+          if (abort === "profile") retryFiles.push(item.file);
+          return;
+        }
+        const rejection = precheck(item.file);
+        if (rejection) {
+          recordFailure(item.file, rejection, 0);
+          return;
+        }
+        let requeue = false;
+        run.inFlight.push({ id: item.id, url: URL.createObjectURL(item.file) });
+        syncPreview();
+        try {
+          await uploadFile(
+            item.file,
+            total,
+            (percent) =>
+              run.uploadedBytes.set(item.id, (percent / 100) * item.file.size),
+            {
+              isCancelled: () => run.cancelled,
+              onTusStart: (abortTus) => run.aborts.set(item.id, abortTus),
+            },
+          );
+          run.uploadedBytes.set(item.id, item.file.size);
+          done += 1;
+          sinceRefresh += 1;
+          patchUploading({ current: Math.min(done + 1, total) });
+          if (sinceRefresh >= BULK_REFRESH_EVERY) {
+            sinceRefresh = 0;
+            router.refresh();
+          }
+        } catch (error) {
+          const uploadedBytes = run.uploadedBytes.get(item.id) ?? 0;
+          run.uploadedBytes.delete(item.id);
+          if (error instanceof UploadCancelledError || run.cancelled) {
+            // Cancelled files are neither done nor failed.
+          } else if (error instanceof ProfileRequiredError) {
+            abort = "profile";
+            retryFiles.push(item.file);
+          } else if (error instanceof UploadsFrozenError) {
+            abort = "frozen";
+          } else if (error instanceof RateLimitedError) {
+            abort = "limit";
+            limitMessage =
+              error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
+          } else {
+            const reason = classifyUploadFailure(error);
+            if (!isRetryableFailure(reason)) {
+              recordFailure(item.file, reason, 0);
+            } else if (!navigator.onLine) {
+              requeue = true;
+            } else {
+              console.error("Upload failed", error);
+              recordFailure(item.file, reason, uploadedBytes);
             }
           }
-        }),
-      );
+        } finally {
+          run.aborts.delete(item.id);
+          const index = run.inFlight.findIndex((entry) => entry.id === item.id);
+          if (index >= 0) {
+            URL.revokeObjectURL(run.inFlight[index].url);
+            run.inFlight.splice(index, 1);
+          }
+          syncPreview();
+        }
+        if (requeue) {
+          pending.push(item);
+          offlineWaiting += 1;
+          syncWaiting();
+          await Promise.race([waitForOnline(), cancelSignal]);
+          offlineWaiting -= 1;
+          syncWaiting();
+        }
+      });
     } finally {
       window.clearInterval(ticker);
       document.removeEventListener("visibilitychange", reacquireWakeLock);
@@ -787,18 +841,15 @@ export function UploadButton({
       bulkRunRef.current = null;
       queue?.setBulkWaiting(0);
       setBatchActive(false);
-      setFailures([...failuresRef.current]);
       setBatchUploaded((count) => count + done);
     }
 
     if (abort === "profile") {
       setBulkView(null);
-      showUnretryable(done);
       askForProfile(retryFiles);
       return;
     }
     router.refresh();
-    showUnretryable(done);
     if (abort === "frozen") {
       setBulkView(null);
       setFrozenNotice(true);
@@ -814,19 +865,7 @@ export function UploadButton({
       return;
     }
 
-    const grouped = groupFailures(failuresRef.current);
-    const failedCount = grouped.retryable.length;
-    // The rejected card carries the success count itself; a summary next to
-    // it would duplicate it. Retryable failures still need the summary.
-    if (grouped.unretryable.length > 0 && failedCount === 0) {
-      setBulkView(null);
-      return;
-    }
-    setBulkView({ phase: "summary", done, failedCount });
-    summaryTimerRef.current = window.setTimeout(
-      () => setBulkView(null),
-      failedCount > 0 ? SUMMARY_FAILED_TTL_MS : SUMMARY_TTL_MS,
-    );
+    showSummary(done);
   }
 
   async function startBatch(files: File[]) {
@@ -856,6 +895,7 @@ export function UploadButton({
     }
   }
 
+  const retryableFailures = groupFailures(failures).retryable;
   const batchTiles = (queue?.tiles ?? []).filter((tile) =>
     batchTileIds.has(tile.id),
   );
@@ -908,25 +948,27 @@ export function UploadButton({
       )}
 
       {bulkView?.phase === "summary" && (
-        <BulkSummary
-          doneLabel={pluralize(locale, bulkView.done, {
+        <BatchSummary
+          doneLabel={pluralize(locale, batchUploaded, {
             one: labels.bulkDoneOne,
             few: labels.bulkDoneFew,
             many: labels.bulkDoneMany,
           })}
           failedLabel={
-            bulkView.failedCount > 0
-              ? pluralize(locale, bulkView.failedCount, {
+            failures.length > 0
+              ? pluralize(locale, failures.length, {
                   one: labels.bulkFailedOne,
                   few: labels.bulkFailedFew,
                   many: labels.bulkFailedMany,
                 })
               : null
           }
+          seeLabel={labels.bulkFailedSee}
           retryLabel={labels.retry}
+          dismissLabel={labels.dismiss}
           onRetry={
-            bulkView.failedCount > 0
-              ? () => retryFailures(groupFailures(failuresRef.current).retryable)
+            retryableFailures.length > 0
+              ? () => retryFailures(retryableFailures)
               : null
           }
           onShowFailures={
@@ -937,42 +979,7 @@ export function UploadButton({
                 }
               : null
           }
-        />
-      )}
-
-      {unretryableView && (
-        <RejectedCard
-          previewUrl={unretryableView.previewUrl}
-          titleLabel={pluralize(locale, unretryableView.count, {
-            one: labels.rejectedOne,
-            few: labels.rejectedFew,
-            many: labels.rejectedMany,
-          })}
-          detailLabel={[
-            ...(unretryableView.tooLarge > 0
-              ? [
-                  pluralize(locale, unretryableView.tooLarge, {
-                    one: labels.rejectedTooLargeOne,
-                    few: labels.rejectedTooLargeFew,
-                    many: labels.rejectedTooLargeMany,
-                  }).replace("{max}", String(maxFileMb)),
-                ]
-              : []),
-            ...(unretryableView.notAnImage > 0 ? [labels.failureNotAnImage] : []),
-            ...(unretryableView.uploaded > 0
-              ? [
-                  pluralize(locale, unretryableView.uploaded, {
-                    one: labels.bulkDoneOne,
-                    few: labels.bulkDoneFew,
-                    many: labels.bulkDoneMany,
-                  }),
-                ]
-              : []),
-          ].join(" · ")}
-          retryLabel={labels.retry}
-          skipLabel={labels.skip}
-          onRetry={() => retryFailures(unretryableFailures())}
-          onSkip={() => dropFailures(unretryableFailures())}
+          onDismiss={discardFailures}
         />
       )}
 
@@ -988,7 +995,7 @@ export function UploadButton({
         </p>
       )}
 
-      {!bulkView && (
+      {bulkView?.phase !== "uploading" && (
         <button
           type="button"
           disabled={batchActive}
@@ -1023,11 +1030,11 @@ export function UploadButton({
             retryFailures(failures.filter((entry) => entry.id === id))
           }
           onSkipOne={(id) =>
-            dropFailures(failures.filter((entry) => entry.id === id))
+            skipFailures(failures.filter((entry) => entry.id === id))
           }
-          onRetryAll={() => retryFailures(groupFailures(failures).retryable)}
+          onRetryAll={() => retryFailures(retryableFailures)}
           onDiscard={discardFailures}
-          onClose={() => setFailureSheetOpen(false)}
+          onClose={closeFailureSheet}
         />
       )}
 

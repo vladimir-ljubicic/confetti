@@ -57,21 +57,27 @@ export function BulkMiniBar({
   );
 }
 
-export function BulkSummary({
+export function BatchSummary({
   doneLabel,
   failedLabel,
+  seeLabel,
   retryLabel,
+  dismissLabel,
   onRetry,
   onShowFailures,
+  onDismiss,
 }: {
   doneLabel: string;
   failedLabel: string | null;
+  seeLabel: string;
   retryLabel: string;
+  dismissLabel: string;
   onRetry: (() => void) | null;
   onShowFailures: (() => void) | null;
+  onDismiss: () => void;
 }) {
   return (
-    <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-bar border border-ink/10 bg-card py-3.5 pr-3.5 pl-4 shadow-card">
+    <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-bar border border-ink/[0.09] bg-card py-3.5 pr-3.5 pl-4 shadow-card">
       <ConfettiMark size={18} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm text-ink">{doneLabel}</span>
@@ -80,74 +86,34 @@ export function BulkSummary({
             <button
               type="button"
               onClick={onShowFailures}
-              className="self-start text-left text-xs text-ink/60 underline decoration-ink/25 underline-offset-2 transition active:text-ink"
+              className="-my-1 flex min-h-11 items-center gap-1.5 self-start text-left text-meta text-danger transition active:opacity-70"
             >
               {failedLabel}
+              <span aria-hidden className="text-[11px]">
+                ▸
+              </span>
+              <span className="text-ink/55">{seeLabel}</span>
             </button>
           ) : (
-            <span className="text-xs text-ink/60">{failedLabel}</span>
+            <span className="text-meta text-danger">{failedLabel}</span>
           ))}
       </div>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card transition active:bg-gold-deep"
-        >
-          {retryLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
-export function RejectedCard({
-  previewUrl,
-  titleLabel,
-  detailLabel,
-  retryLabel,
-  skipLabel,
-  onRetry,
-  onSkip,
-}: {
-  previewUrl: string | null;
-  titleLabel: string;
-  detailLabel: string;
-  retryLabel: string;
-  skipLabel: string;
-  onRetry: () => void;
-  onSkip: () => void;
-}) {
-  return (
-    <div className="pointer-events-auto flex w-full max-w-md flex-col gap-3 rounded-bar border border-ink/10 bg-card p-3.5 shadow-card">
-      <div className="flex items-center gap-3">
-        {previewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewUrl}
-            alt=""
-            className="h-11 w-11 shrink-0 rounded-thumb bg-sand object-cover"
-          />
+      <div className="flex shrink-0 flex-col gap-1.5">
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex min-h-11 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card transition active:bg-gold-deep"
+          >
+            {retryLabel}
+          </button>
         )}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="text-sm text-ink">{titleLabel}</span>
-          <span className="text-xs text-ink/60">{detailLabel}</span>
-        </div>
-      </div>
-      <div className="flex items-center justify-end gap-2">
         <button
           type="button"
-          onClick={onSkip}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill px-4 text-[13px] text-gold-small transition active:bg-gold-tint"
+          onClick={onDismiss}
+          className="flex min-h-11 items-center justify-center rounded-pill border border-ink/16 bg-paper px-4 text-[13px] text-gold-small transition active:bg-gold-tint"
         >
-          {skipLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex min-h-11 shrink-0 items-center justify-center rounded-pill bg-gold-small px-4 text-[13px] text-card transition active:bg-gold-deep"
-        >
-          {retryLabel}
+          {dismissLabel}
         </button>
       </div>
     </div>
