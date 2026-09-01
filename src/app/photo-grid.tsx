@@ -32,11 +32,16 @@ import { useScrubbing } from "./scrub-rail";
 import { UploadTileView } from "./upload-tile";
 import { useAddressedEntry } from "./use-history-entry";
 import { useLikes } from "./use-likes";
+import { useShownTiles, useTileEntrance } from "./use-tile-entrance";
 import { useUploadQueue, type UploadTile } from "./upload-queue";
 
 type GridEntry =
   | { kind: "tile"; tile: UploadTile }
   | { kind: "photo"; photo: PublicPhoto };
+
+// An upload tile and a photo stand side by side in the same grid, so the
+// tiles of the two are told apart by more than their own ids.
+const tileKey = (id: number) => `tile-${id}`;
 
 function entryRatio(entry: GridEntry): number {
   return tileHeightRatio(entry.kind === "photo" ? entry.photo : entry.tile);
@@ -139,6 +144,28 @@ function GalleryImage({
   );
 }
 
+function PhotoTile({
+  aspectRatio,
+  arriving,
+  children,
+}: {
+  aspectRatio: string;
+  arriving: boolean;
+  children: React.ReactNode;
+}) {
+  const entering = useTileEntrance(arriving);
+  return (
+    <li
+      style={{ aspectRatio }}
+      className={`group relative overflow-hidden rounded-tile bg-sand ${
+        entering ? "tile-in" : ""
+      }`}
+    >
+      {children}
+    </li>
+  );
+}
+
 function UploaderLabel({
   uploader,
   onSelect,
@@ -221,6 +248,12 @@ export function PhotoGrid({
   const photoIds = useMemo(
     () => new Set(photos.map((photo) => photo.id)),
     [photos],
+  );
+  const shownTiles = useShownTiles(
+    useMemo(
+      () => new Set([...tiles.map((tile) => tileKey(tile.id)), ...photoIds]),
+      [tiles, photoIds],
+    ),
   );
 
   // Once the refreshed feed contains an uploaded photo, its optimistic tile
@@ -436,8 +469,9 @@ export function PhotoGrid({
                     return (
                       queue && (
                         <UploadTileView
-                          key={`tile-${entry.tile.id}`}
+                          key={tileKey(entry.tile.id)}
                           tile={entry.tile}
+                          arriving={!shownTiles.has(tileKey(entry.tile.id))}
                           labels={queue.labels}
                           likes={likes}
                           likeLabels={likeLabels}
@@ -463,14 +497,15 @@ export function PhotoGrid({
                     </PhotoZoom>
                   );
                   return (
-                    <li
+                    <PhotoTile
                       key={entry.photo.id}
-                      style={{ aspectRatio: tileAspect(entry.photo) }}
+                      aspectRatio={tileAspect(entry.photo)}
                       // A photo taking over from its own upload tile is already
                       // on screen and must not fade in a second time.
-                      className={`group relative overflow-hidden rounded-tile bg-sand ${
-                        absorbedTiles.has(entry.photo.id) ? "" : "tile-in"
-                      }`}
+                      arriving={
+                        !shownTiles.has(entry.photo.id) &&
+                        !absorbedTiles.has(entry.photo.id)
+                      }
                     >
                       {/* A drag down the rail passes hundreds of tiles at a
                           stroke. Each keeps its place and the flat ground it
@@ -522,7 +557,7 @@ export function PhotoGrid({
                         )}
                       </>
                     )}
-                  </li>
+                  </PhotoTile>
                 );
               })}
               {bottomSpacer > 0 && (

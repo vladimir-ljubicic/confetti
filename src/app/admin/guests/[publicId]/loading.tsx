@@ -15,10 +15,10 @@ export default async function Loading() {
 
       <div aria-hidden className="flex items-center gap-[13px] px-5 pt-[18px] pb-4">
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-          <span className="block h-[31px] w-44 animate-pulse rounded-pill bg-sand" />
-          <span className="block h-[18px] w-32 animate-pulse rounded-pill bg-sand" />
+          <span className="block h-[31px] w-44 rounded-pill bg-sand" />
+          <span className="block h-[18px] w-32 rounded-pill bg-sand" />
         </div>
-        <span className="block h-11 w-24 shrink-0 animate-pulse rounded-pill bg-sand" />
+        <span className="block h-11 w-24 shrink-0 rounded-pill bg-sand" />
       </div>
 
       <SkeletonChips />

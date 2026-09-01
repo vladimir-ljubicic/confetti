@@ -32,10 +32,6 @@ const NO_PAGES: never[] = [];
 // so the grid keeps growing ahead of a fast scroll.
 const PREFETCH_MARGIN = "800px";
 
-// Past this many tiles into a page the stagger stops growing; a whole page
-// waiting its turn would trail far behind the scroll.
-const MAX_STAGGERED_TILES = 8;
-
 export function usePhotoFeed<T extends { id: string }>(
   serverPhotos: T[],
   source?: PhotoFeedSource,
@@ -69,7 +65,7 @@ export function usePhotoFeed<T extends { id: string }>(
     const order = new Map<string, number>();
     for (const page of pages) {
       page.photos.forEach((photo, index) => {
-        order.set(photo.id, Math.min(index, MAX_STAGGERED_TILES));
+        order.set(photo.id, index);
       });
     }
     return order;

@@ -4,20 +4,24 @@ import { isRetryableFailure } from "@/lib/upload-failure";
 import { LikePill } from "./like-pill";
 import type { UploadTile, UploadTileLabels } from "./upload-queue";
 import type { Likes } from "./use-likes";
+import { useTileEntrance } from "./use-tile-entrance";
 
 export function UploadTileView({
   tile,
+  arriving,
   labels,
   likes,
   likeLabels,
   offline = false,
 }: {
   tile: UploadTile;
+  arriving: boolean;
   labels: UploadTileLabels;
   likes?: Likes;
   likeLabels?: { like: string; unlike: string };
   offline?: boolean;
 }) {
+  const entering = useTileEntrance(arriving);
   const waiting = offline && tile.status === "queued";
   const inFlight =
     !waiting && (tile.status === "queued" || tile.status === "uploading");
@@ -30,7 +34,9 @@ export function UploadTileView({
   return (
     <li
       style={{ aspectRatio: aspect }}
-      className="tile-in relative overflow-hidden rounded-tile bg-sand"
+      className={`relative overflow-hidden rounded-tile bg-sand ${
+        entering ? "tile-in" : ""
+      }`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

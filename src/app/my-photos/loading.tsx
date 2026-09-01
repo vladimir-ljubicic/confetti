@@ -24,15 +24,12 @@ export default async function Loading() {
         <h1 className="font-serif text-title font-medium text-gold-small">
           {dict.myPhotos.title}
         </h1>
-        <span className="block h-[18px] w-44 animate-pulse rounded-pill bg-sand" />
+        <span className="block h-[18px] w-44 rounded-pill bg-sand" />
       </header>
 
       <ul aria-hidden className="grid grid-cols-3 gap-1.5 px-3.5 pb-8">
         {Array.from({ length: SKELETON_TILES }, (_, index) => (
-          <li
-            key={index}
-            className="aspect-square animate-pulse rounded-tile bg-sand"
-          />
+          <li key={index} className="aspect-square rounded-tile bg-sand" />
         ))}
       </ul>
     </main>

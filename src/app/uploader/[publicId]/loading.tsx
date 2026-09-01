@@ -17,10 +17,10 @@ export default async function Loading() {
         </div>
 
         <div className="flex items-center gap-2.5 border-b border-ink/7 bg-paper/94 px-4 pt-[9px] pb-3">
-          <span className="h-[34px] w-[34px] shrink-0 animate-pulse rounded-full bg-sand" />
+          <span className="h-[34px] w-[34px] shrink-0 rounded-full bg-sand" />
           <div className="flex min-w-0 flex-col gap-[5px]">
-            <span className="block h-[19px] w-36 animate-pulse rounded-pill bg-sand" />
-            <span className="block h-[11px] w-24 animate-pulse rounded-pill bg-sand" />
+            <span className="block h-[19px] w-36 rounded-pill bg-sand" />
+            <span className="block h-[11px] w-24 rounded-pill bg-sand" />
           </div>
         </div>
       </div>

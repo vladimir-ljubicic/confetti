@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { hideBrokenImage, thumbSrc } from "@/app/photo-image";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
 import { PrivateBadge } from "@/app/private-badge";
@@ -16,6 +16,7 @@ import {
 } from "@/app/select-mode";
 import { useLikes } from "@/app/use-likes";
 import { usePhotoFeed, type FeedPage } from "@/app/use-photo-feed";
+import { useShownTiles, useTileEntrance } from "@/app/use-tile-entrance";
 import {
   adminFilterKey,
   adminFilterSearch,
@@ -26,6 +27,7 @@ import type { AdminPhoto } from "@/lib/admin-gallery";
 import type { SelectedPhoto } from "@/lib/bulk-selection";
 import type { Locale } from "@/lib/i18n";
 import { selectionView } from "@/lib/selection-view";
+import { tileEnterDelay } from "@/lib/tile-entrance";
 import type { Visibility } from "@/lib/uploader-profile";
 
 export type { AdminFilter, AdminPhoto };
@@ -58,6 +60,29 @@ function chipClass(active: boolean) {
       ? "bg-gold-small text-card"
       : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
   }`;
+}
+
+function AdminTile({
+  photoId,
+  arriving,
+  delay,
+  children,
+}: {
+  photoId: string;
+  arriving: boolean;
+  delay: string | undefined;
+  children: React.ReactNode;
+}) {
+  const entering = useTileEntrance(arriving);
+  return (
+    <li
+      data-photo-id={photoId}
+      style={{ animationDelay: delay }}
+      className={`relative ${entering ? "tile-in" : ""}`}
+    >
+      {children}
+    </li>
+  );
 }
 
 export function AdminPhotoGrid({
@@ -108,6 +133,7 @@ export function AdminPhotoGrid({
 
   const {
     photos: loaded,
+    enterOrder,
     loading,
     loadMore,
     sentinelRef,
@@ -127,6 +153,9 @@ export function AdminPhotoGrid({
         ? undefined
         : visibilityKey;
   const visible = selectionView(loaded, mode.edits, shownVisibility);
+  const shownTiles = useShownTiles(
+    useMemo(() => new Set(loaded.map((photo) => photo.id)), [loaded]),
+  );
 
   // With paged chips, "select all" must reach the photos not loaded yet, so
   // selecting fetches the filter's whole id list.
@@ -262,8 +291,18 @@ export function AdminPhotoGrid({
         >
           {visible.map((photo) => {
             const selected = mode.active && mode.selectedIds.has(photo.id);
+            // A page that arrived on a scroll enters tile by tile; the page the
+            // grid was rendered with is simply there.
+            const order = shownTiles.has(photo.id)
+              ? undefined
+              : enterOrder.get(photo.id);
             return (
-              <li key={photo.id} data-photo-id={photo.id} className="relative">
+              <AdminTile
+                key={photo.id}
+                photoId={photo.id}
+                arriving={order !== undefined}
+                delay={tileEnterDelay(order)}
+              >
                 <button
                   type="button"
                   disabled={mode.busy}
@@ -287,7 +326,7 @@ export function AdminPhotoGrid({
                   )}
                   {mode.active && <SelectMark selected={selected} />}
                 </button>
-              </li>
+              </AdminTile>
             );
           })}
         </ul>

@@ -55,6 +55,9 @@ The like floor under which the sort toggle is not offered at all. Below ten like
 **Sort scroll memory**:
 Where the guest was standing in each order, kept for as long as the gallery stays loaded. Switching orders lands instantly at the place they left the one they enter, and at its top the first time — the same distance down latest and popular is not the same photos. The ways in that mean the top of the latest order — the wordmark home and a fresh upload — forget it instead, and it is dropped whole whenever the orders stop holding the same photos: narrowing to a guest's gallery, widening back, or letting in the photos the new photos pill announced.
 
+**Tile entrance**:
+The 200ms fade and slight swell a tile makes the one time it joins a grid: a first grid arrives whole, an upload's own tile arrives when the guest picks it, and a page fetched further down a scroll arrives tile by tile, each 40ms behind the one before it up to the eighth. Nothing else is an arrival — not the windowed grid mounting a tile the scroll has reached, not a filter putting back a tile it took away, and not a photo taking over from its own upload tile, which is already on screen. Underneath, a tile whose photo has yet to load is a flat sand block, never a pulsing one. A guest who asks for reduced motion gets every tile standing still.
+
 **Brand mark entrance**:
 The mark's one celebration per app load: its five flecks spring in on a stagger while five sparks fly out of the middle and fade, after which the flecks settle into the slow sway they keep for as long as the page lives. It runs on the load's own clock rather than on each mark's arrival, so the stand-in header handing over to the loaded one carries one entrance across the swap, and a mark that comes up after it is over — a header remounting on a navigation — comes up mid-sway with the celebration behind it. A guest who asks for reduced motion gets the mark standing still.
 

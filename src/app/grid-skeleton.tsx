@@ -20,7 +20,7 @@ export function GridSkeleton() {
             <span
               key={index}
               style={{ aspectRatio }}
-              className="block animate-pulse rounded-tile bg-sand"
+              className="block rounded-tile bg-sand"
             />
           ))}
         </div>
