@@ -118,6 +118,14 @@ export async function getExportJob(target: ExportTarget): Promise<ExportJob | nu
   return (data as ExportJob | null) ?? null;
 }
 
+// The job a page can offer its visitor: a cancelled or expired one stands for
+// no zip, since the next prepare replaces it, and a lookup that fails leaves
+// the page to render without one.
+export async function liveExportJob(target: ExportTarget): Promise<ExportJob | null> {
+  const job = await getExportJob(target).catch(() => null);
+  return job && !exportJobReplaceable(job) ? job : null;
+}
+
 export function exportJobStale(job: ExportJob, now: Date): boolean {
   return (
     job.state === "packing" &&

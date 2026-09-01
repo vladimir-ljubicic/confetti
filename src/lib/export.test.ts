@@ -5,6 +5,8 @@ import {
   exportDownloadName,
   exportStoragePath,
   exportTakesPrivate,
+  exportGuestCancelPath,
+  exportGuestPath,
   exportTargetQuery,
   parseExportTarget,
   PUBLIC_EXPORT,
@@ -145,6 +147,7 @@ describe("parsePrepareRequest", () => {
 });
 
 const GUEST = "11111111-2222-3333-4444-555555555555";
+const GUEST_PUBLIC_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
 describe("export targets", () => {
   it("gives each target its own object in the bucket", () => {
@@ -183,5 +186,16 @@ describe("export targets", () => {
     expect(parseExportTarget("public", GUEST)).toBeNull();
     expect(parseExportTarget("nope", null)).toBeNull();
     expect(parseExportTarget(null, null)).toBeNull();
+  });
+});
+
+describe("the admin's per-guest export paths", () => {
+  it("addresses a guest's zip by the public id their page uses", () => {
+    expect(exportGuestPath(GUEST_PUBLIC_ID)).toBe(
+      `/api/export/admin/guests/${GUEST_PUBLIC_ID}`,
+    );
+    expect(exportGuestCancelPath(GUEST_PUBLIC_ID)).toBe(
+      `/api/export/admin/guests/${GUEST_PUBLIC_ID}/cancel`,
+    );
   });
 });

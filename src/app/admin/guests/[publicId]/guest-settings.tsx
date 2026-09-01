@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { BulkProgress } from "@/app/bulk-progress";
 import { useBulkAction, useServerAction } from "@/app/photo-controls";
 
@@ -19,11 +20,13 @@ export function GuestSettings({
   blocked,
   publicCount,
   labels,
+  download,
 }: {
   publicId: string;
   blocked: boolean;
   publicCount: number;
   labels: GuestSettingsLabels;
+  download: ReactNode;
 }) {
   const uploads = useServerAction();
   const hideAll = useBulkAction();
@@ -82,7 +85,7 @@ export function GuestSettings({
           <p className="pt-1 text-xs text-danger">{labels.actionFailed}</p>
         )}
       </div>
-      <div className="flex flex-col rounded-b-card border border-ink/10 bg-card">
+      <div className="flex flex-col border border-ink/10 bg-card">
         {hideAll.busy ? (
           <div className="flex px-4 py-[13px]">
             <BulkProgress
@@ -111,6 +114,7 @@ export function GuestSettings({
           <p className="px-4 pb-2 text-xs text-danger">{labels.actionFailed}</p>
         )}
       </div>
+      {download}
     </div>
   );
 }

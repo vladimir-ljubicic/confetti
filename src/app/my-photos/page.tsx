@@ -1,11 +1,6 @@
 import { getDeviceId } from "@/lib/device";
 import { uploaderExport } from "@/lib/export";
-import {
-  exportJobReplaceable,
-  exportJobStatus,
-  getExportJob,
-  type ExportJob,
-} from "@/lib/export-jobs";
+import { exportJobStatus, liveExportJob, type ExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadViewerLikes } from "@/lib/public-photos";
 import { supabaseAdmin } from "@/lib/supabase-server";
@@ -65,17 +60,14 @@ export default async function MyPhotosPage() {
   const deviceId = await getDeviceId();
   let profile: UploaderProfile | null = null;
   let own: OwnPhotos = { photos: [], totalBytes: 0 };
-  let job: ExportJob | null = null;
+  let exportJob: ExportJob | null = null;
   if (deviceId) {
-    [profile, own, job] = await Promise.all([
+    [profile, own, exportJob] = await Promise.all([
       getUploaderProfile(deviceId),
       loadOwnPhotos(deviceId),
-      getExportJob(uploaderExport(deviceId)).catch(() => null),
+      liveExportJob(uploaderExport(deviceId)),
     ]);
   }
-  // A cancelled or expired job is one the next prepare replaces, so it stands
-  // for no zip the guest can be offered.
-  const exportJob = job && !exportJobReplaceable(job) ? job : null;
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">

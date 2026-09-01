@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { viewerLabels } from "@/app/viewer-labels";
 import { isAdmin } from "@/lib/admin-session";
+import { uploaderExport } from "@/lib/export";
+import { exportJobStatus, liveExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
 import { getDict, getLocale } from "@/lib/locale";
 import { supabaseAdmin } from "@/lib/supabase-server";
@@ -13,6 +15,7 @@ import {
   type VisibilityChip,
   type VisibilityKey,
 } from "../../admin-photo-grid";
+import { GuestDownloadRow } from "./guest-download-row";
 import { GuestHeader } from "./guest-header";
 import { GuestSettings } from "./guest-settings";
 
@@ -48,13 +51,16 @@ type GuestPhotoRow = {
   uploaded_at: string;
   image_width: number | null;
   image_height: number | null;
+  size_bytes: number;
 };
 
-async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPhoto[]> {
+type GuestPhotos = { photos: AdminPhoto[]; totalBytes: number };
+
+async function loadGuestPhotos(guest: Guest, publicId: string): Promise<GuestPhotos> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height, size_bytes",
     )
     .eq("uploader_id", guest.id)
     .not("uploaded_at", "is", null)
@@ -65,23 +71,26 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
   // The viewer's uploader pill shows the guest's public photo count, matching
   // their public gallery page.
   const publicRows = rows.filter((row) => row.visibility === "public");
-  return rows.map((photo) => ({
-    id: photo.id,
-    uploadedAt: photo.uploaded_at,
-    width: photo.image_width,
-    height: photo.image_height,
-    originalFilename: photo.original_filename,
-    likeCount: photo.like_count,
-    likedByViewer: false,
-    ownedByViewer: false,
-    visibility: photo.visibility,
-    uploader: {
-      displayName: guest.displayName,
-      publicId,
-      photoCount: publicRows.length,
-      likeTotal: publicRows.reduce((sum, row) => sum + row.like_count, 0),
-    },
-  }));
+  return {
+    photos: rows.map((photo) => ({
+      id: photo.id,
+      uploadedAt: photo.uploaded_at,
+      width: photo.image_width,
+      height: photo.image_height,
+      originalFilename: photo.original_filename,
+      likeCount: photo.like_count,
+      likedByViewer: false,
+      ownedByViewer: false,
+      visibility: photo.visibility,
+      uploader: {
+        displayName: guest.displayName,
+        publicId,
+        photoCount: publicRows.length,
+        likeTotal: publicRows.reduce((sum, row) => sum + row.like_count, 0),
+      },
+    })),
+    totalBytes: rows.reduce((sum, row) => sum + row.size_bytes, 0),
+  };
 }
 
 export default async function AdminGuestPage({
@@ -103,7 +112,10 @@ export default async function AdminGuestPage({
 
   const guest = await loadGuest(publicId);
   if (!guest) notFound();
-  const photos = await loadGuestPhotos(guest, publicId);
+  const [{ photos, totalBytes }, exportJob] = await Promise.all([
+    loadGuestPhotos(guest, publicId),
+    liveExportJob(uploaderExport(guest.id)),
+  ]);
 
   const rawFilter = Array.isArray(filterParam) ? filterParam[0] : filterParam;
   const filter: VisibilityKey =
@@ -151,6 +163,22 @@ export default async function AdminGuestPage({
         bulkProgress: labels.bulkProgress,
         actionFailed: labels.actionFailed,
       }}
+      download={
+        <GuestDownloadRow
+          publicId={publicId}
+          rowLabel={labels.downloadGuest}
+          rowValue={labels.downloadGuestValue}
+          labels={{
+            ...dict.downloadSheet,
+            title: labels.downloadGuest,
+            intro: labels.downloadGuestIntro,
+          }}
+          locale={locale}
+          photoCount={photos.length}
+          sizeBytes={totalBytes}
+          initialStatus={exportJob ? exportJobStatus(exportJob) : null}
+        />
+      }
     />
   );
 

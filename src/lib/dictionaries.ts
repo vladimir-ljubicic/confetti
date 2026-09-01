@@ -243,6 +243,10 @@ const en = {
     uploadsAllow: "Allow",
     uploadsBlock: "Block",
     hideAllFromGuest: "Hide all from this guest",
+    downloadGuest: "Download all from this guest",
+    downloadGuestValue: "ZIP →",
+    downloadGuestIntro:
+      "All of this guest's photos, public and private. Preparing the ZIP file takes a few minutes.",
     hiding: "Hiding…",
     bulkProgress: "{done} of {total}",
     unknownUploader: "Unknown guest",
@@ -559,6 +563,10 @@ const sr: Dictionary = {
     uploadsAllow: "Дозволи",
     uploadsBlock: "Забрани",
     hideAllFromGuest: "Сакриј све од овог госта",
+    downloadGuest: "Преузми све од овог госта",
+    downloadGuestValue: "ZIP →",
+    downloadGuestIntro:
+      "Све фотографије овог госта, јавне и приватне. Припрема ZIP датотеке траје неколико минута.",
     hiding: "Скривање…",
     bulkProgress: "{done} од {total}",
     unknownUploader: "Непознат гост",

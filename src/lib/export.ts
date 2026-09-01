@@ -82,7 +82,9 @@ export function exportAutoCreates(target: ExportTarget): boolean {
 // live zip. The own-photos zip sits behind the device cookie, holds every
 // photo that device uploaded, and can likewise be prepared at any time; since
 // the guest keeps uploading, preparing it again once their photos have moved
-// replaces it rather than handing back the older snapshot.
+// replaces it rather than handing back the older snapshot. The couple reach
+// that same zip per guest from behind the admin session, naming the guest by
+// their public id.
 // A ready zip stays downloadable for a week; after that the object is purged
 // and the zip has to be prepared again.
 export const EXPORT_PUBLIC_PATH = "/api/export/public";
@@ -90,6 +92,16 @@ export const EXPORT_MINE_PATH = "/api/export/mine";
 export const EXPORT_MINE_CANCEL_PATH = "/api/export/mine/cancel";
 export const EXPORT_ADMIN_PATH = "/api/export/admin";
 export const EXPORT_ADMIN_CANCEL_PATH = "/api/export/admin/cancel";
+const EXPORT_ADMIN_GUESTS_PATH = "/api/export/admin/guests";
+
+export function exportGuestPath(publicId: string): string {
+  return `${EXPORT_ADMIN_GUESTS_PATH}/${publicId}`;
+}
+
+export function exportGuestCancelPath(publicId: string): string {
+  return `${exportGuestPath(publicId)}/cancel`;
+}
+
 export const EXPORT_PACKING_STATUS = 202;
 export const EXPORT_EXPIRED_STATUS = 410;
 export const EXPORT_LINK_VALIDITY_DAYS = 7;
