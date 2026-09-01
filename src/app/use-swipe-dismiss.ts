@@ -7,32 +7,22 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-
-// Pointer travel that tells a drag apart from a tap; whichever axis leads by
-// then owns the gesture, and a sideways lead leaves the touch to the track's
-// own horizontal scroll.
-const DRAG_THRESHOLD_PX = 6;
-
-// Either a long enough drag or a short quick flick dismisses.
-const DISMISS_DISTANCE_PX = 90;
-const FLICK_DISTANCE_PX = 16;
-const FLICK_VELOCITY_PX_PER_MS = 0.45;
-
-// A finger resting this long before lifting is no longer flicking.
-const VELOCITY_STALE_MS = 90;
-
-// Drag over which the backdrop fades out fully and the photo shrinks to its
-// smallest.
-const FADE_DISTANCE_PX = 320;
-const SHRINK = 0.15;
+import {
+  backdropOpacity,
+  dismissed,
+  dismissProgress,
+  dragAxis,
+  flingDirection,
+  photoScale,
+} from "@/lib/swipe-dismiss";
 
 const SETTLE_MS = 200;
 
 // Drag-up-or-down-to-dismiss for the viewer's slide track. Spread `trackProps`
-// on the track and `fadeStyle` on the backdrop and chrome around it. Touch and
-// pen only: a mouse drag over an image starts a native image drag instead.
-// `onDismiss` runs the moment the release commits; the track keeps flying off
-// in the drag's direction while the viewer closes.
+// on the track, `backdropStyle` on the backdrop and `chromeStyle` on the chrome
+// around it. Touch and pen only: a mouse drag over an image starts a native
+// image drag instead. `onDismiss` runs the moment the release commits; the
+// track keeps flying off in the drag's direction while the viewer closes.
 export function useSwipeDismiss(onDismiss: () => void) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -81,10 +71,9 @@ export function useSwipeDismiss(onDismiss: () => void) {
     const dx = event.clientX - from.x;
     const dy = event.clientY - from.y;
     if (!dragged.current) {
-      if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) {
-        return;
-      }
-      if (Math.abs(dx) >= Math.abs(dy)) {
+      const axis = dragAxis(dx, dy);
+      if (axis === "pending") return;
+      if (axis === "horizontal") {
         origin.current = null;
         return;
       }
@@ -112,16 +101,10 @@ export function useSwipeDismiss(onDismiss: () => void) {
     setDragging(false);
     suppressClick.current = true;
     const travelled = offsetRef.current;
-    const direction = travelled < 0 ? -1 : 1;
-    const resting =
-      sample.current === null ||
-      event.timeStamp - sample.current.time > VELOCITY_STALE_MS;
-    const flicked =
-      !resting &&
-      velocity.current * direction > FLICK_VELOCITY_PX_PER_MS &&
-      Math.abs(travelled) > FLICK_DISTANCE_PX;
-    if (flicked || Math.abs(travelled) > DISMISS_DISTANCE_PX) {
-      setFlung(direction);
+    const sinceSample =
+      sample.current === null ? null : event.timeStamp - sample.current.time;
+    if (dismissed(travelled, velocity.current, sinceSample)) {
+      setFlung(flingDirection(travelled));
       onDismiss();
     } else {
       moveTo(0);
@@ -137,21 +120,25 @@ export function useSwipeDismiss(onDismiss: () => void) {
     event.stopPropagation();
   }
 
-  const progress =
-    flung !== null ? 1 : Math.min(1, Math.abs(offset) / FADE_DISTANCE_PX);
+  const progress = flung !== null ? 1 : dismissProgress(offset);
   const settle = `${SETTLE_MS}ms ease-out`;
 
   const trackStyle: CSSProperties = {
     transform:
       flung !== null
-        ? `translateY(${flung * 110}%) scale(${1 - SHRINK})`
-        : `translateY(${offset}px) scale(${1 - progress * SHRINK})`,
+        ? `translateY(${flung * 110}%) scale(${photoScale(1)})`
+        : `translateY(${offset}px) scale(${photoScale(progress)})`,
     transition: dragging ? "none" : `transform ${settle}`,
     // The browser keeps horizontal pans (the track's own scroll) and pinches,
     // and hands every vertical pan to the handlers here instead of claiming
     // it and cancelling the pointer.
     touchAction: "pan-x pinch-zoom",
   };
+
+  const fade = (opacity: number): CSSProperties => ({
+    opacity,
+    transition: dragging ? "none" : `opacity ${settle}`,
+  });
 
   return {
     trackProps: {
@@ -162,9 +149,7 @@ export function useSwipeDismiss(onDismiss: () => void) {
       onPointerCancel: reset,
       onClickCapture: clickCapture,
     },
-    fadeStyle: {
-      opacity: 1 - progress,
-      transition: dragging ? "none" : `opacity ${settle}`,
-    } satisfies CSSProperties,
+    backdropStyle: fade(backdropOpacity(progress)),
+    chromeStyle: fade(1 - progress),
   };
 }

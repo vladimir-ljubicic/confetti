@@ -88,6 +88,9 @@ The small rendition of a photo that gallery tiles render, produced on the guest'
 **Viewer image**:
 The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
 
+**Viewer dismiss**:
+The drag that closes the full-screen viewer, upwards or downwards alike: past 110px, or a shorter flick faster than 0.5px·ms⁻¹. The photo shrinks to 0.88 as it goes and the stage thins to 0.3 without ever clearing, so the gallery underneath stays a hint. A sideways lead belongs to the track's own scroll instead.
+
 **Export job**:
 The server-side packing of one ZIP per kind (public gallery, or admin: public photos, plus private ones when the admin asks for them). Preparing it starts the job or restarts a cancelled or expired one; it packs until ready, and the admin can cancel it while it packs. The public ZIP can only be prepared once frozen; the admin ZIP at any time, and the freeze replaces a ZIP whose snapshot was taken while uploads were open. The private-photos choice is part of the snapshot: preparing with the other choice replaces the live admin ZIP.
 

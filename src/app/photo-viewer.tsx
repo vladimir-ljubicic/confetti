@@ -528,11 +528,11 @@ export function PhotoViewer({
     >
       <div
         aria-hidden
-        style={swipe.fadeStyle}
+        style={swipe.backdropStyle}
         className="absolute inset-0 -z-10 bg-stage"
       />
       <div
-        style={swipe.fadeStyle}
+        style={swipe.chromeStyle}
         className="flex items-center justify-between px-[18px] pt-[18px]"
       >
         <button
@@ -622,7 +622,7 @@ export function PhotoViewer({
       </div>
 
       <div
-        style={swipe.fadeStyle}
+        style={swipe.chromeStyle}
         className="flex flex-col items-center gap-1.5 px-6 pt-1 text-center"
       >
         {current.uploader &&
@@ -689,7 +689,7 @@ export function PhotoViewer({
       </div>
 
       <div
-        style={swipe.fadeStyle}
+        style={swipe.chromeStyle}
         className="flex flex-col gap-[13px] px-[18px] pt-5 pb-[26px]"
       >
         <div className="flex gap-[9px]">

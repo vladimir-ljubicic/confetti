@@ -54,7 +54,7 @@ below use the new (ALIGN) numbering.
 ## 3. Drift — implemented, but differs
 
 ### Viewer (7a)
-- **Up-swipe dismisses** — spec is down-only (`use-swipe-dismiss.ts:107`; commit c0cb028 went directly against REVIEW §1). Thresholds 90px/0.45px·ms⁻¹ vs spec 110/0.5; shrink to 0.85 vs 0.88; backdrop fades to 0 with no 0.3 floor; axis lock at 6px vs ~10px.
+- **Up-swipe dismisses** — spec is down-only (REVIEW §1); both directions are kept by ruling on issue 47.
 - **No shared-element zoom** — generic fade+scale in/out; View Transitions API used only for locale switch and admin tabs, never photo→viewer; swipe-dismiss flings the photo off-screen instead of zooming back to the tile.
 - **No zoom gating** — the viewer has no photo zoom at all (double-tap is bound to like), so "vertical drag pans when zoomed" can't hold under browser pinch-zoom.
 
@@ -112,8 +112,7 @@ Tokens hex-exact, Cormorant+Jost loaded (Geist gone), contrast rule applied, dan
 ## Unresolved questions
 
 1. Text floor: enforce 12px/0.55 (ALIGN §0) or accept board's 11px/0.45? One global call.
-2. Up-swipe dismiss was built deliberately (c0cb028) — revert to down-only per spec?
-3. Unliked pill: force 34px circle or keep spec-derived 36px?
-4. Duplicate detection + recovery code — REVIEW says "needs decision"; decide or wontfix?
-5. Update handoff/spec docs for the ADR'd divergences (virtualization, tile-label links)?
-6. Confirm §1.1 with one prod-build screenshot before telling the designer it's the dev indicator?
+2. Unliked pill: force 34px circle or keep spec-derived 36px?
+3. Duplicate detection + recovery code — REVIEW says "needs decision"; decide or wontfix?
+4. Update handoff/spec docs for the ADR'd divergences (virtualization, tile-label links)?
+5. Confirm §1.1 with one prod-build screenshot before telling the designer it's the dev indicator?
