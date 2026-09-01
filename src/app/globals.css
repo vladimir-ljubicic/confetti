@@ -308,6 +308,34 @@
   animation: fade 200ms ease-out backwards;
 }
 
+/* A failure row that finally went up: it fades and collapses out of the list.
+   The negative margin swallows the flex gap the row leaves behind. */
+@keyframes failure-row-out {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    margin-bottom: -0.625rem;
+  }
+}
+
+.failure-row-out {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: failure-row-out 220ms ease-in forwards;
+}
+
+/* A grid item's automatic minimum size would floor the track at the row's own
+   height, leaving nothing for the track to collapse through. */
+.failure-row-out > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Opening a photo: the stage rises around it as the photo settles in.
    The exit runs its own keyframes — reusing the entrance's name would
    retarget the finished animation instead of starting a new one. */
@@ -393,6 +421,11 @@
   /* Fades rather than stops: the burst heart leaves on its animation end. */
   .heart-burst {
     animation-name: heart-burst-fade;
+  }
+
+  /* Fades in place: the row is unmounted when the fade ends either way. */
+  .failure-row-out {
+    animation: fade-out 140ms ease-in forwards;
   }
 
   ::view-transition-old(*),

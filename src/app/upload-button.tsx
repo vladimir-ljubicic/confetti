@@ -27,11 +27,15 @@ import {
 import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { pluralize, type Locale } from "@/lib/i18n";
-import { FailureSheet, type FailureSheetLabels } from "./failure-sheet";
+import {
+  FailureSheet,
+  type FailureSheetLabels,
+  type RetryRun,
+} from "./failure-sheet";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
 import { useSort } from "./sort-context";
 import { BatchSummary, BulkMiniBar } from "./upload-minibar";
-import { useUploadQueue } from "./upload-queue";
+import { useUploadQueue, type UploadTile } from "./upload-queue";
 
 // Fixed by Supabase's resumable upload endpoint; other sizes are rejected.
 const CHUNK_SIZE = 6 * 1024 * 1024;
@@ -44,11 +48,15 @@ const BULK_TICK_MS = 1000;
 // Too little data for a stable rate before this.
 const BULK_ETA_WARMUP_MS = 3000;
 const SUMMARY_TTL_MS = 6000;
+// Long enough for a retried row to fade and collapse before it is unmounted.
+const ROW_EXIT_MS = 220;
+const TOAST_TTL_MS = 2400;
 // Longer when failures remain, so the retry pill can still be reached.
 const SUMMARY_FAILED_TTL_MS = 30000;
 
 type UploadLabels = FailureSheetLabels & {
   add: string;
+  failuresAllUploaded: string;
   uploading: string;
   frozen: string;
   batchLimit: string;
@@ -293,11 +301,18 @@ export function UploadButton({
   const [failures, setFailures] = useState<BatchFailureEntry[]>([]);
   const [failureSheetOpen, setFailureSheetOpen] = useState(false);
   const [batchUploaded, setBatchUploaded] = useState(0);
+  const [sendingIds, setSendingIds] = useState<ReadonlySet<number>>(new Set());
+  const [leavingIds, setLeavingIds] = useState<ReadonlySet<number>>(new Set());
+  const [retryRun, setRetryRun] = useState<RetryRun | null>(null);
+  const [allUploaded, setAllUploaded] = useState(false);
   const tileIdRef = useRef(0);
   const controllers = useRef(new Map<number, TileController>());
   const bulkRunRef = useRef<BulkRun | null>(null);
   const failuresRef = useRef<BatchFailureEntry[]>([]);
   const failureIdRef = useRef(0);
+  const sendingRef = useRef(new Set<number>());
+  const leavingRef = useRef(new Set<number>());
+  const retryRunRef = useRef<{ cancelled: boolean } | null>(null);
   const summaryTimerRef = useRef<number | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -336,6 +351,7 @@ export function UploadButton({
       reason,
       sizeBytes: file.size,
       uploadedBytes,
+      attempts: 1,
     });
     setFailures([...failuresRef.current]);
   }
@@ -369,9 +385,8 @@ export function UploadButton({
     dropFailures(failuresRef.current);
   }
 
-  // Whatever is left of the batch goes back up; the sheet stays open for
-  // rows the guest has not dealt with yet, while the tiles and the mini-bar
-  // report the attempt in the summary card's place.
+  // The summary card's way back up: the batch resumes where it ran, so the
+  // tiles and the mini-bar report the attempt in the card's place.
   function retryFailures(entries: BatchFailureEntry[]) {
     clearSummaryTimer();
     setBulkView(null);
@@ -391,6 +406,152 @@ export function UploadButton({
       );
     }
     if (files.length > 0) void startBatch(files.map((entry) => entry.file));
+  }
+
+  function markSending(id: number, sending: boolean) {
+    if (sending) sendingRef.current.add(id);
+    else sendingRef.current.delete(id);
+    setSendingIds(new Set(sendingRef.current));
+  }
+
+  function retireFailure(entry: BatchFailureEntry) {
+    leavingRef.current.add(entry.id);
+    setLeavingIds(new Set(leavingRef.current));
+    window.setTimeout(() => {
+      leavingRef.current.delete(entry.id);
+      setLeavingIds(new Set(leavingRef.current));
+      dropFailures([entry]);
+      // Nothing left to answer for, so the card that offered the retry goes too.
+      if (failuresRef.current.length === 0) {
+        clearSummaryTimer();
+        setBulkView(null);
+      }
+    }, ROW_EXIT_MS);
+  }
+
+  // A re-failure lands on the entry that was already there, so the row keeps
+  // its place in the list and its count of attempts.
+  function markFailure(
+    id: number,
+    reason: UploadFailureReason,
+    uploadedBytes: number,
+  ) {
+    failuresRef.current = failuresRef.current.map((entry) =>
+      entry.id === id
+        ? { ...entry, reason, uploadedBytes, attempts: entry.attempts + 1 }
+        : entry,
+    );
+    setFailures([...failuresRef.current]);
+  }
+
+  // Sends one listed failure back up from inside the sheet, without routing it
+  // through a tile batch or a fresh bulk run.
+  async function sendFailure(entry: BatchFailureEntry): Promise<boolean> {
+    const controller =
+      entry.tileId === null
+        ? null
+        : (controllers.current.get(entry.tileId) ?? null);
+    const patchTile = (patch: Partial<UploadTile>) => {
+      if (entry.tileId !== null) queue?.patchTile(entry.tileId, patch);
+    };
+    if (controller) controller.cancelled = false;
+    markSending(entry.id, true);
+    patchTile({ status: "uploading", percent: 0, reason: null });
+    let uploadedBytes = 0;
+    try {
+      const photoId = await uploadFile(
+        entry.file,
+        1,
+        (percent) => {
+          uploadedBytes = (percent / 100) * entry.file.size;
+          patchTile({ percent });
+        },
+        controller
+          ? {
+              isCancelled: () => controller.cancelled,
+              onTusStart: (abort) => {
+                controller.abortTus = abort;
+              },
+            }
+          : undefined,
+      );
+      if (controller) {
+        controller.abortTus = null;
+        controller.done = true;
+      }
+      patchTile({ status: "done", percent: 100, photoId, reason: null });
+      setBatchUploaded((count) => count + 1);
+      retireFailure(entry);
+      router.refresh();
+      return true;
+    } catch (error) {
+      if (
+        error instanceof ProfileRequiredError ||
+        error instanceof UploadsFrozenError ||
+        error instanceof RateLimitedError
+      ) {
+        throw error;
+      }
+      console.error("Upload failed", error);
+      const reason = classifyUploadFailure(error);
+      patchTile({ status: "failed", reason });
+      markFailure(entry.id, reason, uploadedBytes);
+      return false;
+    } finally {
+      markSending(entry.id, false);
+    }
+  }
+
+  async function retryFailure(entry: BatchFailureEntry): Promise<boolean> {
+    if (sendingRef.current.has(entry.id) || leavingRef.current.has(entry.id)) {
+      return false;
+    }
+    try {
+      return await sendFailure(entry);
+    } catch (error) {
+      cancelRetryRun();
+      // The photo goes back with the intro sheet, so it must not stay listed.
+      if (error instanceof ProfileRequiredError) skipFailures([entry]);
+      reportUploadAbort(error, [entry.file]);
+      return false;
+    }
+  }
+
+  function cancelRetryRun() {
+    const run = retryRunRef.current;
+    if (run) run.cancelled = true;
+  }
+
+  // Пробај поново: the same attempt across the retryable group, a few at a
+  // time. Cancelling stops the ones not yet started and leaves them listed.
+  async function retryAllFailures() {
+    const idle = failuresRef.current.filter(
+      (entry) =>
+        !sendingRef.current.has(entry.id) && !leavingRef.current.has(entry.id),
+    );
+    const targets = groupFailures(idle).retryable;
+    if (targets.length === 0 || retryRunRef.current) return;
+    const run = { cancelled: false };
+    retryRunRef.current = run;
+    setRetryRun({ done: 0, total: targets.length });
+    let done = 0;
+    await runUploadPool([...targets], async (entry) => {
+      if (run.cancelled) return;
+      await retryFailure(entry);
+      done += 1;
+      setRetryRun((view) => (view ? { ...view, done } : view));
+    });
+    retryRunRef.current = null;
+    setRetryRun(null);
+    const staying = failuresRef.current.filter(
+      (entry) => !leavingRef.current.has(entry.id),
+    );
+    if (staying.length === 0) showAllUploadedToast();
+  }
+
+  function showAllUploadedToast() {
+    setAllUploaded(true);
+    window.setTimeout(() => setAllUploaded(false), TOAST_TTL_MS);
   }
 
   function discardFailures() {
@@ -521,16 +682,22 @@ export function UploadButton({
         return retryTile(item);
       }
       dropTile(item.id);
-      if (error instanceof ProfileRequiredError) {
-        askForProfile([item.file]);
-      } else if (error instanceof UploadsFrozenError) {
-        setFrozenNotice(true);
-        router.refresh();
-      } else if (error instanceof RateLimitedError) {
-        setLimitNotice(
-          error.reason === "batch" ? batchLimitMessage : labels.rateLimited,
-        );
-      }
+      reportUploadAbort(error, [item.file]);
+    }
+  }
+
+  // The three ways an attempt ends without being the photo's own fault; any
+  // other error is the photo's, and the caller has already listed it.
+  function reportUploadAbort(error: unknown, files: File[]) {
+    if (error instanceof ProfileRequiredError) {
+      askForProfile(files);
+    } else if (error instanceof UploadsFrozenError) {
+      setFrozenNotice(true);
+      router.refresh();
+    } else if (error instanceof RateLimitedError) {
+      setLimitNotice(
+        error.reason === "batch" ? batchLimitMessage : labels.rateLimited,
+      );
     }
   }
 
@@ -983,6 +1150,15 @@ export function UploadButton({
         />
       )}
 
+      {allUploaded && (
+        <p
+          role="status"
+          className="pointer-events-none rounded-pill bg-card/95 px-4 py-2 text-sm text-gold-small shadow-floating"
+        >
+          {labels.failuresAllUploaded}
+        </p>
+      )}
+
       {frozenNotice && (
         <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-ink/70 shadow-floating">
           {labels.frozen}
@@ -1026,13 +1202,18 @@ export function UploadButton({
           failures={failures}
           uploadedCount={batchUploaded}
           maxFileBytes={limitsExempt ? null : limits.maxFileBytes}
-          onRetryOne={(id) =>
-            retryFailures(failures.filter((entry) => entry.id === id))
-          }
+          sendingIds={sendingIds}
+          leavingIds={leavingIds}
+          retryRun={retryRun}
+          onRetryOne={(id) => {
+            const entry = failuresRef.current.find((item) => item.id === id);
+            if (entry) void retryFailure(entry);
+          }}
           onSkipOne={(id) =>
             skipFailures(failures.filter((entry) => entry.id === id))
           }
-          onRetryAll={() => retryFailures(retryableFailures)}
+          onRetryAll={() => void retryAllFailures()}
+          onCancelRetry={cancelRetryRun}
           onDiscard={discardFailures}
           onClose={closeFailureSheet}
         />

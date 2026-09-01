@@ -1,5 +1,8 @@
-import { INTL_LOCALES, type Locale } from "./i18n";
+import { INTL_LOCALES, pluralize, type Locale, type PluralForms } from "./i18n";
 import { isRetryableFailure, type UploadFailureReason } from "./upload-failure";
+
+// Attempts after which another one is not worth offering.
+export const DEAD_END_ATTEMPTS = 3;
 
 export type BatchFailure = {
   id: number;
@@ -8,6 +11,8 @@ export type BatchFailure = {
   sizeBytes: number;
   // How far the upload got before it broke; 0 when it never started.
   uploadedBytes: number;
+  // Failed attempts so far, the first one included.
+  attempts: number;
 };
 
 export type FailureDetailLabels = {
@@ -16,15 +21,44 @@ export type FailureDetailLabels = {
   unsupportedFormat: string;
 };
 
-export function groupFailures<T extends { reason: UploadFailureReason }>(
+export type FailureReasonLabels = {
+  reason: Record<UploadFailureReason, string>;
+  attempts: PluralForms;
+};
+
+type AttemptedFailure = { reason: UploadFailureReason; attempts: number };
+
+export function isDeadEndFailure(failure: AttemptedFailure): boolean {
+  return (
+    isRetryableFailure(failure.reason) && failure.attempts >= DEAD_END_ATTEMPTS
+  );
+}
+
+export function groupFailures<T extends AttemptedFailure>(
   failures: readonly T[],
-): { retryable: T[]; unretryable: T[] } {
+): { retryable: T[]; deadEnd: T[]; unretryable: T[] } {
   return {
-    retryable: failures.filter((failure) => isRetryableFailure(failure.reason)),
+    retryable: failures.filter(
+      (failure) =>
+        isRetryableFailure(failure.reason) && !isDeadEndFailure(failure),
+    ),
+    deadEnd: failures.filter(isDeadEndFailure),
     unretryable: failures.filter(
       (failure) => !isRetryableFailure(failure.reason),
     ),
   };
+}
+
+// What went wrong. The count joins it only once a photo has cost more than one
+// attempt.
+export function failureReason(
+  failure: AttemptedFailure,
+  labels: FailureReasonLabels,
+  locale: Locale,
+): string {
+  const reason = labels.reason[failure.reason];
+  if (failure.attempts < 2) return reason;
+  return `${reason} · ${pluralize(locale, failure.attempts, labels.attempts)}`;
 }
 
 // "512 KB" / "4,1 MB" / "62 MB" — decimal units, with the locale's decimal mark.

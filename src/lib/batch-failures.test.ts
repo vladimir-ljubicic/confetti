@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   failureDetail,
+  failureReason,
   formatPhotoSize,
   groupFailures,
   splitRetryTargets,
@@ -20,6 +21,7 @@ function failure(over: Partial<BatchFailure> = {}): BatchFailure {
     reason: "network",
     sizeBytes: 4_100_000,
     uploadedBytes: 0,
+    attempts: 1,
     ...over,
   };
 }
@@ -33,7 +35,28 @@ describe("groupFailures", () => {
 
     expect(groupFailures([network, tooLarge, server, notAnImage])).toEqual({
       retryable: [network, server],
+      deadEnd: [],
       unretryable: [tooLarge, notAnImage],
+    });
+  });
+
+  it("sets aside a photo that has failed three times", () => {
+    const fresh = failure({ id: 1, attempts: 2 });
+    const spent = failure({ id: 2, attempts: 3 });
+
+    expect(groupFailures([fresh, spent])).toEqual({
+      retryable: [fresh],
+      deadEnd: [spent],
+      unretryable: [],
+    });
+  });
+
+  it("leaves a photo we cannot upload out of the dead end, however many attempts", () => {
+    const tooLarge = failure({ reason: "too-large", attempts: 5 });
+    expect(groupFailures([tooLarge])).toEqual({
+      retryable: [],
+      deadEnd: [],
+      unretryable: [tooLarge],
     });
   });
 
@@ -49,7 +72,57 @@ describe("groupFailures", () => {
   });
 
   it("handles an empty list", () => {
-    expect(groupFailures([])).toEqual({ retryable: [], unretryable: [] });
+    expect(groupFailures([])).toEqual({
+      retryable: [],
+      deadEnd: [],
+      unretryable: [],
+    });
+  });
+});
+
+describe("failureReason", () => {
+  const reasonLabels = {
+    reason: {
+      network: "Веза је прекинута",
+      server: "Сервер није одговорио",
+      "too-large": "Превелика датотека",
+      "not-an-image": "Није фотографија",
+    },
+    attempts: {
+      one: "{count} проба",
+      few: "{count} пробе",
+      many: "{count} проба",
+    },
+  };
+
+  it("names the reason alone after the first attempt", () => {
+    expect(
+      failureReason(
+        failure({ reason: "server", attempts: 1 }),
+        reasonLabels,
+        "sr",
+      ),
+    ).toBe("Сервер није одговорио");
+  });
+
+  it("carries the attempt count once a photo has been tried again", () => {
+    expect(
+      failureReason(
+        failure({ reason: "server", attempts: 3 }),
+        reasonLabels,
+        "sr",
+      ),
+    ).toBe("Сервер није одговорио · 3 пробе");
+  });
+
+  it("pluralizes the attempt count", () => {
+    expect(
+      failureReason(
+        failure({ reason: "network", attempts: 5 }),
+        reasonLabels,
+        "sr",
+      ),
+    ).toBe("Веза је прекинута · 5 проба");
   });
 });
 
