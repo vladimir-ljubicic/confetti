@@ -43,6 +43,9 @@ _Avoid_: Live, Уживо
 Sort mode: most-liked first, ties broken newest-first.
 _Avoid_: Chronological, Хронолошки, oldest-first
 
+**Sort gate**:
+The like floor under which the sort toggle is not offered at all. Below ten likes across the photos an order would rearrange, latest and popular come out all but the same, so the control would read as broken. The whole gallery's total gates the gallery header; one guest's own total gates their gallery.
+
 **New photos pill**:
 The glass pill announcing other guests' photos that arrived after the gallery was loaded. They stay out of the grid until the guest taps it, which admits them and brings the top of the gallery on screen. The guest's own photos never wait behind it.
 

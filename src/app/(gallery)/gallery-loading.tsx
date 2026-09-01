@@ -7,7 +7,8 @@ import {
 } from "@/lib/event-schedule";
 import { getEventSettings } from "@/lib/event-settings";
 import { getDict, getLocale } from "@/lib/locale";
-import type { SortMode } from "@/lib/sort-mode";
+import { loadPublicLikeTotal } from "@/lib/public-photos";
+import { sortToggleShown, type SortMode } from "@/lib/sort-mode";
 import { getUploaderProfile } from "@/lib/uploaders";
 import { ConfettiMark } from "../confetti-mark";
 import { ConfettiWordmark } from "../confetti-wordmark";
@@ -17,7 +18,8 @@ import { SortToggleView } from "../sort-toggle";
 import { uploadWindowLine } from "../upload-window";
 
 // The gallery's masthead as it will actually be, built from everything that
-// does not need the photos — all of it either cached or a single indexed row.
+// does not need the photos — all of it cached, a single indexed row, or one
+// aggregate over them.
 // Standing in for the header rather than sketching it is the point: a
 // placeholder of another size moves the page under the reader the moment the
 // real header lands, and a toggle on the wrong side of the bar jumps across it.
@@ -26,7 +28,7 @@ import { uploadWindowLine } from "../upload-window";
 export async function GalleryLoading({ sort }: { sort: SortMode }) {
   const locale = await getLocale();
   const dict = await getDict();
-  const [settings, profile] = await Promise.all([
+  const [settings, profile, likeTotal] = await Promise.all([
     getEventSettings().catch(() => ({
       uploadsFrozen: false,
       eventDateIso: DEFAULT_EVENT_DATE_ISO,
@@ -35,6 +37,10 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
     getDeviceId()
       .then((deviceId) => (deviceId ? getUploaderProfile(deviceId) : null))
       .catch(() => null),
+    // The toggle is gated on this, so the stand-in bar has to know it too: a
+    // toggle here that the loaded header then withholds is the jump this
+    // whole component exists to avoid.
+    loadPublicLikeTotal().catch(() => 0),
   ]);
   const windowLine = uploadWindowLine(dict, locale, settings, new Date());
 
@@ -88,12 +94,14 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
           </span>
           <span className="text-[11px] tracking-[0.16em] text-ink/68">&nbsp;</span>
         </div>
-        <div className="ml-auto">
-          <SortToggleView
-            labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
-            active={sort}
-          />
-        </div>
+        {sortToggleShown(likeTotal) && (
+          <div className="ml-auto">
+            <SortToggleView
+              labels={{ latest: dict.gallery.sortLatest, popular: dict.gallery.sortPopular }}
+              active={sort}
+            />
+          </div>
+        )}
       </div>
 
       {settings.uploadsFrozen && (

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { comparePhotos, resolveSortMode, type SortablePhoto } from "./sort-mode";
+import {
+  comparePhotos,
+  resolveSortMode,
+  sortToggleShown,
+  sumLikes,
+  type SortablePhoto,
+} from "./sort-mode";
 
 describe("resolveSortMode", () => {
   it("honors an explicit latest choice", () => {
@@ -71,5 +77,33 @@ describe("comparePhotos", () => {
         photo("b", "2026-08-02T10:00:00Z", 0),
       ]),
     ).toEqual(["b", "a"]);
+  });
+});
+
+describe("sumLikes", () => {
+  it("adds up every photo's likes", () => {
+    expect(sumLikes([{ likeCount: 3 }, { likeCount: 0 }, { likeCount: 7 }])).toBe(10);
+  });
+
+  it("counts an empty gallery as no likes", () => {
+    expect(sumLikes([])).toBe(0);
+  });
+});
+
+describe("sortToggleShown", () => {
+  it("hides the toggle below the like floor, where both orders read alike", () => {
+    expect(sortToggleShown(9)).toBe(false);
+  });
+
+  it("shows the toggle at the like floor", () => {
+    expect(sortToggleShown(10)).toBe(true);
+  });
+
+  it("shows the toggle above the like floor", () => {
+    expect(sortToggleShown(48)).toBe(true);
+  });
+
+  it("hides the toggle for a gallery with no likes at all", () => {
+    expect(sortToggleShown(0)).toBe(false);
   });
 });

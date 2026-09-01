@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { sortToggleShown } from "@/lib/sort-mode";
 import { LocaleToggle } from "./locale-toggle";
 import { NewPhotosPill } from "./new-photos";
 import { SortToggle } from "./sort-toggle";
@@ -87,7 +88,7 @@ export function GuestBar({
             {likeTotal} ♥
           </span>
         </div>
-        {photoCount > 0 && (
+        {sortToggleShown(likeTotal) && (
           <div className="ml-auto">
             <SortToggle
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}

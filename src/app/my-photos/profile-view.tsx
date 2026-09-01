@@ -191,7 +191,7 @@ export function ProfileView({
     likedByViewer: photo.likedByViewer,
     ownedByViewer: true,
     uploader: displayName
-      ? { displayName, publicId: "", photoCount: 0 }
+      ? { displayName, publicId: "", photoCount: 0, likeTotal: 0 }
       : null,
   }));
 

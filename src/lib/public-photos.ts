@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { galleryCursorFilter, type GalleryCursor } from "./gallery-cursor";
 import { GALLERY_HEAD_PHOTOS } from "./grid-window";
 import type { SortMode } from "./sort-mode";
@@ -35,10 +36,14 @@ export type PublicPhoto = {
   likeCount: number;
   likedByViewer: boolean;
   ownedByViewer: boolean;
+  // The guest who uploaded it, carrying their gallery-wide totals — what the
+  // uploader pill states and the sort gate reads, neither of which the photos
+  // on hand can be counted for.
   uploader: {
     displayName: string;
     publicId: string;
     photoCount: number;
+    likeTotal: number;
   } | null;
 };
 
@@ -81,6 +86,16 @@ export async function hasPublicPhotos(): Promise<boolean> {
   if (error) throw new Error(`Loading gallery failed: ${error.message}`);
   return (data as unknown[]).length > 0;
 }
+
+// Likes across the whole public gallery. The client can only sum the photos it
+// holds, and before the background fetch lands that is one screen of them, so
+// the total the sort toggle turns on comes from the database. Cached because
+// the stand-in header and the loaded one both ask for it in one render.
+export const loadPublicLikeTotal = cache(async (): Promise<number> => {
+  const { data, error } = await supabaseAdmin().rpc("public_like_total");
+  if (error) throw new Error(`Loading gallery likes failed: ${error.message}`);
+  return Number(data);
+});
 
 export type PublicPhotoStats = { photoCount: number; likeTotal: number };
 
@@ -205,6 +220,7 @@ export async function loadPublicPhotos({
           publicId: photo.uploaders.public_id,
           photoCount:
             uploaderStats.get(photo.uploader_id ?? "")?.photoCount ?? 0,
+          likeTotal: uploaderStats.get(photo.uploader_id ?? "")?.likeTotal ?? 0,
         }
       : null,
   }));

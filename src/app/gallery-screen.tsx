@@ -6,7 +6,11 @@ import {
 import { getEventSettings } from "@/lib/event-settings";
 import { exportJobStatus, getExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
-import { hasPublicPhotos, loadPublicPhotos } from "@/lib/public-photos";
+import {
+  hasPublicPhotos,
+  loadPublicLikeTotal,
+  loadPublicPhotos,
+} from "@/lib/public-photos";
 import { isAdmin } from "@/lib/admin-session";
 import { env } from "@/lib/env";
 import { getUploaderProfile } from "@/lib/uploaders";
@@ -46,10 +50,13 @@ export async function GalleryScreen({
   const dict = await getDict();
   const uploadLimits = env.uploadLimits();
   const deviceId = await getDeviceId();
-  const [photos, profile, settings, admin, job] = await Promise.all([
+  const [photos, likeTotal, profile, settings, admin, job] = await Promise.all([
     guest
       ? loadPublicPhotos({ sort, viewerDeviceId: deviceId, uploaderId: guest.uploaderId })
       : loadPublicPhotos({ sort, viewerDeviceId: deviceId, head: true }),
+    // Fail open, as the settings read below does: a gallery nobody can open
+    // is worse than one whose sort toggle stays away.
+    loadPublicLikeTotal().catch(() => 0),
     deviceId ? getUploaderProfile(deviceId) : null,
     // Fail open: browsing must survive a settings outage.
     getEventSettings().catch(() => ({
@@ -94,6 +101,7 @@ export async function GalleryScreen({
         <GalleryView
           photos={photos}
           initialSort={sort}
+          initialLikeTotal={likeTotal}
           initialGuest={
             guest ? { publicId: guest.publicId, displayName: guest.displayName } : null
           }

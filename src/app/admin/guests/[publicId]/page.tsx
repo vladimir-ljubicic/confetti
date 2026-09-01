@@ -64,7 +64,7 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
   const rows = data as unknown as GuestPhotoRow[];
   // The viewer's uploader pill shows the guest's public photo count, matching
   // their public gallery page.
-  const publicCount = rows.filter((row) => row.visibility === "public").length;
+  const publicRows = rows.filter((row) => row.visibility === "public");
   return rows.map((photo) => ({
     id: photo.id,
     uploadedAt: photo.uploaded_at,
@@ -75,7 +75,12 @@ async function loadGuestPhotos(guest: Guest, publicId: string): Promise<AdminPho
     likedByViewer: false,
     ownedByViewer: false,
     visibility: photo.visibility,
-    uploader: { displayName: guest.displayName, publicId, photoCount: publicCount },
+    uploader: {
+      displayName: guest.displayName,
+      publicId,
+      photoCount: publicRows.length,
+      likeTotal: publicRows.reduce((sum, row) => sum + row.like_count, 0),
+    },
   }));
 }
 

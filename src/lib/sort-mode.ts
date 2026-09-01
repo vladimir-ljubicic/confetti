@@ -29,3 +29,15 @@ export function comparePhotos(
     return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
   };
 }
+
+// Below this many likes across the photos an order would rearrange, popular
+// and latest come out all but identical and the toggle reads as broken.
+const SORT_TOGGLE_MIN_LIKES = 10;
+
+export function sumLikes(photos: { likeCount: number }[]): number {
+  return photos.reduce((total, photo) => total + photo.likeCount, 0);
+}
+
+export function sortToggleShown(likeTotal: number): boolean {
+  return likeTotal >= SORT_TOGGLE_MIN_LIKES;
+}

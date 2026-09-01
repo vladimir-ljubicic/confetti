@@ -86,6 +86,7 @@ export async function loadAdminPhotos({
             displayName: photo.uploaders.display_name,
             publicId: photo.uploaders.public_id,
             photoCount: publicStats.get(photo.uploader_id)?.photoCount ?? 0,
+            likeTotal: publicStats.get(photo.uploader_id)?.likeTotal ?? 0,
           }
         : null,
     })),

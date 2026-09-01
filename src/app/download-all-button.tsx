@@ -9,7 +9,7 @@ import {
   useExportJob,
   type DownloadSheetLabels,
 } from "./export-download";
-import { useGalleryCount } from "./gallery-count";
+import { useGalleryCount } from "./gallery-stats";
 
 // Guest variant of the download surface: frozen-gallery button, 13a sheet
 // over the public zip (no private-photo row), 13b/13c job card above it.

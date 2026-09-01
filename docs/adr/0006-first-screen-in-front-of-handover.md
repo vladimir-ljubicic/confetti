@@ -34,7 +34,10 @@ instant client-side filter.
 ## Consequences
 
 - First-paint cost is one screen of tiles regardless of gallery size; the
-  page stops growing with the gallery.
+  page stops growing with the gallery. Numbers about the gallery at large are
+  the exception: what a head cannot be counted for is aggregated in the
+  database instead, one indexed row per render, as the sort gate's like total
+  is.
 - The sort toggle is instant once the background fetch lands; pressed before
   that, it waits on the in-flight fetch — a window of roughly one round trip
   after hydration.

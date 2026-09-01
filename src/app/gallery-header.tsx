@@ -5,9 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { COUPLE_NAMES } from "@/lib/couple";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
+import { sortToggleShown } from "@/lib/sort-mode";
 import { ConfettiMark } from "./confetti-mark";
 import { ConfettiWordmark } from "./confetti-wordmark";
-import { useGalleryCount } from "./gallery-count";
+import { useGalleryCount, useGalleryLikeTotal } from "./gallery-stats";
 import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
 import { NewPhotosPill } from "./new-photos";
@@ -109,6 +110,10 @@ export function GalleryHeader({
   // server-rendered count once the background fetch lands; null when it holds
   // no gallery-wide set yet, so no number is shown.
   const count = useGalleryCount();
+  // The gallery's own like total, known before its photos are: the toggle is
+  // there from first paint or not at all, rather than arriving with the
+  // background fetch and shifting the bar under a reader.
+  const showSortToggle = sortToggleShown(useGalleryLikeTotal());
 
   useEffect(() => {
     const begin = () => {
@@ -286,7 +291,7 @@ export function GalleryHeader({
             {count !== null && <> · {count}</>}
           </span>
         </div>
-        {count !== null && count > 0 && (
+        {showSortToggle && (
           <div className="ml-auto">
             <SortToggle
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}

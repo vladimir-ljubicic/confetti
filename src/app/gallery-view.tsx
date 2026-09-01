@@ -6,8 +6,8 @@ import { headCoversView } from "@/lib/gallery-head";
 import type { Locale } from "@/lib/i18n";
 import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
-import { comparePhotos, type SortMode } from "@/lib/sort-mode";
-import { GalleryCountProvider } from "./gallery-count";
+import { comparePhotos, sumLikes, type SortMode } from "@/lib/sort-mode";
+import { GalleryStatsProvider } from "./gallery-stats";
 import { GridSkeleton } from "./grid-skeleton";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
 import { NewPhotosProvider } from "./new-photos";
@@ -27,6 +27,7 @@ const GUEST_PATH = /^\/uploader\/([^/?#]+)/;
 export function GalleryView({
   photos: headPhotos,
   initialSort,
+  initialLikeTotal,
   initialGuest = null,
   locale,
   viewerName,
@@ -45,6 +46,10 @@ export function GalleryView({
   // that guest's complete public set.
   photos: PublicPhoto[];
   initialSort: SortMode;
+  // Likes across the whole gallery as the server counted them. The head can
+  // only be summed for its own screenful, so the sort toggle reads this until
+  // the background fetch makes the client's own sum the gallery's.
+  initialLikeTotal: number;
   // The guest whose gallery a cold load landed on, and so whose photos are
   // all `photos` holds. Their name comes along for the header of a guest
   // whose photos are all private and so absent even there.
@@ -116,12 +121,21 @@ export function GalleryView({
     [held, guestId],
   );
 
+  const likeTotal = useMemo(
+    () => (complete ? sumLikes(photos) + sumLikes(held) : initialLikeTotal),
+    [complete, photos, held, initialLikeTotal],
+  );
+
   const guest = useMemo(() => {
     if (guestId === null) return null;
+    const uploader = shown[0]?.uploader;
     return {
-      displayName: shown[0]?.uploader?.displayName ?? initialGuest?.displayName ?? "",
+      displayName: uploader?.displayName ?? initialGuest?.displayName ?? "",
       photoCount: shown.length,
-      likeTotal: shown.reduce((sum, photo) => sum + photo.likeCount, 0),
+      // Their whole gallery's likes rather than the loaded photos' — the same
+      // scope the header's total has, so neither gate turns on how much of the
+      // gallery is here yet or on what waits behind the pill.
+      likeTotal: uploader?.likeTotal ?? 0,
     };
   }, [guestId, shown, initialGuest]);
 
@@ -162,8 +176,9 @@ export function GalleryView({
   return (
     <SortProvider sort={sort} onChange={changeSort}>
       <NewPhotosProvider count={heldHere} reveal={reveal}>
-        <GalleryCountProvider
+        <GalleryStatsProvider
           count={complete || initialGuest === null ? photos.length : null}
+          likeTotal={likeTotal}
         >
           {guest ? (
             <GuestBar
@@ -202,7 +217,7 @@ export function GalleryView({
 
             {guest === null && footer}
           </div>
-        </GalleryCountProvider>
+        </GalleryStatsProvider>
       </NewPhotosProvider>
     </SortProvider>
   );
