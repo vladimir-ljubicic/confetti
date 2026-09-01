@@ -24,6 +24,11 @@ import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import { supportsViewTransitions } from "@/lib/view-transition";
+import {
+  openedOn,
+  withoutSession,
+  type ViewerSession,
+} from "@/lib/viewer-session";
 import { LikePill } from "./like-pill";
 import { hideBrokenImage, publicThumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
@@ -236,11 +241,11 @@ export function PhotoGrid({
   // The photo the viewer was opened on and the one it has since been swiped to.
   // The grid hands the latter's tile over to the stage, and that is the tile the
   // photo comes back to.
-  const [viewing, setViewing] = useState<{
+  const [viewing, setViewing] = useState<ViewerSession<{
     startId: string;
     currentId: string;
     zooms: boolean;
-  } | null>(null);
+  }> | null>(null);
   const tiles = useMemo(
     () => (showUploadTiles ? (queue?.tiles ?? []) : []),
     [queue, showUploadTiles],
@@ -415,11 +420,13 @@ export function PhotoGrid({
     (photoId: string) => {
       startTransition(() => {
         clearAddressed();
-        setViewing({
-          startId: photoId,
-          currentId: photoId,
-          zooms: supportsViewTransitions(),
-        });
+        setViewing((open) =>
+          openedOn(open, {
+            startId: photoId,
+            currentId: photoId,
+            zooms: supportsViewTransitions(),
+          }),
+        );
       });
     },
     [clearAddressed],
@@ -431,7 +438,13 @@ export function PhotoGrid({
     // reached it, let alone mounted it — so the viewer fades in over the
     // gallery and puts the tile on screen behind itself for the way out.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewing({ startId: addressedId, currentId: addressedId, zooms: false });
+    setViewing((open) =>
+      openedOn(open, {
+        startId: addressedId,
+        currentId: addressedId,
+        zooms: false,
+      }),
+    );
     clearAddressed();
     revealPhoto(addressedId);
   }, [addressedId, clearAddressed, photoIds, revealPhoto]);
@@ -569,6 +582,7 @@ export function PhotoGrid({
       </div>
       {viewer && viewing !== null && (
         <PhotoViewer
+          key={viewing.session}
           photos={photos}
           startId={viewing.startId}
           zooms={viewing.zooms}
@@ -579,7 +593,9 @@ export function PhotoGrid({
           galleryCount={viewer.galleryCount}
           onCurrentChange={viewerMovedTo}
           onSelectUploader={onSelectUploader}
-          onClose={() => setViewing(null)}
+          onClose={() =>
+            setViewing((open) => withoutSession(open, viewing.session))
+          }
         />
       )}
     </>

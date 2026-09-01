@@ -7,6 +7,11 @@ import { pluralize, type Locale } from "@/lib/i18n";
 import { formatRecoveryCode } from "@/lib/recovery-code";
 import { selectionView } from "@/lib/selection-view";
 import type { Visibility } from "@/lib/uploader-profile";
+import {
+  openedOn,
+  withoutSession,
+  type ViewerSession,
+} from "@/lib/viewer-session";
 import { LocaleToggle } from "../locale-toggle";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
 import { PrivateBadge } from "../private-badge";
@@ -251,11 +256,13 @@ export function ProfileView({
 }) {
   const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
-  const [viewerStartId, setViewerStartId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ViewerSession<{
+    startId: string;
+  }> | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const { id: addressedId, clear: clearAddressed } = useAddressedEntry(
     "photo",
-    viewerStartId !== null,
+    viewing !== null,
   );
   const mode = useSelectMode({
     endpoints: { visibility: "/api/my-photos/visibility", delete: "/api/my-photos/delete" },
@@ -296,7 +303,7 @@ export function ProfileView({
     clearAddressed();
     if (!addressedShown) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewerStartId(addressedId);
+    setViewing((open) => openedOn(open, { startId: addressedId }));
     revealTile(
       listRef.current?.querySelector(`[data-photo-id="${addressedId}"]`),
     );
@@ -391,7 +398,13 @@ export function ProfileView({
                     type="button"
                     disabled={mode.busy}
                     aria-pressed={mode.active ? selected : undefined}
-                    onClick={() => mode.tap(photo.id, () => setViewerStartId(photo.id))}
+                    onClick={() =>
+                      mode.tap(photo.id, () =>
+                        setViewing((open) =>
+                          openedOn(open, { startId: photo.id }),
+                        ),
+                      )
+                    }
                     {...mode.pressHandlers(photo.id)}
                     className={`relative block aspect-square w-full overflow-hidden rounded-tile bg-sand ${SELECTABLE_TILE_CLASS}`}
                   >
@@ -421,10 +434,11 @@ export function ProfileView({
         <SelectBar mode={mode} photos={all} shown={shown} />
       )}
 
-      {viewerStartId !== null && (
+      {viewing !== null && (
         <PhotoViewer
+          key={viewing.session}
           photos={viewerPhotos}
-          startId={viewerStartId}
+          startId={viewing.startId}
           zooms={false}
           likes={likes}
           canManageAll={false}
@@ -435,7 +449,9 @@ export function ProfileView({
               listRef.current?.querySelector(`[data-photo-id="${photoId}"]`),
             )
           }
-          onClose={() => setViewerStartId(null)}
+          onClose={() =>
+            setViewing((open) => withoutSession(open, viewing.session))
+          }
         />
       )}
     </>

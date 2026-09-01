@@ -27,6 +27,11 @@ import type { SelectedPhoto } from "@/lib/bulk-selection";
 import type { Locale } from "@/lib/i18n";
 import { selectionView } from "@/lib/selection-view";
 import { tileEnterDelay } from "@/lib/tile-entrance";
+import {
+  openedOn,
+  withoutSession,
+  type ViewerSession,
+} from "@/lib/viewer-session";
 
 export type { AdminFilter, AdminPhoto };
 
@@ -111,7 +116,9 @@ export function AdminPhotoGrid({
   children?: React.ReactNode;
 }) {
   const likes = useLikes();
-  const [viewerStartId, setViewerStartId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<ViewerSession<{
+    startId: string;
+  }> | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   // What the grid is showing, and what the pressed chip promises it will show
   // — the two differ only while the new first page is on its way.
@@ -260,7 +267,11 @@ export function AdminPhotoGrid({
                   disabled={mode.busy}
                   aria-label={mode.active ? undefined : viewerLabels.open}
                   aria-pressed={mode.active ? selected : undefined}
-                  onClick={() => mode.tap(photo.id, () => setViewerStartId(photo.id))}
+                  onClick={() =>
+                    mode.tap(photo.id, () =>
+                      setViewing((open) => openedOn(open, { startId: photo.id })),
+                    )
+                  }
                   {...mode.pressHandlers(photo.id)}
                   className={`relative block aspect-square w-full overflow-hidden rounded-tile bg-sand ${SELECTABLE_TILE_CLASS}`}
                 >
@@ -296,10 +307,11 @@ export function AdminPhotoGrid({
       ) : (
         children
       )}
-      {viewerStartId !== null && (
+      {viewing !== null && (
         <PhotoViewer
+          key={viewing.session}
           photos={visible}
-          startId={viewerStartId}
+          startId={viewing.startId}
           zooms={false}
           likes={likes}
           canManageAll
@@ -312,7 +324,9 @@ export function AdminPhotoGrid({
               listRef.current?.querySelector(`[data-photo-id="${photoId}"]`),
             )
           }
-          onClose={() => setViewerStartId(null)}
+          onClose={() =>
+            setViewing((open) => withoutSession(open, viewing.session))
+          }
         />
       )}
     </>
