@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  ViewTransition,
+} from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
@@ -11,6 +19,7 @@ import { anchoredIndex } from "@/lib/viewer-anchor";
 import { HeartIcon, LikeHeart } from "./like-pill";
 import { useServerAction } from "./photo-controls";
 import { hideBrokenImage, renditionSrcs } from "./photo-image";
+import { PhotoZoom } from "./photo-zoom";
 import { useHistoryEntry } from "./use-history-entry";
 import type { Likes } from "./use-likes";
 import { useSheetDismiss } from "./use-sheet-dismiss";
@@ -74,6 +83,7 @@ function ViewerImage({
   src,
   sharpSrc,
   sharpen,
+  aspect,
   alt,
   onClick,
 }: {
@@ -82,6 +92,10 @@ function ViewerImage({
   // Only slides near the current one fetch their viewer rendition, so opening
   // the viewer doesn't pull one for every photo in the feed.
   sharpen: boolean;
+  // The photo's own ratio, where it is known. It sizes the element to the photo
+  // rather than to the stage it is centred in, so both ends of the zoom are
+  // boxes holding the same picture.
+  aspect: string | null;
   alt: string;
   onClick: (event: React.MouseEvent<HTMLImageElement>) => void;
 }) {
@@ -120,7 +134,10 @@ function ViewerImage({
       loading="lazy"
       onError={hideBrokenImage}
       onClick={onClick}
-      className="max-h-full w-full touch-manipulation object-contain"
+      style={aspect === null ? undefined : { aspectRatio: aspect }}
+      className={`max-h-full touch-manipulation object-contain ${
+        aspect === null ? "w-full" : "max-w-full"
+      }`}
     />
   );
 }
@@ -180,6 +197,7 @@ function ShareSheet({
 export function PhotoViewer({
   photos,
   startId,
+  zooms,
   likes,
   canManageAll,
   locale,
@@ -192,6 +210,10 @@ export function PhotoViewer({
 }: {
   photos: ViewerPhoto[];
   startId: string;
+  // Whether the photo travels to and from a tile in the gallery behind, which
+  // only the grid handing that tile over can answer. Where it does not, the
+  // viewer fades in and out and the dismiss drag flings the photo away.
+  zooms: boolean;
   likes: Likes;
   canManageAll: boolean;
   locale: Locale;
@@ -292,12 +314,17 @@ export function PhotoViewer({
     [],
   );
 
-  // Closing runs the exit animation first; the viewer leaves once it has.
+  // Zooming, the viewer leaves in the same commit the photo lands back in its
+  // tile. Fading, it runs the exit animation first and leaves once it has.
   const fadeOut = useCallback(() => {
     if (closeTimer.current !== null) return;
+    if (zooms) {
+      startTransition(onClose);
+      return;
+    }
     setClosingOn({ photos, galleryCount });
     closeTimer.current = window.setTimeout(onClose, CLOSE_MS);
-  }, [photos, galleryCount, onClose]);
+  }, [zooms, photos, galleryCount, onClose]);
 
   // Open, the viewer holds a history entry, so going back closes it. Every
   // other way of closing steps back out of that entry, and the exit
@@ -320,7 +347,7 @@ export function PhotoViewer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [dismiss, sheetUp]);
 
-  const swipe = useSwipeDismiss(dismiss);
+  const swipe = useSwipeDismiss(dismiss, { fling: !zooms });
 
   // Snap-scroll position is the source of truth for `index` while the user
   // swipes; whenever the slide list changes (open, a photo hidden, or a
@@ -523,14 +550,28 @@ export function PhotoViewer({
       role="dialog"
       aria-modal="true"
       className={`fixed inset-0 z-50 flex flex-col ${
-        closing ? "viewer-out pointer-events-none" : "viewer-in"
+        closing
+          ? "viewer-out pointer-events-none"
+          : zooms
+            ? ""
+            : "viewer-in"
       }`}
     >
-      <div
-        aria-hidden
-        style={swipe.backdropStyle}
-        className="absolute inset-0 -z-10 bg-stage"
-      />
+      {/* The stage darkening over the gallery is the zoom's other half, and
+          carries a name of its own so that it keeps its own beat rather than
+          whatever the browser gives the page behind it. */}
+      <ViewTransition
+        name="viewer-stage"
+        enter="viewer-stage"
+        exit="viewer-stage"
+        default="none"
+      >
+        <div
+          aria-hidden
+          style={swipe.backdropStyle}
+          className="absolute inset-0 -z-10 bg-stage"
+        />
+      </ViewTransition>
       <div
         style={swipe.chromeStyle}
         className="flex items-center justify-between px-[18px] pt-[18px]"
@@ -554,7 +595,11 @@ export function PhotoViewer({
           the same element. */}
       <div
         className={`flex min-h-0 flex-1 flex-col ${
-          closing ? "viewer-photo-out" : "viewer-photo-in"
+          closing
+            ? "viewer-photo-out"
+            : zooms
+              ? ""
+              : "viewer-photo-in"
         }`}
       >
         {/* overflow-anchor off: the track re-imposes its own position when
@@ -588,13 +633,22 @@ export function PhotoViewer({
                 }}
                 className="relative flex h-full w-full flex-none snap-center items-center justify-center py-3.5"
               >
-                <ViewerImage
-                  src={srcs.thumb}
-                  sharpSrc={srcs.viewer}
-                  sharpen={Math.abs(slideIndex - currentIndex) <= 1}
-                  alt={photoAltText(labels.alt, photo.uploader)}
-                  onClick={(event) => tapPhoto(event, photo)}
-                />
+                <PhotoZoom
+                  photoId={slideIndex === currentIndex ? photo.id : null}
+                >
+                  <ViewerImage
+                    src={srcs.thumb}
+                    sharpSrc={srcs.viewer}
+                    sharpen={Math.abs(slideIndex - currentIndex) <= 1}
+                    aspect={
+                      photo.width && photo.height
+                        ? `${photo.width} / ${photo.height}`
+                        : null
+                    }
+                    alt={photoAltText(labels.alt, photo.uploader)}
+                    onClick={(event) => tapPhoto(event, photo)}
+                  />
+                </PhotoZoom>
                 {burst?.photoId === photo.id && (
                   <span
                     key={burst.key}

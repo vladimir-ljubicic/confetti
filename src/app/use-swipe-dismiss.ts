@@ -21,9 +21,15 @@ const SETTLE_MS = 200;
 // Drag-up-or-down-to-dismiss for the viewer's slide track. Spread `trackProps`
 // on the track, `backdropStyle` on the backdrop and `chromeStyle` on the chrome
 // around it. Touch and pen only: a mouse drag over an image starts a native
-// image drag instead. `onDismiss` runs the moment the release commits; the
-// track keeps flying off in the drag's direction while the viewer closes.
-export function useSwipeDismiss(onDismiss: () => void) {
+// image drag instead. `onDismiss` runs the moment the release commits.
+//
+// `fling` sends the track on off-screen in the drag's direction while the
+// viewer closes. Without it the photo stays where the finger left it, which is
+// where the zoom back to its tile picks it up.
+export function useSwipeDismiss(
+  onDismiss: () => void,
+  { fling }: { fling: boolean },
+) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [flung, setFlung] = useState<-1 | 1 | null>(null);
@@ -104,7 +110,7 @@ export function useSwipeDismiss(onDismiss: () => void) {
     const sinceSample =
       sample.current === null ? null : event.timeStamp - sample.current.time;
     if (dismissed(travelled, velocity.current, sinceSample)) {
-      setFlung(flingDirection(travelled));
+      if (fling) setFlung(flingDirection(travelled));
       onDismiss();
     } else {
       moveTo(0);

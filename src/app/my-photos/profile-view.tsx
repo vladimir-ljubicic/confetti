@@ -325,6 +325,7 @@ export function ProfileView({
         <PhotoViewer
           photos={viewerPhotos}
           startId={viewerStartId}
+          zooms={false}
           likes={likes}
           canManageAll={false}
           locale={locale}

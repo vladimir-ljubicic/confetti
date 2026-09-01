@@ -311,6 +311,7 @@ export function AdminPhotoGrid({
         <PhotoViewer
           photos={visible}
           startId={viewerStartId}
+          zooms={false}
           likes={likes}
           canManageAll
           locale={locale}
