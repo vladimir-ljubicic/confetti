@@ -62,6 +62,29 @@
   border-radius: 28px 28px 36px 36px;
 }
 
+/* Date and number inputs otherwise draw OS chrome inside the control shell:
+   a calendar glyph, spin buttons, and a value set in the system font. */
+@utility no-native-chrome {
+  appearance: none;
+  font-family: inherit;
+
+  &::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
+  /* Safari left-pads and centres the value on its own. */
+  &::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+  }
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+}
+
 @keyframes fleck-fall {
   0% {
     transform: translateY(-14px) rotate(0deg);

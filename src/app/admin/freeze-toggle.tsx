@@ -66,7 +66,7 @@ export function FreezeToggle({
   ];
 
   const fieldClass =
-    "rounded-[9px] border border-ink/12 bg-sand px-2 py-1.5 text-[13px] text-ink disabled:opacity-60";
+    "no-native-chrome h-11 rounded-card border border-ink/16 bg-card px-3 text-base text-ink caret-gold outline-none focus:border-gold focus:bg-paper disabled:opacity-60";
 
   return (
     <div className="flex flex-col rounded-t-card border border-ink/10 bg-card px-4 py-2.5">
@@ -74,19 +74,19 @@ export function FreezeToggle({
         <span className="text-sm text-ink">{labels.title}</span>
         <Segmented segments={segments} value={frozen} onChange={setFrozen} disabled={busy} />
       </div>
-      <div className="mt-1.5 flex items-center gap-3 border-t border-ink/8 pt-2.5 pb-1">
-        <label className="flex min-w-0 flex-1 items-center justify-between gap-2 text-meta text-ink/60">
-          <span className="truncate">{labels.eventDate}</span>
+      <div className="mt-1.5 flex flex-col gap-2 border-t border-ink/8 pt-2.5 pb-1">
+        <label className="flex items-center justify-between gap-3 text-body text-ink/60">
+          <span className="min-w-0 truncate">{labels.eventDate}</span>
           <input
             type="date"
             value={date}
             disabled={busy}
             onChange={(event) => commitDate(event.target.value)}
-            className={fieldClass}
+            className={`w-[140px] shrink-0 ${fieldClass}`}
           />
         </label>
-        <label className="flex shrink-0 items-center gap-2 text-meta text-ink/60">
-          <span>{labels.freezeAfterDays}</span>
+        <label className="flex items-center justify-between gap-3 text-body text-ink/60">
+          <span className="min-w-0 truncate">{labels.freezeAfterDays}</span>
           <input
             type="number"
             min={0}
@@ -99,7 +99,7 @@ export function FreezeToggle({
             onKeyDown={(event) => {
               if (event.key === "Enter") event.currentTarget.blur();
             }}
-            className={`w-[52px] text-center ${fieldClass}`}
+            className={`w-[72px] shrink-0 text-center ${fieldClass}`}
           />
         </label>
       </div>
