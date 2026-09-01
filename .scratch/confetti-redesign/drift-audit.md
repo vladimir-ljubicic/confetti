@@ -45,7 +45,6 @@ below use the new (ALIGN) numbering.
 - **Recovery code** (REVIEW §4, "needs decision") — identity is device-cookie-only; clearing storage permanently orphans a guest's photos.
 
 ### Motion
-- **Avatar arrival (4a) extras:** no `av-ring` gold pulse, burst is 5 flecks ×2 not 8 sparks on a 4s `burst-cycle`, no `hint-nudge`/`hint-arrow` coach-mark nudge, sort toggle not dimmed to 28% behind the mark. (Build matches old README 12a, not ALIGN 4a.)
 - **Brand mark (1a):** no burst sparks on entrance, and no play-once-per-load guard — entrance replays on every wordmark remount.
 - **Intro sheet keyboard affordances:** no Enter Име→Презиме / Презиме→submit (implicit form submission fires submit from Име — the opposite), no `inputMode`/`autoCapitalize`.
 

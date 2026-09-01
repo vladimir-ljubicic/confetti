@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AVATAR_BURST_SPARKS, sparkOrigin } from "@/lib/avatar-burst";
 import { COUPLE_NAMES } from "@/lib/couple";
 import { formatEventDate } from "@/lib/event-schedule";
 import type { Locale } from "@/lib/i18n";
@@ -39,15 +40,6 @@ const COACH_MARK_TTL_MS = 6000;
 // Smaller shifts are the viewport settling (keyboard collapse, browser chrome),
 // not the guest scrolling away.
 const COACH_MARK_SCROLL_DISMISS_PX = 24;
-
-// Vectors biased left/down so no fleck clips the viewport edge.
-const BURST_FLECKS = [
-  { color: "bg-gold", bx: -30, by: -18, delay: 0.45 },
-  { color: "bg-ink", bx: -8, by: -30, delay: 0.52 },
-  { color: "bg-gold-light", bx: 6, by: -34, delay: 0.59 },
-  { color: "bg-gold-small", bx: -34, by: 14, delay: 0.66 },
-  { color: "bg-gold", bx: -14, by: 30, delay: 0.73 },
-];
 
 function coachMarkSeen(): boolean {
   try {
@@ -210,16 +202,19 @@ export function GalleryHeader({
                   {name.trim().charAt(0).toLocaleUpperCase(locale)}
                 </span>
                 {arrival &&
-                  BURST_FLECKS.map((fleck, i) => (
+                  AVATAR_BURST_SPARKS.map((spark, i) => (
                     <span
                       key={i}
                       aria-hidden
-                      className={`avatar-burst-fleck absolute top-3.5 left-3.5 h-2 w-[5px] rounded-[1px] ${fleck.color}`}
+                      className={`avatar-burst-spark absolute rounded-[1px] ${spark.color}`}
                       style={
                         {
-                          "--bx": `${fleck.bx}px`,
-                          "--by": `${fleck.by}px`,
-                          animationDelay: `${fleck.delay}s`,
+                          ...sparkOrigin(spark),
+                          width: spark.width,
+                          height: spark.height,
+                          "--bx": `${spark.bx}px`,
+                          "--by": `${spark.by}px`,
+                          animationDelay: `${spark.delay}s`,
                         } as React.CSSProperties
                       }
                     />
@@ -234,7 +229,7 @@ export function GalleryHeader({
             onClick={dismissCoachMark}
             className="coach-mark-in absolute top-full right-2 z-[1] flex flex-col items-end"
           >
-            <span className="-mb-1.5 mr-4 h-[11px] w-[11px] rotate-45 rounded-[2px] border-t border-l border-ink/10 bg-card" />
+            <span className="coach-mark-arrow -mb-1.5 mr-4 h-[11px] w-[11px] [transform:rotate(45deg)] rounded-[2px] border-t border-l border-ink/10 bg-card" />
             <span className="flex items-center gap-1 rounded-card border border-ink/10 bg-card py-[11px] pr-1.5 pl-3.5 text-[13px] leading-[1.35] whitespace-nowrap text-ink shadow-card">
               {labels.coachMark}
               <button
@@ -292,7 +287,11 @@ export function GalleryHeader({
           </span>
         </div>
         {showSortToggle && (
-          <div className="ml-auto">
+          <div
+            className={`ml-auto transition-opacity duration-[220ms] ${
+              coachMark ? "opacity-[0.28]" : "opacity-100"
+            }`}
+          >
             <SortToggle
               labels={{ latest: labels.sortLatest, popular: labels.sortPopular }}
             />

@@ -162,14 +162,28 @@
   }
 }
 
-@keyframes burst {
+@keyframes av-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(176 141 60 / 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 13px rgb(176 141 60 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(176 141 60 / 0);
+  }
+}
+
+/* One burst near the start of the cycle; the rest of it is the pause. */
+@keyframes burst-cycle {
   0% {
     transform: translate(0, 0) rotate(0deg);
     opacity: 0;
   }
-  25% {
+  5% {
     opacity: 1;
   }
+  24%,
   100% {
     transform: translate(var(--bx), var(--by)) rotate(220deg);
     opacity: 0;
@@ -187,16 +201,53 @@
   }
 }
 
+@keyframes hint-nudge {
+  0%,
+  68%,
+  100% {
+    transform: translateY(0);
+  }
+  78% {
+    transform: translateY(-5px);
+  }
+  88% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes hint-arrow {
+  0%,
+  60%,
+  100% {
+    transform: rotate(45deg) scale(1);
+  }
+  80% {
+    transform: rotate(45deg) scale(1.25);
+  }
+}
+
 .avatar-pop {
-  animation: av-pop 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.2) 0.15s both;
+  animation:
+    av-pop 0.62s cubic-bezier(0.2, 0.8, 0.3, 1.4) 0.15s both,
+    av-ring 1.9s ease-out 0.75s infinite;
 }
 
-/* Delay and burst vector (--bx/--by) are set inline per fleck. */
-.avatar-burst-fleck {
-  animation: burst 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) 2 both;
+/* Cycle offset and flight vector (--bx/--by) are set inline per spark. */
+.avatar-burst-spark {
+  animation: burst-cycle 4s cubic-bezier(0.15, 0.7, 0.3, 1) infinite;
 }
 
-.coach-mark-in,
+/* Delayed so the entrance lands before the nudging starts. */
+.coach-mark-in {
+  animation:
+    hint-in 0.5s ease both,
+    hint-nudge 3.2s ease-in-out 0.65s infinite;
+}
+
+.coach-mark-arrow {
+  animation: hint-arrow 3.2s ease-in-out 0.65s infinite;
+}
+
 .new-photos-in {
   animation: hint-in 0.5s ease both;
 }
@@ -205,10 +256,11 @@
 @media (prefers-reduced-motion: reduce) {
   .avatar-pop,
   .coach-mark-in,
+  .coach-mark-arrow,
   .new-photos-in {
     animation: none;
   }
-  .avatar-burst-fleck {
+  .avatar-burst-spark {
     display: none;
   }
 }

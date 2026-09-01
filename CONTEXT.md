@@ -55,6 +55,9 @@ The like floor under which the sort toggle is not offered at all. Below ten like
 **Sort scroll memory**:
 Where the guest was standing in each order, kept for as long as the gallery stays loaded. Switching orders lands instantly at the place they left the one they enter, and at its top the first time — the same distance down latest and popular is not the same photos. The ways in that mean the top of the latest order — the wordmark home and a fresh upload — forget it instead, and it is dropped whole whenever the orders stop holding the same photos: narrowing to a guest's gallery, widening back, or letting in the photos the new photos pill announced.
 
+**Avatar arrival**:
+The header's welcome to a guest who has just introduced themselves: the avatar pops in under a gold ring that goes on pulsing, with eight confetti sparks that burst outward once every four seconds, and a coach mark points at it, nudging itself every few seconds until the guest dismisses it, scrolls away, or it times out. The sort toggle behind the mark dims while it is up, so the overlap reads as deliberate rather than as a collision. It is offered once per device, and a guest who asks for reduced motion gets the avatar and the mark standing still.
+
 **New photos pill**:
 The glass pill announcing other guests' photos that arrived after the gallery was loaded. They stay out of the grid until the guest taps it, which admits them and brings the top of the gallery on screen. The guest's own photos never wait behind it.
 
