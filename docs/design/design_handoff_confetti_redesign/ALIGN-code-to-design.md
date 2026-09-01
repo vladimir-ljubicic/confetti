@@ -128,6 +128,25 @@ progress/size, outlined **Поново**) and **Ово не можемо да о
 *words*, ivory surface like every other row, outlined **Изостави**). Reasons in plain language:
 Веза је прекинута, Сервер није одговорио, Превелика датотека, Није фотографија.
 
+**Retry behaviour — row-level `Поново`:** retries that one photo only. The row stays in place
+(never re-sorts) and swaps its button for a small spinner + `Шаље се…`. On success the row
+fades and collapses out (~220ms), the header counters update (`13 нису отпремљене` / `87
+успело`), the group heading decrements (`Можемо да пробамо поново · 11`), and the photo lands
+in the feed behind the sheet. On another failure the row returns with a refreshed reason
+(`Сервер није одговорио · 3 пробе`) — no red flash, the text carries the news. An emptied group
+disappears; an emptied sheet closes itself.
+
+**Retry behaviour — `Пробај поново (N)`:** the same operation across every row in the
+retryable group, 2–3 in flight at a time. The button goes disabled and becomes `Шаље се…
+3/12`; `Одбаци` becomes `Откажи`, which stops after the photo currently in flight and leaves
+the rest listed. Successful rows collapse out one by one — the shrinking list *is* the
+progress indicator, so no extra bar. N always equals the number of still-retryable rows;
+rows under **Ово не можемо да отпремимо** are never counted and never touched. When the run
+ends: all successful → brief toast `Све је отпремљено` and the sheet closes; some still
+failing → the button returns as `Пробај поново (N)` with the new count, and any row with 3+
+failed attempts moves down into the dead-end group labelled `Више пута није успело` with an
+**Изостави** button.
+
 ### 6a · Main gallery (the app's front door)
 Ceremonial masthead — Венчање, names stacked, date rule — that **shrinks on scroll** into a
 pinned bar (names + date + count on the left, sort toggle on the right). One line under the
