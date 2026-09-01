@@ -237,7 +237,7 @@ export function ExportJobCard({
       >
         <div className="flex items-center gap-[11px]">
           <span className="shrink-0">
-            <ConfettiMark size={18} variant="animated" />
+            <ConfettiMark size={18} />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
             <div className="flex items-baseline justify-between gap-2">
