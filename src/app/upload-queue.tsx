@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { UploadFailureReason } from "@/lib/upload-failure";
 
 function subscribeToConnectivity(callback: () => void) {
   window.addEventListener("online", callback);
@@ -36,11 +37,14 @@ export type UploadTile = {
   width: number | null;
   height: number | null;
   status: UploadTileStatus;
+  // Why the upload failed, once it has; null in every other status.
+  reason: UploadFailureReason | null;
   percent: number;
   photoId: string | null;
   cancel: () => void;
   retry: () => void;
   restore: () => void;
+  skip: () => void;
 };
 
 export type UploadTileLabels = {
@@ -49,6 +53,8 @@ export type UploadTileLabels = {
   restore: string;
   cancelUpload: string;
   waiting: string;
+  skip: string;
+  failure: Record<UploadFailureReason, string>;
 };
 
 type UploadQueueContextValue = {

@@ -21,7 +21,7 @@ describe("evaluateUpload", () => {
         { fileBytes: 50 * 1024 * 1024 + 1, batchSize: 1, recentCount: 0 },
         limits,
       ),
-    ).toEqual({ ok: false, reason: "file-size" });
+    ).toEqual({ ok: false, reason: "too-large" });
   });
 
   it("rejects a batch larger than the batch limit", () => {

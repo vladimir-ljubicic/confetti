@@ -8,6 +8,7 @@ import { ConfettiWordmark } from "./confetti-wordmark";
 import { LocaleToggle } from "./locale-toggle";
 import { PhotoGrid } from "./photo-grid";
 import { UploadButton } from "./upload-button";
+import { uploadTileLabels } from "./upload-labels";
 import { UploadQueueProvider, useUploadQueue } from "./upload-queue";
 import { photoAltLabels } from "./viewer-labels";
 
@@ -31,15 +32,7 @@ export function EmptyGallery(props: EmptyGalleryProps) {
         <LocaleToggle locale={locale} labels={{ ariaLabel: dict.localeToggle.ariaLabel }} />
       </div>
 
-      <UploadQueueProvider
-        labels={{
-          retry: dict.upload.retry,
-          cancelled: dict.upload.cancelled,
-          restore: dict.upload.restore,
-          cancelUpload: dict.upload.cancelUpload,
-          waiting: dict.upload.waiting,
-        }}
-      >
+      <UploadQueueProvider labels={uploadTileLabels(dict)}>
         <EmptyGalleryBody {...props} />
       </UploadQueueProvider>
     </main>

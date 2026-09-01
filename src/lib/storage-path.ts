@@ -24,13 +24,21 @@ const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
   "image/bmp": "bmp",
 };
 
+function extensionOf(filename: string): string {
+  return filename.split(".").pop()?.toLowerCase() ?? "";
+}
+
+export function hasImageExtension(filename: string): boolean {
+  return IMAGE_EXTENSIONS.has(extensionOf(filename));
+}
+
 export function storagePath(
   uploaderId: string,
   photoId: string,
   originalFilename: string,
   contentType: string,
 ): string {
-  const fromName = originalFilename.split(".").pop()?.toLowerCase() ?? "";
+  const fromName = extensionOf(originalFilename);
   const ext = IMAGE_EXTENSIONS.has(fromName)
     ? fromName
     : (CONTENT_TYPE_EXTENSIONS[contentType.toLowerCase()] ?? "bin");

@@ -14,6 +14,12 @@ A photo is either public (shown in galleries) or private (visible only to its ow
 **Upload window**:
 The period during which guests can add photos, ending at the freeze moment.
 
+**Failure reason**:
+Why one photo did not go up, in the guest's words: the connection broke (network), the server did not answer (server), the file is over the size limit (too-large), or it is not a photo at all (not-an-image).
+
+**Retryable failure**:
+A failure another attempt could fix — network and server. The other two are the file's own doing, so the guest leaves them out instead of retrying.
+
 **Freeze moment**:
 Midnight (Europe/Belgrade) after event date + freeze offset days. When it passes, uploads freeze automatically.
 

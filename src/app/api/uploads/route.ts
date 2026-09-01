@@ -14,6 +14,10 @@ import {
   RATE_LIMITED_STATUS,
 } from "@/lib/upload-limits";
 import type { UploadTicket } from "@/lib/upload-ticket";
+import {
+  isPhotoUpload,
+  UNSUPPORTED_MEDIA_TYPE_STATUS,
+} from "@/lib/upload-failure";
 import { getUploaderProfile } from "@/lib/uploaders";
 
 type UploadRequest = {
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
       limits,
     );
     if (!verdict.ok) {
-      if (verdict.reason === "file-size") {
+      if (verdict.reason === "too-large") {
         return jsonError("File is too large", FILE_TOO_LARGE_STATUS);
       }
       return NextResponse.json(
@@ -87,6 +91,10 @@ export async function POST(request: Request) {
         { status: RATE_LIMITED_STATUS },
       );
     }
+  }
+
+  if (!isPhotoUpload(body)) {
+    return jsonError("Not a photo", UNSUPPORTED_MEDIA_TYPE_STATUS);
   }
 
   const photoId = crypto.randomUUID();

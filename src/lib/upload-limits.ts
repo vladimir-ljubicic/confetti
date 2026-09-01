@@ -20,14 +20,14 @@ function positiveInt(raw: string | undefined, fallback: number): number {
 
 export type UploadVerdict =
   | { ok: true }
-  | { ok: false; reason: "file-size" | RateLimitReason };
+  | { ok: false; reason: "too-large" | RateLimitReason };
 
 export function evaluateUpload(
   input: { fileBytes: number; batchSize: number; recentCount: number },
   limits: UploadLimits,
 ): UploadVerdict {
   if (input.fileBytes > limits.maxFileBytes) {
-    return { ok: false, reason: "file-size" };
+    return { ok: false, reason: "too-large" };
   }
   if (input.batchSize > limits.maxBatch) {
     return { ok: false, reason: "batch" };

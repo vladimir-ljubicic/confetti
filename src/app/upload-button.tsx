@@ -7,6 +7,14 @@ import { extractTakenAt } from "@/lib/exif";
 import { generateRenditions } from "@/lib/thumbnail";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
 import {
+  classifyUploadFailure,
+  failureFromStatus,
+  isRetryableFailure,
+  precheckUpload,
+  UploadFailedError,
+  type UploadFailureReason,
+} from "@/lib/upload-failure";
+import {
   FILE_TOO_LARGE_STATUS,
   RATE_LIMITED_STATUS,
   type RateLimitReason,
@@ -57,6 +65,7 @@ type UploadLabels = {
   rejectedTooLargeOne: string;
   rejectedTooLargeFew: string;
   rejectedTooLargeMany: string;
+  failureNotAnImage: string;
   skip: string;
 };
 
@@ -85,10 +94,20 @@ type BulkView =
     }
   | { phase: "summary"; done: number; failedCount: number };
 
+// A file the guest cannot retry into the gallery, kept with the preview the
+// card identifies it by.
+type Rejection = {
+  file: File;
+  previewUrl: string;
+  reason: UploadFailureReason;
+};
+
 type RejectedView = {
   count: number;
   previewUrl: string | null;
   uploaded: number;
+  tooLarge: number;
+  notAnImage: number;
 };
 
 type BulkRun = {
@@ -105,8 +124,6 @@ class ProfileRequiredError extends Error {}
 
 // The admin froze uploads; remaining files are dropped and a notice is shown.
 class UploadsFrozenError extends Error {}
-
-class FileTooLargeError extends Error {}
 
 class UploadCancelledError extends Error {}
 
@@ -188,14 +205,16 @@ async function uploadFile(
   });
   if (response.status === 409) throw new ProfileRequiredError();
   if (response.status === UPLOADS_FROZEN_STATUS) throw new UploadsFrozenError();
-  if (response.status === FILE_TOO_LARGE_STATUS) throw new FileTooLargeError();
+  if (response.status === FILE_TOO_LARGE_STATUS) {
+    throw new UploadFailedError("too-large");
+  }
   if (response.status === RATE_LIMITED_STATUS) {
     const body = (await response.json().catch(() => null)) as {
       reason?: unknown;
     } | null;
     throw new RateLimitedError(body?.reason === "batch" ? "batch" : "window");
   }
-  if (!response.ok) throw new Error(`Upload request failed (${response.status})`);
+  if (!response.ok) throw new UploadFailedError(failureFromStatus(response.status));
   const ticket = (await response.json()) as UploadTicket;
   const { photoId, path, token, storageUrl } = ticket;
   if (control?.isCancelled()) throw new UploadCancelledError();
@@ -233,7 +252,7 @@ async function uploadFile(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ thumbnail: thumbnailSize }),
   });
-  if (!complete.ok) throw new Error(`Completing upload failed (${complete.status})`);
+  if (!complete.ok) throw new UploadFailedError(failureFromStatus(complete.status));
   return photoId;
 }
 
@@ -271,8 +290,8 @@ export function UploadButton({
   const tileIdRef = useRef(0);
   const controllers = useRef(new Map<number, TileController>());
   const bulkRunRef = useRef<BulkRun | null>(null);
-  const bulkFailedRef = useRef<File[]>([]);
-  const rejectedRef = useRef<{ file: File; previewUrl: string }[]>([]);
+  const bulkFailedRef = useRef<{ file: File; reason: UploadFailureReason }[]>([]);
+  const rejectedRef = useRef<Rejection[]>([]);
   const summaryTimerRef = useRef<number | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -290,8 +309,15 @@ export function UploadButton({
     );
   }
 
-  function recordRejection(file: File) {
-    rejectedRef.current.push({ file, previewUrl: URL.createObjectURL(file) });
+  function precheck(file: File): UploadFailureReason | null {
+    return precheckUpload(
+      { sizeBytes: file.size, contentType: file.type, filename: file.name },
+      limitsExempt ? null : limits.maxFileBytes,
+    );
+  }
+
+  function recordRejection(file: File, reason: UploadFailureReason) {
+    rejectedRef.current.push({ file, reason, previewUrl: URL.createObjectURL(file) });
   }
 
   function showRejected(uploaded: number) {
@@ -301,6 +327,8 @@ export function UploadButton({
       count: rejected.length,
       previewUrl: rejected[0].previewUrl,
       uploaded,
+      tooLarge: rejected.filter((entry) => entry.reason === "too-large").length,
+      notAnImage: rejected.filter((entry) => entry.reason === "not-an-image").length,
     });
   }
 
@@ -344,8 +372,10 @@ export function UploadButton({
   async function uploadTile(item: TileItem, batchSize: number): Promise<void> {
     const controller = controllers.current.get(item.id);
     if (!controller || controller.cancelled || controller.done) return;
-    if (!limitsExempt && item.file.size > limits.maxFileBytes) {
-      throw new FileTooLargeError();
+    const rejection = precheck(item.file);
+    if (rejection) {
+      queue?.patchTile(item.id, { status: "failed", reason: rejection });
+      return;
     }
     queue?.patchTile(item.id, { status: "uploading", percent: 0 });
     try {
@@ -365,23 +395,29 @@ export function UploadButton({
       controller.removeTimer = null;
       controller.cancelled = false;
       controller.done = true;
-      queue?.patchTile(item.id, { status: "done", percent: 100, photoId });
+      queue?.patchTile(item.id, {
+        status: "done",
+        percent: 100,
+        photoId,
+        reason: null,
+      });
     } catch (error) {
       if (error instanceof UploadCancelledError || controller.cancelled) return;
       if (
         error instanceof ProfileRequiredError ||
         error instanceof UploadsFrozenError ||
-        error instanceof RateLimitedError ||
-        error instanceof FileTooLargeError
+        error instanceof RateLimitedError
       ) {
         throw error;
       }
-      if (!navigator.onLine) {
+      const reason = classifyUploadFailure(error);
+      // Only a failure a retry could fix is worth waiting out the outage for.
+      if (isRetryableFailure(reason) && !navigator.onLine) {
         queue?.patchTile(item.id, { status: "queued", percent: 0 });
         throw new OfflineError();
       }
       console.error("Upload failed", error);
-      queue?.patchTile(item.id, { status: "failed" });
+      queue?.patchTile(item.id, { status: "failed", reason });
     }
   }
 
@@ -389,6 +425,7 @@ export function UploadButton({
     const controller = controllers.current.get(item.id);
     if (!controller || controller.done) return;
     controller.cancelled = false;
+    queue?.patchTile(item.id, { reason: null });
     try {
       await uploadTile(item, 1);
       router.refresh();
@@ -398,10 +435,7 @@ export function UploadButton({
         return retryTile(item);
       }
       dropTile(item.id);
-      if (error instanceof FileTooLargeError) {
-        recordRejection(item.file);
-        showRejected(0);
-      } else if (error instanceof ProfileRequiredError) {
+      if (error instanceof ProfileRequiredError) {
         askForProfile([item.file]);
       } else if (error instanceof UploadsFrozenError) {
         setFrozenNotice(true);
@@ -420,7 +454,7 @@ export function UploadButton({
     if (controller.removeTimer) window.clearTimeout(controller.removeTimer);
     controller.removeTimer = null;
     controller.cancelled = false;
-    queue?.patchTile(item.id, { status: "queued", percent: 0 });
+    queue?.patchTile(item.id, { status: "queued", percent: 0, reason: null });
     void retryTile(item);
   }
 
@@ -444,11 +478,13 @@ export function UploadButton({
       width: null,
       height: null,
       status: "queued" as const,
+      reason: null,
       percent: 0,
       photoId: null,
       cancel: () => cancelTile(item.id),
       retry: () => void retryTile(item),
       restore: () => restoreTile(item),
+      skip: () => dropTile(item.id),
     }));
     queue.addTiles(tiles);
     for (const tile of tiles) {
@@ -488,9 +524,7 @@ export function UploadButton({
               continue;
             }
             dropTile(item.id);
-            if (error instanceof FileTooLargeError) {
-              recordRejection(item.file);
-            } else if (error instanceof ProfileRequiredError) {
+            if (error instanceof ProfileRequiredError) {
               abort = "profile";
               retryFiles.push(item.file);
             } else if (error instanceof UploadsFrozenError) {
@@ -545,7 +579,7 @@ export function UploadButton({
       window.clearTimeout(summaryTimerRef.current);
       summaryTimerRef.current = null;
     }
-    const files = bulkFailedRef.current;
+    const files = bulkFailedRef.current.map((failure) => failure.file);
     if (files.length === 0) {
       setBulkView(null);
       return;
@@ -646,8 +680,9 @@ export function UploadButton({
               if (abort === "profile") retryFiles.push(item.file);
               continue;
             }
-            if (!limitsExempt && item.file.size > limits.maxFileBytes) {
-              recordRejection(item.file);
+            const rejection = precheck(item.file);
+            if (rejection) {
+              recordRejection(item.file, rejection);
               continue;
             }
             let requeue = false;
@@ -685,13 +720,16 @@ export function UploadButton({
                 abort = "limit";
                 limitMessage =
                   error.reason === "batch" ? batchLimitMessage : labels.rateLimited;
-              } else if (error instanceof FileTooLargeError) {
-                recordRejection(item.file);
-              } else if (!navigator.onLine) {
-                requeue = true;
               } else {
-                console.error("Upload failed", error);
-                bulkFailedRef.current.push(item.file);
+                const reason = classifyUploadFailure(error);
+                if (!isRetryableFailure(reason)) {
+                  recordRejection(item.file, reason);
+                } else if (!navigator.onLine) {
+                  requeue = true;
+                } else {
+                  console.error("Upload failed", error);
+                  bulkFailedRef.current.push({ file: item.file, reason });
+                }
               }
             } finally {
               run.aborts.delete(item.id);
@@ -865,11 +903,16 @@ export function UploadButton({
             many: labels.rejectedMany,
           })}
           detailLabel={[
-            pluralize(locale, rejectedView.count, {
-              one: labels.rejectedTooLargeOne,
-              few: labels.rejectedTooLargeFew,
-              many: labels.rejectedTooLargeMany,
-            }).replace("{max}", String(maxFileMb)),
+            ...(rejectedView.tooLarge > 0
+              ? [
+                  pluralize(locale, rejectedView.tooLarge, {
+                    one: labels.rejectedTooLargeOne,
+                    few: labels.rejectedTooLargeFew,
+                    many: labels.rejectedTooLargeMany,
+                  }).replace("{max}", String(maxFileMb)),
+                ]
+              : []),
+            ...(rejectedView.notAnImage > 0 ? [labels.failureNotAnImage] : []),
             ...(rejectedView.uploaded > 0
               ? [
                   pluralize(locale, rejectedView.uploaded, {

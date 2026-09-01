@@ -17,6 +17,7 @@ import { GalleryHeader } from "./gallery-header";
 import { GalleryView } from "./gallery-view";
 import { guestBarLabels } from "./guest-labels";
 import { UploadButton } from "./upload-button";
+import { uploadTileLabels } from "./upload-labels";
 import { UploadQueueProvider } from "./upload-queue";
 import { uploadWindowLine } from "./upload-window";
 import { photoAltLabels, viewerLabels } from "./viewer-labels";
@@ -89,15 +90,7 @@ export async function GalleryScreen({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
-      <UploadQueueProvider
-        labels={{
-          retry: dict.upload.retry,
-          cancelled: dict.upload.cancelled,
-          restore: dict.upload.restore,
-          cancelUpload: dict.upload.cancelUpload,
-          waiting: dict.upload.waiting,
-        }}
-      >
+      <UploadQueueProvider labels={uploadTileLabels(dict)}>
         <GalleryView
           photos={photos}
           initialSort={sort}

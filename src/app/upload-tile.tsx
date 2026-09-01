@@ -1,5 +1,6 @@
 "use client";
 
+import { isRetryableFailure } from "@/lib/upload-failure";
 import { LikePill } from "./like-pill";
 import type { UploadTile, UploadTileLabels } from "./upload-queue";
 import type { Likes } from "./use-likes";
@@ -21,6 +22,7 @@ export function UploadTileView({
   const inFlight =
     !waiting && (tile.status === "queued" || tile.status === "uploading");
   const turn = Math.min(Math.max(tile.percent, 0), 100) / 100;
+  const retryable = tile.reason === null || isRetryableFailure(tile.reason);
   // The reserved height and the drawn preview must agree, or the windowed
   // grid's spacer stand-in for this tile would shift the column.
   const aspect =
@@ -67,13 +69,18 @@ export function UploadTileView({
       )}
 
       {tile.status === "failed" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[rgba(43,38,32,0.5)]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[rgba(43,38,32,0.5)] px-3">
+          {tile.reason && (
+            <span className="text-center text-meta text-card">
+              {labels.failure[tile.reason]}
+            </span>
+          )}
           <button
             type="button"
-            onClick={tile.retry}
+            onClick={retryable ? tile.retry : tile.skip}
             className="rounded-pill bg-card px-4 py-2 text-[13px] text-ink shadow-sm transition active:bg-sand"
           >
-            ↺ {labels.retry}
+            {retryable ? `↺ ${labels.retry}` : labels.skip}
           </button>
         </div>
       )}
