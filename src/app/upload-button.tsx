@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import * as tus from "tus-js-client";
+import { hashBlobs, isContentHash } from "@/lib/content-hash";
 import { extractTakenAt } from "@/lib/exif";
 import { generateRenditions } from "@/lib/thumbnail";
 import { UPLOADS_FROZEN_STATUS } from "@/lib/upload-freeze";
@@ -24,6 +25,7 @@ import {
   splitRetryTargets,
   type BatchFailure,
 } from "@/lib/batch-failures";
+import { partitionDuplicates } from "@/lib/upload-duplicates";
 import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { pluralize, type Locale } from "@/lib/i18n";
@@ -74,6 +76,9 @@ type UploadLabels = FailureSheetLabels & {
   bulkFailedFew: string;
   bulkFailedMany: string;
   bulkFailedSee: string;
+  duplicatesSkippedOne: string;
+  duplicatesSkippedFew: string;
+  duplicatesSkippedMany: string;
 };
 
 type UploadLimitProps = {
@@ -111,6 +116,32 @@ type BulkRun = {
   inFlight: { id: number; url: string }[];
   notifyCancel: () => void;
 };
+
+// Hashed once at pick time and kept against the File itself, so a retry and a
+// second batch of the same photo name their content without reading it again.
+const contentHashes = new WeakMap<File, string>();
+
+// Which of a batch's photos this device has already put in the gallery. The
+// check is a courtesy: an unanswerable one lets every photo through rather
+// than holding the batch up.
+async function fetchUploadedHashes(
+  hashes: string[],
+): Promise<ReadonlySet<string>> {
+  if (hashes.length === 0) return new Set();
+  try {
+    const response = await fetch("/api/uploads/duplicates", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hashes }),
+    });
+    if (!response.ok) return new Set();
+    const body = (await response.json()) as { duplicates?: unknown };
+    const duplicates = Array.isArray(body.duplicates) ? body.duplicates : [];
+    return new Set(duplicates.filter(isContentHash));
+  } catch {
+    return new Set();
+  }
+}
 
 // The server refuses to sign uploads for devices without a saved profile;
 // the client reacts by (re)opening the intro sheet.
@@ -195,6 +226,7 @@ async function uploadFile(
       size: file.size,
       batchSize,
       takenAt,
+      contentHash: contentHashes.get(file) ?? null,
     }),
   });
   if (response.status === 409) throw new ProfileRequiredError();
@@ -297,6 +329,8 @@ export function UploadButton({
   const [batchTileIds, setBatchTileIds] = useState<Set<number>>(new Set());
   const [bulkView, setBulkView] = useState<BulkView | null>(null);
   const [frozenNotice, setFrozenNotice] = useState(false);
+  const [duplicateNotice, setDuplicateNotice] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
   const [failures, setFailures] = useState<BatchFailureEntry[]>([]);
   const [failureSheetOpen, setFailureSheetOpen] = useState(false);
@@ -1035,7 +1069,48 @@ export function UploadButton({
     showSummary(done);
   }
 
-  async function startBatch(files: File[]) {
+  // A cancelled or failed batch sends the guest back to the camera roll to
+  // pick the same photos again; the ones that already landed are left out
+  // instead of going up a second time.
+  async function skipDuplicates(files: File[]): Promise<File[]> {
+    setPreparing(true);
+    try {
+      const unhashed = files.filter((file) => !contentHashes.has(file));
+      const hashes = await hashBlobs(unhashed);
+      unhashed.forEach((file, index) => {
+        const hash = hashes[index];
+        if (hash) contentHashes.set(file, hash);
+      });
+      const items = files.map((file) => ({
+        file,
+        hash: contentHashes.get(file) ?? null,
+      }));
+      const uploaded = await fetchUploadedHashes([
+        ...new Set(items.flatMap((item) => item.hash ?? [])),
+      ]);
+      const { fresh, skipped } = partitionDuplicates(items, uploaded);
+      setDuplicateNotice(
+        skipped.length > 0
+          ? pluralize(locale, skipped.length, {
+              one: labels.duplicatesSkippedOne,
+              few: labels.duplicatesSkippedFew,
+              many: labels.duplicatesSkippedMany,
+            })
+          : null,
+      );
+      return fresh.map((item) => item.file);
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  async function startBatch(selected: File[]) {
+    const files = await skipDuplicates(selected);
+    if (files.length === 0) {
+      clearSummaryTimer();
+      setBulkView(null);
+      return;
+    }
     // New photos land at the head of the latest order; a gallery in popular
     // order, or scrolled away from its top, would put them out of sight.
     sortContext?.showLatest();
@@ -1053,6 +1128,7 @@ export function UploadButton({
       return;
     }
     setLimitNotice(null);
+    setDuplicateNotice(null);
     clearFailures();
     setBatchUploaded(0);
     if (hasProfile) {
@@ -1159,6 +1235,15 @@ export function UploadButton({
         </p>
       )}
 
+      {duplicateNotice && (
+        <p
+          role="status"
+          className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-ink-muted shadow-floating"
+        >
+          {duplicateNotice}
+        </p>
+      )}
+
       {frozenNotice && (
         <p className="pointer-events-auto rounded-pill bg-card/95 px-4 py-2 text-sm text-ink/70 shadow-floating">
           {labels.frozen}
@@ -1174,7 +1259,7 @@ export function UploadButton({
       {bulkView?.phase !== "uploading" && (
         <button
           type="button"
-          disabled={batchActive}
+          disabled={batchActive || preparing}
           onClick={() => inputRef.current?.click()}
           className={`pointer-events-auto flex items-center gap-[9px] rounded-pill bg-gold text-base font-medium text-card transition hover:bg-gold-small active:bg-gold-deep disabled:opacity-60 ${
             variant === "floating"

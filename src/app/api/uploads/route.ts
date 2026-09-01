@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-session";
+import { isContentHash } from "@/lib/content-hash";
 import { getDeviceId } from "@/lib/device";
 import { env, PHOTOS_BUCKET } from "@/lib/env";
 import { areUploadsFrozen } from "@/lib/event-settings";
@@ -26,6 +27,7 @@ type UploadRequest = {
   size: number;
   batchSize: number;
   takenAt: string | null;
+  contentHash: string | null;
 };
 
 function parseTakenAt(value: unknown): string | null {
@@ -36,17 +38,22 @@ function parseTakenAt(value: unknown): string | null {
 
 function parseBody(body: unknown): UploadRequest | null {
   if (typeof body !== "object" || body === null) return null;
-  const { filename, contentType, size, batchSize, takenAt } = body as Record<
-    string,
-    unknown
-  >;
+  const { filename, contentType, size, batchSize, takenAt, contentHash } =
+    body as Record<string, unknown>;
   if (typeof filename !== "string" || filename.length === 0) return null;
   if (typeof contentType !== "string" || contentType.length === 0) return null;
   if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) return null;
   if (typeof batchSize !== "number" || !Number.isInteger(batchSize) || batchSize < 1) {
     return null;
   }
-  return { filename, contentType, size, batchSize, takenAt: parseTakenAt(takenAt) };
+  return {
+    filename,
+    contentType,
+    size,
+    batchSize,
+    takenAt: parseTakenAt(takenAt),
+    contentHash: isContentHash(contentHash) ? contentHash : null,
+  };
 }
 
 export async function POST(request: Request) {
@@ -132,6 +139,7 @@ export async function POST(request: Request) {
     size_bytes: Math.round(body.size),
     visibility: uploader.defaultVisibility,
     taken_at: body.takenAt,
+    content_hash: body.contentHash,
     thumbnail_path: thumbPath,
   });
   if (insertError) return jsonError("Could not record photo", 500);

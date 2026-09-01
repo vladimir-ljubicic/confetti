@@ -32,6 +32,9 @@ A retryable failure that has cost three attempts. It drops into its own group be
 **Batch summary**:
 The one card that closes a batch, large or small: how many photos went up, a tappable line stating how many did not, and the two ways out — retry every retryable failure, or discard the lot. It dismisses itself.
 
+**Duplicate skip**:
+A photo whose content this guest's device has already put in the gallery is left out of the batch instead of going up a second time, as is a second copy of one the same pick already carries. Content is named by a hash of the file's bytes, taken when the guest picks it and kept with the photo. Only a photo that finished uploading and has not been deleted counts, so a cancelled or failed batch can be re-picked whole. A photo the browser cannot hash goes up: unknown content is never judged a duplicate. When the check itself cannot be answered nothing counts as already in the gallery, and only a second copy within the pick is still left out. The batch says how many it left out and nothing more.
+
 **Freeze moment**:
 Midnight (Europe/Belgrade) after event date + freeze offset days. When it passes, uploads freeze automatically.
 
