@@ -11,5 +11,6 @@ export function guestBarLabels(dict: Dictionary): GuestBarLabels {
     localeAriaLabel: dict.localeToggle.ariaLabel,
     sortLatest: dict.gallery.sortLatest,
     sortPopular: dict.gallery.sortPopular,
+    newPhotos: dict.gallery.newPhotos,
   };
 }

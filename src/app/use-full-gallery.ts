@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mergeGallery, type FullGallery } from "@/lib/gallery-head";
+import {
+  holdNewPhotos,
+  mergeGallery,
+  type FullGallery,
+} from "@/lib/gallery-head";
 import type { PublicPhoto } from "@/lib/public-photos";
 
 // A failed background fetch backs off between attempts; the gallery keeps
@@ -13,15 +17,25 @@ const RETRY_MAX_MS = 60_000;
 // it. There is no polling: a tab that stays visible keeps what it has.
 const REFRESH_AFTER_MS = 30_000;
 
+const photoIds = (photos: PublicPhoto[]) =>
+  new Set(photos.map((photo) => photo.id));
+
 // The whole gallery behind the server-rendered head: fetched once after
 // hydration, and again whenever the tab comes back after the fetched set has
 // grown stale, so sorting and per-guest filtering stay local while new photos
 // and like-counts still arrive without a reload. Until the first fetch lands,
 // the head is all there is — `complete` tells the view whether an order other
 // than the head's can be shown yet.
+//
+// The first fetch is the gallery as the guest opened it, and enters whole.
+// After it, only the guest's own photos join the grid by themselves: everyone
+// else's wait in `held` until `reveal` admits them, so no photo inserts itself
+// under a scroll.
 export function useFullGallery(headPhotos: PublicPhoto[]): {
   photos: PublicPhoto[];
   complete: boolean;
+  held: PublicPhoto[];
+  reveal: () => void;
 } {
   const [full, setFull] = useState<FullGallery<PublicPhoto> | null>(null);
 
@@ -92,7 +106,21 @@ export function useFullGallery(headPhotos: PublicPhoto[]): {
     };
   }, [load]);
 
-  const photos = useMemo(() => mergeGallery(headPhotos, full), [headPhotos, full]);
+  const gallery = useMemo(
+    () => mergeGallery(headPhotos, full),
+    [headPhotos, full],
+  );
 
-  return { photos, complete: full !== null };
+  // Which photos the grid has let in; null until the first fetch settles it.
+  const [admitted, setAdmitted] = useState<ReadonlySet<string> | null>(null);
+  if (admitted === null && full !== null) setAdmitted(photoIds(gallery));
+
+  const { shown, held } = useMemo(
+    () => holdNewPhotos(gallery, admitted),
+    [gallery, admitted],
+  );
+
+  const reveal = useCallback(() => setAdmitted(photoIds(gallery)), [gallery]);
+
+  return { photos: shown, complete: full !== null, held, reveal };
 }

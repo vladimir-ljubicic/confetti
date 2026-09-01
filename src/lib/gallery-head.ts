@@ -41,3 +41,24 @@ export function mergeGallery<T extends { id: string }>(
   }
   return merged;
 }
+
+// The gallery split into what the grid may show and what waits behind the
+// "new photos" pill. A photo the grid has already admitted stays, carrying
+// whatever fresher like count and place the gallery now gives it, and the
+// guest's own upload enters the moment it appears; every other photo arriving
+// after the gallery has settled is held back rather than inserted under a
+// scroll. Nothing is held while `admitted` is null: the gallery is still
+// arriving, and all of it is what the guest opened.
+export function holdNewPhotos<T extends { id: string; ownedByViewer: boolean }>(
+  gallery: T[],
+  admitted: ReadonlySet<string> | null,
+): { shown: T[]; held: T[] } {
+  if (admitted === null) return { shown: gallery, held: [] };
+  const shown: T[] = [];
+  const held: T[] = [];
+  for (const photo of gallery) {
+    if (admitted.has(photo.id) || photo.ownedByViewer) shown.push(photo);
+    else held.push(photo);
+  }
+  return { shown, held };
+}

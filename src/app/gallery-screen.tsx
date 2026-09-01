@@ -124,6 +124,7 @@ export async function GalleryScreen({
                 localeAriaLabel: dict.localeToggle.ariaLabel,
                 coachMark: dict.gallery.coachMark,
                 coachMarkDismiss: dict.gallery.coachMarkDismiss,
+                newPhotos: dict.gallery.newPhotos,
               }}
               frozenNotice={
                 uploadsFrozen

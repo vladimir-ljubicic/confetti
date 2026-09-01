@@ -43,6 +43,9 @@ _Avoid_: Live, Уживо
 Sort mode: most-liked first, ties broken newest-first.
 _Avoid_: Chronological, Хронолошки, oldest-first
 
+**New photos pill**:
+The glass pill announcing other guests' photos that arrived after the gallery was loaded. They stay out of the grid until the guest taps it, which admits them and brings the top of the gallery on screen. The guest's own photos never wait behind it.
+
 **Select mode**:
 A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against the whole album.
 

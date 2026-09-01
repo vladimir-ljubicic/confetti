@@ -10,6 +10,7 @@ import { ConfettiWordmark } from "./confetti-wordmark";
 import { useGalleryCount } from "./gallery-count";
 import { PROFILE_SAVED_EVENT } from "./intro-sheet";
 import { LocaleToggle } from "./locale-toggle";
+import { NewPhotosPill } from "./new-photos";
 import { OfflineNotice, type OfflineNoticeLabels } from "./offline-notice";
 import { SortToggle } from "./sort-toggle";
 
@@ -86,6 +87,7 @@ export function GalleryHeader({
     localeAriaLabel: string;
     coachMark: string;
     coachMarkDismiss: string;
+    newPhotos: string;
   };
   frozenNotice?: { title: string; body: string } | null;
   offlineNotice?: OfflineNoticeLabels | null;
@@ -291,6 +293,8 @@ export function GalleryHeader({
             />
           </div>
         )}
+
+        <NewPhotosPill label={labels.newPhotos} />
       </div>
 
       {frozenNotice && (

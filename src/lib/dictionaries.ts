@@ -25,6 +25,7 @@ const en = {
     unlike: "Remove like",
     coachMark: "Your photos are here",
     coachMarkDismiss: "Dismiss",
+    newPhotos: "New photos",
     photoAlt: "Photo",
     photoAltBy: "Photo — {name}",
     uploadWindowToday:
@@ -320,6 +321,7 @@ const sr: Dictionary = {
     unlike: "Уклони свиђање",
     coachMark: "Ваше фотографије су овде",
     coachMarkDismiss: "Затвори",
+    newPhotos: "Нове фотографије",
     photoAlt: "Фотографија",
     photoAltBy: "Фотографија — {name}",
     uploadWindowToday:

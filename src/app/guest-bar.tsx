@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { LocaleToggle } from "./locale-toggle";
+import { NewPhotosPill } from "./new-photos";
 import { SortToggle } from "./sort-toggle";
 
 export type GuestBarLabels = {
@@ -14,6 +15,7 @@ export type GuestBarLabels = {
   localeAriaLabel: string;
   sortLatest: string;
   sortPopular: string;
+  newPhotos: string;
 };
 
 // Header of a per-guest gallery: whose photos these are, and the way back to
@@ -93,6 +95,8 @@ export function GuestBar({
           </div>
         )}
       </div>
+
+      <NewPhotosPill label={labels.newPhotos} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { comparePhotos, type SortMode } from "@/lib/sort-mode";
 import { GalleryCountProvider } from "./gallery-count";
 import { GridSkeleton } from "./grid-skeleton";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
+import { NewPhotosProvider } from "./new-photos";
 import type { ViewerLabels } from "./photo-viewer";
 import { PhotoGrid } from "./photo-grid";
 import { SortProvider } from "./sort-context";
@@ -80,7 +81,7 @@ export function GalleryView({
   // guest's gallery opened directly has none, and leaving it pushes instead.
   const pushed = useRef(0);
 
-  const { photos, complete } = useFullGallery(headPhotos);
+  const { photos, complete, held, reveal } = useFullGallery(headPhotos);
   // A view outside what the server rendered — another order of the gallery
   // head, or anything beyond a guest-scoped load — has nothing correct to
   // show until the full set lands, so the grid waits on the in-flight fetch
@@ -103,6 +104,16 @@ export function GalleryView({
         ? ordered
         : ordered.filter((photo) => photo.uploader?.publicId === guestId),
     [ordered, guestId],
+  );
+
+  // A guest's gallery announces only what it would itself show; the rest keep
+  // waiting until the whole gallery is back on screen.
+  const heldHere = useMemo(
+    () =>
+      guestId === null
+        ? held.length
+        : held.filter((photo) => photo.uploader?.publicId === guestId).length,
+    [held, guestId],
   );
 
   const guest = useMemo(() => {
@@ -150,47 +161,49 @@ export function GalleryView({
 
   return (
     <SortProvider sort={sort} onChange={changeSort}>
-      <GalleryCountProvider
-        count={complete || initialGuest === null ? photos.length : null}
-      >
-        {guest ? (
-          <GuestBar
-            displayName={guest.displayName}
-            photoCount={guest.photoCount}
-            likeTotal={guest.likeTotal}
-            viewerName={viewerName}
-            locale={locale}
-            labels={guestLabels}
-            onBack={leaveGuest}
-          />
-        ) : (
-          header
-        )}
-
-        <div className="flex flex-1 flex-col pt-3.5">
-          {gridPending ? (
-            <GridSkeleton />
-          ) : (
-            <PhotoGrid
-              photos={shown}
-              emptyLabel={guest ? guestEmptyLabel : emptyLabel}
-              altLabels={altLabels}
-              likeLabels={likeLabels}
-              showUploadTiles={guest === null}
-              viewer={{
-                canManageAll,
-                labels: viewerLabels,
-                locale,
-                galleryCount: guest ? guest.photoCount : photos.length,
-              }}
-              showUploader
-              onSelectUploader={selectGuest}
+      <NewPhotosProvider count={heldHere} reveal={reveal}>
+        <GalleryCountProvider
+          count={complete || initialGuest === null ? photos.length : null}
+        >
+          {guest ? (
+            <GuestBar
+              displayName={guest.displayName}
+              photoCount={guest.photoCount}
+              likeTotal={guest.likeTotal}
+              viewerName={viewerName}
+              locale={locale}
+              labels={guestLabels}
+              onBack={leaveGuest}
             />
+          ) : (
+            header
           )}
 
-          {guest === null && footer}
-        </div>
-      </GalleryCountProvider>
+          <div className="flex flex-1 flex-col pt-3.5">
+            {gridPending ? (
+              <GridSkeleton />
+            ) : (
+              <PhotoGrid
+                photos={shown}
+                emptyLabel={guest ? guestEmptyLabel : emptyLabel}
+                altLabels={altLabels}
+                likeLabels={likeLabels}
+                showUploadTiles={guest === null}
+                viewer={{
+                  canManageAll,
+                  labels: viewerLabels,
+                  locale,
+                  galleryCount: guest ? guest.photoCount : photos.length,
+                }}
+                showUploader
+                onSelectUploader={selectGuest}
+              />
+            )}
+
+            {guest === null && footer}
+          </div>
+        </GalleryCountProvider>
+      </NewPhotosProvider>
     </SortProvider>
   );
 }

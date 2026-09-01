@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headCoversView, mergeGallery } from "./gallery-head";
+import { headCoversView, holdNewPhotos, mergeGallery } from "./gallery-head";
 
 describe("headCoversView", () => {
   describe("with a gallery-wide head", () => {
@@ -83,5 +83,46 @@ describe("mergeGallery", () => {
       photo("a"),
       photo("c"),
     ]);
+  });
+});
+
+describe("holdNewPhotos", () => {
+  const photo = (id: string, ownedByViewer = false) => ({ id, ownedByViewer });
+
+  it("shows the whole gallery until it has settled", () => {
+    const gallery = [photo("a"), photo("b")];
+    expect(holdNewPhotos(gallery, null)).toEqual({ shown: gallery, held: [] });
+  });
+
+  it("keeps showing what the grid has already admitted", () => {
+    const gallery = [photo("b"), photo("a")];
+    expect(holdNewPhotos(gallery, new Set(["a", "b"]))).toEqual({
+      shown: [photo("b"), photo("a")],
+      held: [],
+    });
+  });
+
+  it("holds back another guest's new photo", () => {
+    const gallery = [photo("c"), photo("a")];
+    expect(holdNewPhotos(gallery, new Set(["a"]))).toEqual({
+      shown: [photo("a")],
+      held: [photo("c")],
+    });
+  });
+
+  it("lets the viewer's own new photo in", () => {
+    const gallery = [photo("c", true), photo("a")];
+    expect(holdNewPhotos(gallery, new Set(["a"]))).toEqual({
+      shown: [photo("c", true), photo("a")],
+      held: [],
+    });
+  });
+
+  it("holds nothing for a photo the gallery no longer has", () => {
+    const gallery = [photo("a")];
+    expect(holdNewPhotos(gallery, new Set(["a", "gone"]))).toEqual({
+      shown: [photo("a")],
+      held: [],
+    });
   });
 });
