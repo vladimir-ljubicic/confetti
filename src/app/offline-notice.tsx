@@ -47,7 +47,7 @@ export function OfflineNotice({
       <button
         type="button"
         onClick={queue.retryNow}
-        className="flex h-10 shrink-0 items-center rounded-pill bg-card px-4 text-[13px] text-gold-small shadow-sm transition active:bg-gold-tint"
+        className="flex h-11 shrink-0 items-center rounded-pill bg-card px-4 text-[13px] text-gold-small shadow-sm transition active:bg-gold-tint"
       >
         {labels.retry}
       </button>

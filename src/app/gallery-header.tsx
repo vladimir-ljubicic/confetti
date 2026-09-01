@@ -20,7 +20,9 @@ import { SortToggle } from "./sort-toggle";
 // name block may appear without duplicating it.
 const MASTHEAD_SCROLL_PX = 140;
 
-const TOP_ROW_FALLBACK_HEIGHT_PX = 57;
+// The wordmark sets the row: its 44px tap target, less the 12px it pulls back
+// with negative margins, plus the row padding.
+const TOP_ROW_FALLBACK_HEIGHT_PX = 58;
 
 const COMPACT_BAR_FALLBACK_HEIGHT_PX = 60;
 

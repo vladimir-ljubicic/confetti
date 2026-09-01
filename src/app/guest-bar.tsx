@@ -51,7 +51,7 @@ export function GuestBar({
             event.preventDefault();
             onBack();
           }}
-          className="-m-1.5 flex items-center gap-[7px] p-1.5 text-[13px] text-ink/65 transition hover:text-ink active:text-ink"
+          className="-m-1.5 flex min-h-11 items-center gap-[7px] p-1.5 text-[13px] text-ink/65 transition hover:text-ink active:text-ink"
         >
           <span aria-hidden className="text-[15px]">
             ←

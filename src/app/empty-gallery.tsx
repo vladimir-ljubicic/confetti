@@ -97,7 +97,7 @@ function EmptyGalleryBody({
         </>
       )}
       {uploadsFrozen ? (
-        <p className="max-w-md rounded-lg bg-sand px-6 py-4 text-sm text-ink/70">
+        <p className="max-w-md rounded-card bg-sand px-6 py-4 text-sm text-ink/70">
           {dict.gallery.uploadsFrozen}
         </p>
       ) : uploadsBlocked ? null : (

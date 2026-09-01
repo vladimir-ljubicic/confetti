@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ConfettiMark } from "./confetti-mark";
 import { useSort } from "./sort-context";
 
-const BOX = "-m-1.5 flex items-center gap-1.5 p-1.5";
+const BOX = "-m-1.5 flex min-h-11 items-center gap-1.5 p-1.5";
 
 // The Confetti wordmark, and the way home from every screen that carries it:
 // the gallery's top in latest order. Inside the gallery view the sort context

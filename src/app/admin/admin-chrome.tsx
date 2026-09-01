@@ -46,7 +46,7 @@ export function AdminTopRow({
         {back?.label ?? labels.backToGallery}
       </Link>
       <div className="flex items-center gap-2.5">
-        <Link href="/" className="-m-1.5 flex items-center gap-1.5 p-1.5">
+        <Link href="/" className="-m-1.5 flex min-h-11 items-center gap-1.5 p-1.5">
           <ConfettiMark size={14} />
           <span className="text-xs tracking-[0.16em] text-gold-deep uppercase">
             {labels.mark}
