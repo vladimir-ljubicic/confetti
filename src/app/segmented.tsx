@@ -27,7 +27,7 @@ export function Segmented<T>({
               if (!active) onChange(segment.value);
             }}
             className={`rounded-pill px-3 py-2 transition disabled:opacity-60 ${
-              active ? "bg-gold-small text-card" : "text-ink/55 hover:text-ink active:text-ink"
+              active ? "bg-gold-small text-card" : "text-ink-muted hover:text-ink active:text-ink"
             }`}
           >
             {segment.label}

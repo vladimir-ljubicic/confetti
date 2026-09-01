@@ -22,7 +22,7 @@ export function ConfettiWordmark({
   const wordmark = (
     <>
       <ConfettiMark size={14} variant={variant} />
-      <span className="text-[11px] text-ink/45 uppercase tracking-[0.2em]">Confetti</span>
+      <span className="text-[11px] text-ink-muted uppercase tracking-[0.2em]">Confetti</span>
     </>
   );
 

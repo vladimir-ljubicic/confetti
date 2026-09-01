@@ -117,3 +117,6 @@ The week a ready ZIP stays downloadable, counted from the moment it became ready
 
 **Revocation window**:
 The short delay (up to about a minute) between a photo becoming private or deleted and its thumbnail ceasing to load for other guests. Guests who already viewed the photo may retain it regardless.
+
+**Muted text**:
+The one shade the app writes secondary words in — labels, counters, hints, the dates under a heading, the inactive half of a toggle. It sits at the lightest ink that still reads at WCAG AA on every ivory surface the app sets text on, down to the darkest of them, so anything fainter carries no words at all; a hairline rule or a scrim may go lighter. Text darker than it is a step up in the hierarchy, not a second muted shade.

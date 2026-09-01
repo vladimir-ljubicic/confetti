@@ -129,7 +129,7 @@ function DefaultVisibilityCard({
               className={`rounded-pill px-3 py-[9px] transition ${
                 selected === visibility
                   ? "bg-gold-small text-card"
-                  : "text-ink/60 hover:text-ink active:text-ink"
+                  : "text-ink-muted hover:text-ink active:text-ink"
               }`}
             >
               {label}
@@ -239,7 +239,7 @@ export function ProfileView({
 
       <header className="flex flex-col gap-1 px-5 pt-4 pb-3.5">
         <h1 className="font-serif text-title font-medium text-gold-small">{labels.title}</h1>
-        <p className="text-[13px] text-ink/60">
+        <p className="text-[13px] text-ink-muted">
           {pluralize(locale, all.length, {
             one: labels.uploadedOne,
             few: labels.uploadedFew,
@@ -259,7 +259,7 @@ export function ProfileView({
       )}
 
       {all.length === 0 ? (
-        <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
+        <p className="px-4 py-16 text-center text-ink-muted">{labels.empty}</p>
       ) : (
         <>
           <div className="flex gap-2 overflow-x-auto px-4 pb-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -272,7 +272,7 @@ export function ProfileView({
                 className={`shrink-0 rounded-pill px-3.5 py-[9px] text-[13px] whitespace-nowrap transition ${
                   filter === key
                     ? "bg-gold-small text-card"
-                    : "border border-ink/18 text-ink/65 hover:text-ink active:text-ink"
+                    : "border border-ink/18 text-ink-muted hover:text-ink active:text-ink"
                 }`}
               >
                 {label.replace("{count}", String(count))}

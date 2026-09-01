@@ -75,7 +75,7 @@ export function FreezeToggle({
         <Segmented segments={segments} value={frozen} onChange={setFrozen} disabled={busy} />
       </div>
       <div className="mt-1.5 flex flex-col gap-2 border-t border-ink/8 pt-2.5 pb-1">
-        <label className="flex items-center justify-between gap-3 text-body text-ink/60">
+        <label className="flex items-center justify-between gap-3 text-body text-ink-muted">
           <span className="min-w-0 truncate">{labels.eventDate}</span>
           <input
             type="date"
@@ -85,7 +85,7 @@ export function FreezeToggle({
             className={`w-[140px] shrink-0 ${fieldClass}`}
           />
         </label>
-        <label className="flex items-center justify-between gap-3 text-body text-ink/60">
+        <label className="flex items-center justify-between gap-3 text-body text-ink-muted">
           <span className="min-w-0 truncate">{labels.freezeAfterDays}</span>
           <input
             type="number"

@@ -282,7 +282,7 @@ export function ExportJobCard({
                   .replace("{total}", String(card.total))}
               </span>
               {card.etaMs !== null && (
-                <span className="shrink-0 text-xs text-ink/60">
+                <span className="shrink-0 text-xs text-ink-muted">
                   {formatEta(card.etaMs, {
                     minutes: labels.etaMinutes,
                     underMinute: labels.etaUnderMinute,
@@ -298,7 +298,7 @@ export function ExportJobCard({
             </span>
           </div>
         </div>
-        <span className="text-xs leading-[1.4] text-pretty text-ink/60">
+        <span className="text-xs leading-[1.4] text-pretty text-ink-muted">
           {labels.preparingBody}
         </span>
         {onCancel && (
@@ -329,7 +329,7 @@ export function ExportJobCard({
           type="button"
           onClick={onDismiss}
           aria-label={labels.dismiss}
-          className="flex h-11 w-11 shrink-0 items-center justify-center text-ink/50"
+          className="flex h-11 w-11 shrink-0 items-center justify-center text-ink-muted"
         >
           ✕
         </button>
@@ -350,7 +350,7 @@ export function ExportJobCard({
               card.sizeBytes !== null ? formatSize(card.sizeBytes) : "ZIP",
             )}
           </span>
-          <span className="text-xs text-ink/60">
+          <span className="text-xs text-ink-muted">
             {[
               pluralize(locale, card.total, {
                 one: labels.readyCountOne,
@@ -367,7 +367,7 @@ export function ExportJobCard({
           type="button"
           onClick={onDismiss}
           aria-label={labels.dismiss}
-          className="-my-2 flex h-11 w-11 shrink-0 items-center justify-center text-ink/50"
+          className="-my-2 flex h-11 w-11 shrink-0 items-center justify-center text-ink-muted"
         >
           ✕
         </button>
@@ -442,7 +442,7 @@ export function ExportSheet({
               {"control" in row ? (
                 row.control
               ) : (
-                <span className="text-ink/60">{row.value}</span>
+                <span className="text-ink-muted">{row.value}</span>
               )}
             </div>
           ))}
@@ -461,7 +461,7 @@ export function ExportSheet({
         <button
           type="button"
           onClick={onCancel}
-          className="-mt-2 min-h-11 text-sm text-ink/60"
+          className="-mt-2 min-h-11 text-sm text-ink-muted"
         >
           {labels.cancel}
         </button>

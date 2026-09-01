@@ -147,7 +147,7 @@ export function FailureSheet({
             >
               {failureReason(failure, reasonLabels, locale)}
             </span>
-            <span className="text-meta text-ink/55">
+            <span className="text-meta text-ink-muted">
               {failureDetail(failure, detailLabels, locale, maxFileBytes)}
             </span>
           </div>
@@ -189,7 +189,7 @@ export function FailureSheet({
     return (
       <section className="flex flex-col gap-2.5">
         {count > 0 && (
-          <h4 className="eyebrow text-ink/55">
+          <h4 className="eyebrow text-ink-muted">
             {heading.replace("{count}", String(count))}
           </h4>
         )}
@@ -232,7 +232,7 @@ export function FailureSheet({
                 many: labels.failuresTitleMany,
               })}
             </h3>
-            <span className="text-meta whitespace-nowrap text-ink/50">
+            <span className="text-meta whitespace-nowrap text-ink-muted">
               {labels.failuresUploaded.replace("{count}", String(uploadedCount))}
             </span>
           </div>
@@ -251,7 +251,7 @@ export function FailureSheet({
           <button
             type="button"
             onClick={retryRun ? onCancelRetry : onDiscard}
-            className={`flex min-h-11 items-center px-2 text-sm text-ink/60 transition active:text-ink ${
+            className={`flex min-h-11 items-center px-2 text-sm text-ink-muted transition active:text-ink ${
               retryRun === null && retryableCount === 0
                 ? "flex-1 justify-center"
                 : ""

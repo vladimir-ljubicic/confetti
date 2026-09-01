@@ -34,7 +34,7 @@ export function BulkMiniBar({
           <div className="flex items-baseline justify-between gap-2">
             <span className="truncate text-sm text-ink">{progressLabel}</span>
             {etaLabel && (
-              <span className="shrink-0 text-xs text-ink/60">{etaLabel}</span>
+              <span className="shrink-0 text-xs text-ink-muted">{etaLabel}</span>
             )}
           </div>
           <span className="flex h-[5px] overflow-hidden rounded-[2.5px] bg-[#eee5d2]">
@@ -52,7 +52,7 @@ export function BulkMiniBar({
           {cancelLabel}
         </button>
       </div>
-      <span className="text-xs leading-[1.4] text-ink/60">{hintLabel}</span>
+      <span className="text-xs leading-[1.4] text-ink-muted">{hintLabel}</span>
     </div>
   );
 }
@@ -92,7 +92,7 @@ export function BatchSummary({
               <span aria-hidden className="text-[11px]">
                 ▸
               </span>
-              <span className="text-ink/55">{seeLabel}</span>
+              <span className="text-ink-muted">{seeLabel}</span>
             </button>
           ) : (
             <span className="text-meta text-danger">{failedLabel}</span>

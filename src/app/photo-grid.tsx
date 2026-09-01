@@ -437,7 +437,7 @@ export function PhotoGrid({
   }, [addressedId, clearAddressed, photoIds, revealPhoto]);
 
   if (empty) {
-    return <p className="px-4 py-16 text-center text-ink/50">{emptyLabel}</p>;
+    return <p className="px-4 py-16 text-center text-ink-muted">{emptyLabel}</p>;
   }
 
   const absorbProps = (photo: PublicPhoto) => {

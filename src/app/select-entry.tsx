@@ -14,7 +14,7 @@ export function SelectEntry({
 }) {
   return (
     <div className="flex items-center justify-between gap-2.5 px-[18px] pb-3.5">
-      <p className="text-meta leading-[1.4] text-ink/55">{labels.longPressHint}</p>
+      <p className="text-meta leading-[1.4] text-ink-muted">{labels.longPressHint}</p>
       <button
         type="button"
         onClick={onEnter}

@@ -66,7 +66,7 @@ export function AdminTabs({
             key={tab.href}
             href={tab.href}
             transitionTypes={[ADMIN_TAB_TRANSITION_TYPE]}
-            className="flex-1 rounded-pill py-2.5 text-center text-ink/60 transition hover:text-ink active:text-ink"
+            className="flex-1 rounded-pill py-2.5 text-center text-ink-muted transition hover:text-ink active:text-ink"
           >
             {tab.label}
           </Link>

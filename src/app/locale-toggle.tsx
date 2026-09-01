@@ -38,7 +38,7 @@ export function LocaleToggle({
               })
             }
             className={`relative px-[11px] py-1.5 transition first:rounded-l-pill last:rounded-r-pill before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] ${
-              active ? "bg-gold-small text-card" : "text-ink/60 hover:text-ink active:text-ink"
+              active ? "bg-gold-small text-card" : "text-ink-muted hover:text-ink active:text-ink"
             }`}
           >
             {segment.label}

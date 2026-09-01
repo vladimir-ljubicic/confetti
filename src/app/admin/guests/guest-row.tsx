@@ -51,7 +51,7 @@ export function GuestRow({
         <GuestAvatar name={name} size={40} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-[15px] text-ink">{name}</span>
-          <span className="text-meta whitespace-nowrap text-ink/55">{countsLine}</span>
+          <span className="text-meta whitespace-nowrap text-ink-muted">{countsLine}</span>
         </span>
         <button
           type="button"
@@ -63,7 +63,7 @@ export function GuestRow({
         >
           {labels.rename}
         </button>
-        <span aria-hidden className="text-[15px] text-ink/35">
+        <span aria-hidden className="text-[15px] text-ink-muted">
           ›
         </span>
       </li>
@@ -99,7 +99,7 @@ export function GuestRow({
             disabled={busy}
             onClick={() => setEditing(false)}
             aria-label={labels.renameCancel}
-            className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink active:text-ink disabled:opacity-60"
+            className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink-muted transition hover:text-ink active:text-ink disabled:opacity-60"
           >
             ✕
           </button>

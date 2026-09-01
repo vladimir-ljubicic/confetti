@@ -15,6 +15,9 @@
   --color-gold-deep: #7a5f24;
   --color-gold-light: #d9b866;
   --color-ink: #2b2620;
+  /* The floor for words; contrast.test.ts holds it at AA on every ivory
+     surface and fails any ink set on text below it. */
+  --color-ink-muted: rgba(43, 38, 32, 0.68);
   --color-stage: #1b1815;
   --color-danger: #9d4b4b;
   --color-danger-light: #e39a9a;

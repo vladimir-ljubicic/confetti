@@ -72,7 +72,7 @@ function EmptyGalleryBody({
         />
       ) : (
         <>
-          <span className="text-[11px] text-gold uppercase tracking-[0.28em]">
+          <span className="text-[11px] text-gold-small uppercase tracking-[0.28em]">
             {dict.gallery.eyebrow}
           </span>
           <h1 className="font-serif text-[48px] leading-[1.02] font-medium text-gold-small">
@@ -82,12 +82,12 @@ function EmptyGalleryBody({
             <br />
             {COUPLE_NAMES[locale].second}
           </h1>
-          <div className="flex items-center gap-2.5 text-ink/35">
-            <span className="block h-px w-[34px] bg-current" />
-            <span className="text-meta tracking-[0.22em] text-ink/60">
+          <div className="flex items-center gap-2.5">
+            <span className="block h-px w-[34px] bg-ink/35" />
+            <span className="text-meta tracking-[0.22em] text-ink-muted">
               {formatEventDate(eventDateIso, " · ")}
             </span>
-            <span className="block h-px w-[34px] bg-current" />
+            <span className="block h-px w-[34px] bg-ink/35" />
           </div>
           <p className="mt-1.5 font-serif text-[22px] leading-[1.45] text-ink/70 italic">
             {dict.gallery.emptyLine1}
@@ -112,7 +112,7 @@ function EmptyGalleryBody({
         />
       )}
       {!hasTiles && (
-        <span className="max-w-[250px] text-meta leading-[1.6] text-ink/45">
+        <span className="max-w-[250px] text-meta leading-[1.6] text-ink-muted">
           {dict.gallery.emptyFootnote}
         </span>
       )}

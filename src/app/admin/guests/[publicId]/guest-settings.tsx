@@ -60,7 +60,7 @@ export function GuestSettings({
         <div className="flex items-center justify-between gap-3">
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-sm text-ink">{labels.uploadsTitle}</span>
-            <span className="text-meta text-ink/60">{labels.uploadsHint}</span>
+            <span className="text-meta text-ink-muted">{labels.uploadsHint}</span>
           </span>
           <div className="flex shrink-0 items-center rounded-pill bg-sand p-[3px] text-meta">
             {segments.map((segment) => (
@@ -73,7 +73,7 @@ export function GuestSettings({
                 className={`rounded-pill px-3 py-2 transition disabled:opacity-60 ${
                   blocked === segment.value
                     ? "bg-gold-small text-card"
-                    : "text-ink/55 hover:text-ink active:text-ink"
+                    : "text-ink-muted hover:text-ink active:text-ink"
                 }`}
               >
                 {segment.label}
@@ -107,7 +107,7 @@ export function GuestSettings({
             className="flex items-center justify-between gap-3 px-4 py-[15px] text-left transition disabled:opacity-60"
           >
             <span className="text-sm text-ink">{labels.hideAll}</span>
-            <span className="text-[13px] whitespace-nowrap text-ink/60">{hideAllValue}</span>
+            <span className="text-[13px] whitespace-nowrap text-ink-muted">{hideAllValue}</span>
           </button>
         )}
         {hideAll.failed && (

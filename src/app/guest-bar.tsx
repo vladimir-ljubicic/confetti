@@ -51,7 +51,7 @@ export function GuestBar({
             event.preventDefault();
             onBack();
           }}
-          className="-m-1.5 flex min-h-11 items-center gap-[7px] p-1.5 text-[13px] text-ink/65 transition hover:text-ink active:text-ink"
+          className="-m-1.5 flex min-h-11 items-center gap-[7px] p-1.5 text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
         >
           <span aria-hidden className="text-[15px]">
             ←
@@ -78,7 +78,7 @@ export function GuestBar({
           <span className="truncate font-serif text-[19px] leading-[1.15] text-gold-small">
             {displayName}
           </span>
-          <span className="text-[11px] tracking-[0.16em] whitespace-nowrap text-ink/68">
+          <span className="text-[11px] tracking-[0.16em] whitespace-nowrap text-ink-muted">
             {pluralize(locale, photoCount, {
               one: labels.photosOne,
               few: labels.photosFew,

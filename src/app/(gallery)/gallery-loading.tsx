@@ -61,7 +61,7 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
       </div>
 
       <header className="flex flex-col items-center gap-[11px] px-7 pt-4 pb-[26px] text-center">
-        <span className="text-[11px] text-gold uppercase tracking-[0.28em]">
+        <span className="text-[11px] text-gold-small uppercase tracking-[0.28em]">
           {dict.gallery.eyebrow}
         </span>
         <h1 className="font-serif text-masthead font-medium text-gold-small">
@@ -71,15 +71,15 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
           <br />
           {COUPLE_NAMES[locale].second}
         </h1>
-        <div className="flex items-center gap-2.5 text-ink/30">
-          <span className="block h-px w-[34px] bg-current" />
-          <span className="text-meta tracking-[0.22em] text-ink/60">
+        <div className="flex items-center gap-2.5">
+          <span className="block h-px w-[34px] bg-ink/30" />
+          <span className="text-meta tracking-[0.22em] text-ink-muted">
             {formatEventDate(settings.eventDateIso, " · ")}
           </span>
-          <span className="block h-px w-[34px] bg-current" />
+          <span className="block h-px w-[34px] bg-ink/30" />
         </div>
         {windowLine && (
-          <p className="max-w-[250px] text-[12px] leading-[1.6] text-ink/62">
+          <p className="max-w-[250px] text-[12px] leading-[1.6] text-ink-muted">
             {windowLine}
           </p>
         )}
@@ -92,7 +92,7 @@ export async function GalleryLoading({ sort }: { sort: SortMode }) {
           <span className="font-serif text-[19px] leading-[1.15] whitespace-nowrap text-gold-small">
             {COUPLE_NAMES[locale].oneLine}
           </span>
-          <span className="text-[11px] tracking-[0.16em] text-ink/68">&nbsp;</span>
+          <span className="text-[11px] tracking-[0.16em] text-ink-muted">&nbsp;</span>
         </div>
         {sortToggleShown(likeTotal) && (
           <div className="ml-auto">

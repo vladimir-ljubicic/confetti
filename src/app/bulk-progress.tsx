@@ -31,7 +31,7 @@ export function BulkProgress({
           {label}
         </span>
         {total !== null && (
-          <span className="shrink-0 text-xs tabular-nums text-ink/60">
+          <span className="shrink-0 text-xs tabular-nums text-ink-muted">
             {countLabel
               .replace("{done}", String(done))
               .replace("{total}", String(total))}

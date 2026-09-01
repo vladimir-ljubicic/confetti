@@ -185,7 +185,7 @@ function ShareSheet({
         <button
           type="button"
           onClick={onCancel}
-          className="-mt-2 min-h-11 text-sm text-ink/60"
+          className="-mt-2 min-h-11 text-sm text-ink-muted"
         >
           {labels.shareCancel}
         </button>

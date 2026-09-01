@@ -82,7 +82,7 @@ export function GuestDownloadRow({
           className="flex items-center justify-between gap-3 px-4 py-[15px] text-left transition hover:bg-gold-tint active:bg-sand disabled:opacity-60"
         >
           <span className="text-sm text-ink">{rowLabel}</span>
-          <span className="text-[13px] whitespace-nowrap text-ink/60">{rowValue}</span>
+          <span className="text-[13px] whitespace-nowrap text-ink-muted">{rowValue}</span>
         </button>
       </div>
 

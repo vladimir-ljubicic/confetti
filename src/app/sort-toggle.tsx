@@ -34,7 +34,7 @@ export function SortToggleView({
           className={`relative rounded-pill px-3 py-[7px] transition before:absolute before:inset-x-0 before:-inset-y-[7px] before:content-[''] ${
             active === option.mode
               ? "bg-card text-gold-small shadow-[0_1px_2px_rgba(43,38,32,0.08)]"
-              : "text-ink/60 hover:text-ink active:text-ink"
+              : "text-ink-muted hover:text-ink active:text-ink"
           }`}
         >
           {option.label}

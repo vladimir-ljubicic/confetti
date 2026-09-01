@@ -48,7 +48,7 @@ export default async function AdminGuestsPage() {
       />
 
       {guestCount === 0 ? (
-        <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
+        <p className="px-4 py-16 text-center text-ink-muted">{labels.empty}</p>
       ) : (
         <ul className="flex flex-col gap-2 px-3.5 pb-8">
           {summary.uploaders.map((uploader) => (
@@ -68,7 +68,7 @@ export default async function AdminGuestsPage() {
           {summary.unnamed && (
             <li className="flex items-center justify-between gap-3 rounded-card bg-card px-3.5 py-3">
               <span className="text-[15px] text-ink">{labels.unknownUploader}</span>
-              <span className="text-meta whitespace-nowrap text-ink/55">
+              <span className="text-meta whitespace-nowrap text-ink-muted">
                 {countsLine(summary.unnamed)}
               </span>
             </li>

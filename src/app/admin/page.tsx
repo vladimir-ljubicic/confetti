@@ -145,7 +145,7 @@ export default async function AdminPage({
 
       {summary.totalCount === 0 ? (
         <>
-          <p className="px-4 py-16 text-center text-ink/50">{labels.empty}</p>
+          <p className="px-4 py-16 text-center text-ink-muted">{labels.empty}</p>
           {footer}
         </>
       ) : (
@@ -159,7 +159,7 @@ export default async function AdminPage({
           locale={locale}
           viewerLabels={viewerLabels(dict)}
         >
-          <p className="px-5 pt-3 text-meta text-ink/68">{labels.gridHint}</p>
+          <p className="px-5 pt-3 text-meta text-ink-muted">{labels.gridHint}</p>
           {footer}
         </AdminPhotoGrid>
       )}

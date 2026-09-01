@@ -8,7 +8,7 @@ export default async function Loading() {
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col">
       <div className="sticky top-0 z-[4]">
         <div className="flex items-center justify-between bg-paper px-[18px] pt-3.5 pb-3">
-          <span className="-m-1.5 flex items-center gap-[7px] p-1.5 text-[13px] text-ink/65">
+          <span className="-m-1.5 flex items-center gap-[7px] p-1.5 text-[13px] text-ink-muted">
             <span aria-hidden className="text-[15px]">
               ←
             </span>

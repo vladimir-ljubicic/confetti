@@ -63,7 +63,7 @@ export function GuestHeader({
               disabled={busy}
               onClick={() => setEditing(false)}
               aria-label={labels.renameCancel}
-              className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink/45 transition hover:text-ink active:text-ink disabled:opacity-60"
+              className="flex h-11 w-8 shrink-0 items-center justify-center text-[15px] text-ink-muted transition hover:text-ink active:text-ink disabled:opacity-60"
             >
               ✕
             </button>
@@ -76,7 +76,7 @@ export function GuestHeader({
             <h1 className="truncate font-serif text-[28px] leading-[1.1] font-medium text-gold-small">
               {name}
             </h1>
-            <span className="text-[13px] whitespace-nowrap text-ink/60">
+            <span className="text-[13px] whitespace-nowrap text-ink-muted">
               {countsLine}
             </span>
           </div>

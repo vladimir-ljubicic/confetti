@@ -252,7 +252,7 @@ export function SelectTopRow({
         <span className="text-base leading-none">✕</span>
         {mode.labels.exitSelect}
       </button>
-      <span className="flex min-h-11 items-center px-3 text-[13px] whitespace-nowrap text-ink/50 tabular-nums">
+      <span className="flex min-h-11 items-center px-3 text-[13px] whitespace-nowrap text-ink-muted tabular-nums">
         {selected} / {total}
       </span>
     </div>

@@ -38,7 +38,7 @@ export function AdminTopRow({
     <div className="flex items-center justify-between gap-3 pt-4 pr-[18px] pl-2">
       <Link
         href={back?.href ?? "/"}
-        className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
+        className="flex min-h-11 items-center gap-[7px] rounded-pill px-3 text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
       >
         <span aria-hidden className="text-[15px]">
           ←
@@ -76,7 +76,7 @@ export function AdminChrome({
       <AdminTopRow locale={locale} labels={labels} />
       <header className="flex flex-col gap-[3px] px-5 pt-4 pb-3.5">
         <h1 className="font-serif text-title font-medium text-gold-small">{title}</h1>
-        {sub && <p className="text-[13px] text-ink/55">{sub}</p>}
+        {sub && <p className="text-[13px] text-ink-muted">{sub}</p>}
       </header>
       <AdminTabs binCount={binCount} labels={labels} />
     </>

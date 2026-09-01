@@ -32,7 +32,7 @@ export function ErrorScreen({
           <br />
           {labels.titleLine2}
         </h1>
-        <p className="max-w-[270px] text-sm leading-[1.6] text-pretty text-ink/65">
+        <p className="max-w-[270px] text-sm leading-[1.6] text-pretty text-ink-muted">
           {labels.body}
         </p>
         <button

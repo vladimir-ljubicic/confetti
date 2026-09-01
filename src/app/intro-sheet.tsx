@@ -161,7 +161,7 @@ export function IntroSheet({
             >
               {labels.title}
             </h2>
-            <p className="text-meta text-ink/50">{labels.explainerLine2}</p>
+            <p className="text-meta text-ink-muted">{labels.explainerLine2}</p>
           </div>
         )}
 
@@ -171,7 +171,7 @@ export function IntroSheet({
             <h2 id={titleId} className="font-serif text-sheet-title font-medium text-gold-small">
               {labels.title}
             </h2>
-            <p className="text-body leading-[1.55] text-ink/55">
+            <p className="text-body leading-[1.55] text-ink-muted">
               {labels.explainerLine1}
               <br />
               {labels.explainerLine2}
@@ -187,7 +187,7 @@ export function IntroSheet({
         >
           <div className="flex gap-2.5">
             <label className="flex min-w-0 flex-1 flex-col gap-[7px]">
-              <span className="eyebrow text-ink/50">{labels.firstNameLabel}</span>
+              <span className="eyebrow text-ink-muted">{labels.firstNameLabel}</span>
               <input
                 required
                 type="text"
@@ -202,9 +202,9 @@ export function IntroSheet({
               />
             </label>
             <label className="flex min-w-0 flex-1 flex-col gap-[7px]">
-              <span className="eyebrow text-ink/50">
+              <span className="eyebrow text-ink-muted">
                 {labels.lastNameLabel}{" "}
-                <span className="tracking-normal normal-case text-ink/60">
+                <span className="tracking-normal normal-case text-ink-muted">
                   · {labels.lastNameOptional}
                 </span>
               </span>
@@ -217,7 +217,7 @@ export function IntroSheet({
                 value={lastName}
                 maxLength={FIELD_MAX_LENGTH}
                 onChange={(event) => setLastName(event.target.value)}
-                className="w-full touch-auto rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none placeholder:text-ink/50 focus:border-gold focus:bg-paper"
+                className="w-full touch-auto rounded-card border border-ink/16 bg-card px-4 py-3.5 text-[17px] text-ink caret-gold outline-none placeholder:text-ink-muted focus:border-gold focus:bg-paper"
               />
             </label>
           </div>
@@ -225,7 +225,7 @@ export function IntroSheet({
           <div className={compact ? undefined : "flex flex-col gap-[9px]"}>
             <span
               id={`${titleId}-visibility`}
-              className={compact ? "sr-only" : "eyebrow text-ink/45"}
+              className={compact ? "sr-only" : "eyebrow text-ink-muted"}
             >
               {labels.visibilityLabel}
             </span>
@@ -275,11 +275,7 @@ export function IntroSheet({
                     <span className={`text-[15px] ${selected ? "text-ink" : "text-ink/75"}`}>
                       {title}
                     </span>
-                    <span
-                      className={`text-meta leading-[1.4] ${selected ? "text-ink/50" : "text-ink/45"}`}
-                    >
-                      {sub}
-                    </span>
+                    <span className="text-meta leading-[1.4] text-ink-muted">{sub}</span>
                   </button>
                 );
               })}
@@ -296,7 +292,7 @@ export function IntroSheet({
               <button
                 type="button"
                 onClick={onCancel}
-                className="flex min-h-11 shrink-0 items-center px-2 text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
+                className="flex min-h-11 shrink-0 items-center px-2 text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
               >
                 {labels.cancel}
               </button>
@@ -323,7 +319,7 @@ export function IntroSheet({
             <button
               type="button"
               onClick={onCancel}
-              className="flex min-h-11 items-center self-center text-[13px] text-ink/60 transition hover:text-ink active:text-ink"
+              className="flex min-h-11 items-center self-center text-[13px] text-ink-muted transition hover:text-ink active:text-ink"
             >
               {labels.cancel}
             </button>
