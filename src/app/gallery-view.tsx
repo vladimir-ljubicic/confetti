@@ -15,6 +15,7 @@ import type { PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { comparePhotos, sumLikes, type SortMode } from "@/lib/sort-mode";
 import { restartLatest, resumeSort, type SortScroll } from "@/lib/sort-scroll";
+import { BackToTop } from "./back-to-top";
 import { GalleryStatsProvider } from "./gallery-stats";
 import { GridSkeleton } from "./grid-skeleton";
 import { GuestBar, type GuestBarLabels } from "./guest-bar";
@@ -46,6 +47,7 @@ export function GalleryView({
   emptyLabel,
   guestEmptyLabel,
   guestLabels,
+  backToTopLabel,
   header,
   footer,
 }: {
@@ -71,6 +73,7 @@ export function GalleryView({
   emptyLabel: string;
   guestEmptyLabel: string;
   guestLabels: GuestBarLabels;
+  backToTopLabel: string;
   header: ReactNode;
   footer: ReactNode;
 }) {
@@ -275,6 +278,8 @@ export function GalleryView({
 
             {guest === null && footer}
           </div>
+
+          <BackToTop label={backToTopLabel} />
         </GalleryStatsProvider>
       </NewPhotosProvider>
     </SortProvider>

@@ -26,6 +26,7 @@ const en = {
     coachMark: "Your photos are here",
     coachMarkDismiss: "Dismiss",
     newPhotos: "New photos",
+    backToTop: "Back to top",
     photoAlt: "Photo",
     photoAltBy: "Photo — {name}",
     uploadWindowToday:
@@ -329,6 +330,7 @@ const sr: Dictionary = {
     coachMark: "Ваше фотографије су овде",
     coachMarkDismiss: "Затвори",
     newPhotos: "Нове фотографије",
+    backToTop: "На врх",
     photoAlt: "Фотографија",
     photoAltBy: "Фотографија — {name}",
     uploadWindowToday:

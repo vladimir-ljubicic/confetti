@@ -58,6 +58,9 @@ Where the guest was standing in each order, kept for as long as the gallery stay
 **New photos pill**:
 The glass pill announcing other guests' photos that arrived after the gallery was loaded. They stay out of the grid until the guest taps it, which admits them and brings the top of the gallery on screen. The guest's own photos never wait behind it.
 
+**Back to top**:
+The round ↑ in the bottom-left corner of the gallery, within thumb reach and across the screen from the centred upload pill so the two never meet. It arrives once the guest is two screens down and leaves again within half a screen of the top, and it lands at the top at once rather than scrolling there.
+
 **Select mode**:
 A grid state, entered by long-pressing a tile or the Изабери pill, in which taps pick photos and a pinned action bar hides, publishes or deletes the picks. "Select all" covers the photos the active filter shows; the top row counts picks against the whole album.
 
