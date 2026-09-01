@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { hideBrokenImage, thumbSrc } from "@/app/photo-image";
 import { PhotoViewer, type ViewerLabels } from "@/app/photo-viewer";
+import { PrivateBadge } from "@/app/private-badge";
 import { revealTile } from "@/app/reveal-tile";
 import { SelectEntry } from "@/app/select-entry";
 import {
@@ -282,9 +283,7 @@ export function AdminPhotoGrid({
                     className="h-full w-full object-cover"
                   />
                   {photo.visibility === "private" && (
-                    <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.72)] px-[7px] py-[3px] text-[10px] text-paper">
-                      {labels.privateBadge}
-                    </span>
+                    <PrivateBadge label={labels.privateBadge} />
                   )}
                   {mode.active && <SelectMark selected={selected} />}
                 </button>

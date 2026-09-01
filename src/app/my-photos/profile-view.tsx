@@ -8,6 +8,7 @@ import { selectionView } from "@/lib/selection-view";
 import type { Visibility } from "@/lib/uploader-profile";
 import { LocaleToggle } from "../locale-toggle";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
+import { PrivateBadge } from "../private-badge";
 import { revealTile } from "../reveal-tile";
 import { SelectEntry } from "../select-entry";
 import {
@@ -305,9 +306,7 @@ export function ProfileView({
                       alt={labels.photoAlt}
                     />
                     {photo.visibility === "private" && (
-                      <span className="absolute bottom-1.5 left-1.5 rounded-pill bg-[rgba(27,24,21,0.7)] px-[7px] py-[3px] text-[10px] tracking-[0.06em] text-paper">
-                        {labels.privateBadge}
-                      </span>
+                      <PrivateBadge label={labels.privateBadge} />
                     )}
                     {mode.active && <SelectMark selected={selected} />}
                   </button>
