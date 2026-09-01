@@ -18,8 +18,6 @@
   --color-stage: #1b1815;
   --color-danger: #9d4b4b;
   --color-danger-light: #e39a9a;
-  --color-warning-bg: #f7e9e3;
-  --color-warning-text: #8a4b2c;
 
   /* Typefaces */
   --font-sans: var(--font-jost);

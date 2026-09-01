@@ -29,13 +29,13 @@ export function OfflineNotice({
   return (
     <div
       style={{ top }}
-      className="sticky z-[2] mx-3.5 mt-3.5 flex items-center gap-[11px] rounded-card bg-warning-bg px-4 py-3.5"
+      className="sticky z-[2] mx-3.5 mt-3.5 flex items-center gap-[11px] rounded-card border border-ink/15 bg-paper px-4 py-3.5"
     >
-      <span className="w-3 shrink-0 self-start text-center text-base font-medium text-warning-text">
+      <span className="w-3 shrink-0 self-start text-center text-base font-medium text-danger">
         !
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <span className="text-sm text-warning-text">{labels.title}</span>
+        <span className="text-sm text-danger">{labels.title}</span>
         <span className="text-meta leading-[1.4] text-pretty text-ink/70">
           {pluralize(locale, waiting, {
             one: labels.bodyOne,
@@ -47,7 +47,7 @@ export function OfflineNotice({
       <button
         type="button"
         onClick={queue.retryNow}
-        className="flex h-10 shrink-0 items-center rounded-pill bg-card px-4 text-[13px] text-warning-text shadow-sm"
+        className="flex h-10 shrink-0 items-center rounded-pill bg-card px-4 text-[13px] text-gold-small shadow-sm transition active:bg-gold-tint"
       >
         {labels.retry}
       </button>
