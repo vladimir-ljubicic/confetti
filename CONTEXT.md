@@ -20,6 +20,9 @@ Why one photo did not go up, in the guest's words: the connection broke (network
 **Retryable failure**:
 A failure another attempt could fix — network and server. The other two are the file's own doing, so the guest leaves them out instead of retrying.
 
+**Batch failure**:
+One photo a batch could not put in the gallery, kept with its preview, its reason and how far it got. It stays in the list until the guest retries it, leaves it out, or discards the lot. The failure sheet identifies each one by its thumbnail, never a filename, and groups them by whether they are retryable.
+
 **Freeze moment**:
 Midnight (Europe/Belgrade) after event date + freeze offset days. When it passes, uploads freeze automatically.
 

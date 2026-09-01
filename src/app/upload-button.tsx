@@ -19,9 +19,14 @@ import {
   RATE_LIMITED_STATUS,
   type RateLimitReason,
 } from "@/lib/upload-limits";
+import {
+  groupFailures,
+  type BatchFailure,
+} from "@/lib/batch-failures";
 import { estimateRemainingMs, formatEta } from "@/lib/upload-eta";
 import type { UploadTicket } from "@/lib/upload-ticket";
 import { pluralize, type Locale } from "@/lib/i18n";
+import { FailureSheet, type FailureSheetLabels } from "./failure-sheet";
 import { IntroSheet, type IntroSheetLabels } from "./intro-sheet";
 import { useSort } from "./sort-context";
 import { BulkMiniBar, BulkSummary, RejectedCard } from "./upload-minibar";
@@ -41,7 +46,7 @@ const SUMMARY_TTL_MS = 6000;
 // Longer when failures remain, so the retry pill can still be reached.
 const SUMMARY_FAILED_TTL_MS = 30000;
 
-type UploadLabels = {
+type UploadLabels = FailureSheetLabels & {
   add: string;
   uploading: string;
   frozen: string;
@@ -65,8 +70,6 @@ type UploadLabels = {
   rejectedTooLargeOne: string;
   rejectedTooLargeFew: string;
   rejectedTooLargeMany: string;
-  failureNotAnImage: string;
-  skip: string;
 };
 
 type UploadLimitProps = {
@@ -94,15 +97,10 @@ type BulkView =
     }
   | { phase: "summary"; done: number; failedCount: number };
 
-// A file the guest cannot retry into the gallery, kept with the preview the
-// card identifies it by.
-type Rejection = {
-  file: File;
-  previewUrl: string;
-  reason: UploadFailureReason;
-};
+// The file rides along so a retry does not have to ask for it again.
+type BatchFailureEntry = BatchFailure & { file: File };
 
-type RejectedView = {
+type UnretryableView = {
   count: number;
   previewUrl: string | null;
   uploaded: number;
@@ -286,12 +284,16 @@ export function UploadButton({
   const [bulkView, setBulkView] = useState<BulkView | null>(null);
   const [frozenNotice, setFrozenNotice] = useState(false);
   const [limitNotice, setLimitNotice] = useState<string | null>(null);
-  const [rejectedView, setRejectedView] = useState<RejectedView | null>(null);
+  const [unretryableView, setUnretryableView] =
+    useState<UnretryableView | null>(null);
+  const [failures, setFailures] = useState<BatchFailureEntry[]>([]);
+  const [failureSheetOpen, setFailureSheetOpen] = useState(false);
+  const [batchUploaded, setBatchUploaded] = useState(0);
   const tileIdRef = useRef(0);
   const controllers = useRef(new Map<number, TileController>());
   const bulkRunRef = useRef<BulkRun | null>(null);
-  const bulkFailedRef = useRef<{ file: File; reason: UploadFailureReason }[]>([]);
-  const rejectedRef = useRef<Rejection[]>([]);
+  const failuresRef = useRef<BatchFailureEntry[]>([]);
+  const failureIdRef = useRef(0);
   const summaryTimerRef = useRef<number | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
@@ -316,34 +318,69 @@ export function UploadButton({
     );
   }
 
-  function recordRejection(file: File, reason: UploadFailureReason) {
-    rejectedRef.current.push({ file, reason, previewUrl: URL.createObjectURL(file) });
-  }
-
-  function showRejected(uploaded: number) {
-    const rejected = rejectedRef.current;
-    if (rejected.length === 0) return;
-    setRejectedView({
-      count: rejected.length,
-      previewUrl: rejected[0].previewUrl,
-      uploaded,
-      tooLarge: rejected.filter((entry) => entry.reason === "too-large").length,
-      notAnImage: rejected.filter((entry) => entry.reason === "not-an-image").length,
+  function recordFailure(
+    file: File,
+    reason: UploadFailureReason,
+    uploadedBytes: number,
+  ) {
+    failuresRef.current.push({
+      id: failureIdRef.current++,
+      file,
+      previewUrl: URL.createObjectURL(file),
+      reason,
+      sizeBytes: file.size,
+      uploadedBytes,
     });
   }
 
-  function clearRejected() {
-    for (const entry of rejectedRef.current) {
-      URL.revokeObjectURL(entry.previewUrl);
-    }
-    rejectedRef.current = [];
-    setRejectedView(null);
+  function unretryableFailures(): BatchFailureEntry[] {
+    return groupFailures(failuresRef.current).unretryable;
   }
 
-  function retryRejected() {
-    const files = rejectedRef.current.map((entry) => entry.file);
-    clearRejected();
-    void startBatch(files);
+  function dropFailures(entries: BatchFailureEntry[]) {
+    const ids = new Set(entries.map((entry) => entry.id));
+    for (const entry of entries) URL.revokeObjectURL(entry.previewUrl);
+    failuresRef.current = failuresRef.current.filter(
+      (entry) => !ids.has(entry.id),
+    );
+    setFailures([...failuresRef.current]);
+    if (failuresRef.current.length === 0) setFailureSheetOpen(false);
+    if (unretryableFailures().length === 0) setUnretryableView(null);
+  }
+
+  function clearFailures() {
+    dropFailures(failuresRef.current);
+  }
+
+  // Whatever is left of the batch goes back up; the sheet stays open for
+  // rows the guest has not dealt with yet.
+  function retryFailures(entries: BatchFailureEntry[]) {
+    clearSummaryTimer();
+    if (entries.length === 0) {
+      setBulkView(null);
+      setFailureSheetOpen(false);
+      return;
+    }
+    dropFailures(entries);
+    void startBatch(entries.map((entry) => entry.file));
+  }
+
+  function discardFailures() {
+    clearFailures();
+    setBulkView(null);
+  }
+
+  function showUnretryable(uploaded: number) {
+    const unretryable = unretryableFailures();
+    if (unretryable.length === 0) return;
+    setUnretryableView({
+      count: unretryable.length,
+      previewUrl: unretryable[0].previewUrl,
+      uploaded,
+      tooLarge: unretryable.filter((entry) => entry.reason === "too-large").length,
+      notAnImage: unretryable.filter((entry) => entry.reason === "not-an-image")
+        .length,
+    });
   }
 
   function askForProfile(files: File[]) {
@@ -540,7 +577,8 @@ export function UploadButton({
     );
 
     setBatchActive(false);
-    showRejected(uploaded);
+    setBatchUploaded((count) => count + uploaded);
+    showUnretryable(uploaded);
     if (abort === "profile") {
       askForProfile(retryFiles);
       return;
@@ -574,24 +612,15 @@ export function UploadButton({
     run.notifyCancel();
   }
 
-  function retryBulkFailures() {
+  function clearSummaryTimer() {
     if (summaryTimerRef.current) {
       window.clearTimeout(summaryTimerRef.current);
       summaryTimerRef.current = null;
     }
-    const files = bulkFailedRef.current.map((failure) => failure.file);
-    if (files.length === 0) {
-      setBulkView(null);
-      return;
-    }
-    void startBulkBatch(files);
   }
 
   async function startBulkBatch(files: File[]) {
-    if (summaryTimerRef.current) {
-      window.clearTimeout(summaryTimerRef.current);
-      summaryTimerRef.current = null;
-    }
+    clearSummaryTimer();
     let notifyCancel: () => void = () => {};
     // Workers waiting out an offline stretch must also wake on cancel, or the
     // batch could never finish.
@@ -606,7 +635,6 @@ export function UploadButton({
       notifyCancel,
     };
     bulkRunRef.current = run;
-    bulkFailedRef.current = [];
     setBatchActive(true);
     setFrozenNotice(false);
     setLimitNotice(null);
@@ -682,7 +710,7 @@ export function UploadButton({
             }
             const rejection = precheck(item.file);
             if (rejection) {
-              recordRejection(item.file, rejection);
+              recordFailure(item.file, rejection, 0);
               continue;
             }
             let requeue = false;
@@ -708,6 +736,7 @@ export function UploadButton({
                 router.refresh();
               }
             } catch (error) {
+              const uploadedBytes = run.uploadedBytes.get(item.id) ?? 0;
               run.uploadedBytes.delete(item.id);
               if (error instanceof UploadCancelledError || run.cancelled) {
                 // Cancelled files are neither done nor failed.
@@ -723,12 +752,12 @@ export function UploadButton({
               } else {
                 const reason = classifyUploadFailure(error);
                 if (!isRetryableFailure(reason)) {
-                  recordRejection(item.file, reason);
+                  recordFailure(item.file, reason, 0);
                 } else if (!navigator.onLine) {
                   requeue = true;
                 } else {
                   console.error("Upload failed", error);
-                  bulkFailedRef.current.push({ file: item.file, reason });
+                  recordFailure(item.file, reason, uploadedBytes);
                 }
               }
             } finally {
@@ -758,16 +787,18 @@ export function UploadButton({
       bulkRunRef.current = null;
       queue?.setBulkWaiting(0);
       setBatchActive(false);
+      setFailures([...failuresRef.current]);
+      setBatchUploaded((count) => count + done);
     }
 
     if (abort === "profile") {
       setBulkView(null);
-      showRejected(done);
+      showUnretryable(done);
       askForProfile(retryFiles);
       return;
     }
     router.refresh();
-    showRejected(done);
+    showUnretryable(done);
     if (abort === "frozen") {
       setBulkView(null);
       setFrozenNotice(true);
@@ -783,10 +814,11 @@ export function UploadButton({
       return;
     }
 
-    const failedCount = bulkFailedRef.current.length;
+    const grouped = groupFailures(failuresRef.current);
+    const failedCount = grouped.retryable.length;
     // The rejected card carries the success count itself; a summary next to
     // it would duplicate it. Retryable failures still need the summary.
-    if (rejectedRef.current.length > 0 && failedCount === 0) {
+    if (grouped.unretryable.length > 0 && failedCount === 0) {
       setBulkView(null);
       return;
     }
@@ -815,6 +847,8 @@ export function UploadButton({
       return;
     }
     setLimitNotice(null);
+    clearFailures();
+    setBatchUploaded(0);
     if (hasProfile) {
       void startBatch(files);
     } else {
@@ -890,32 +924,44 @@ export function UploadButton({
               : null
           }
           retryLabel={labels.retry}
-          onRetry={bulkView.failedCount > 0 ? retryBulkFailures : null}
+          onRetry={
+            bulkView.failedCount > 0
+              ? () => retryFailures(groupFailures(failuresRef.current).retryable)
+              : null
+          }
+          onShowFailures={
+            failures.length > 0
+              ? () => {
+                  clearSummaryTimer();
+                  setFailureSheetOpen(true);
+                }
+              : null
+          }
         />
       )}
 
-      {rejectedView && (
+      {unretryableView && (
         <RejectedCard
-          previewUrl={rejectedView.previewUrl}
-          titleLabel={pluralize(locale, rejectedView.count, {
+          previewUrl={unretryableView.previewUrl}
+          titleLabel={pluralize(locale, unretryableView.count, {
             one: labels.rejectedOne,
             few: labels.rejectedFew,
             many: labels.rejectedMany,
           })}
           detailLabel={[
-            ...(rejectedView.tooLarge > 0
+            ...(unretryableView.tooLarge > 0
               ? [
-                  pluralize(locale, rejectedView.tooLarge, {
+                  pluralize(locale, unretryableView.tooLarge, {
                     one: labels.rejectedTooLargeOne,
                     few: labels.rejectedTooLargeFew,
                     many: labels.rejectedTooLargeMany,
                   }).replace("{max}", String(maxFileMb)),
                 ]
               : []),
-            ...(rejectedView.notAnImage > 0 ? [labels.failureNotAnImage] : []),
-            ...(rejectedView.uploaded > 0
+            ...(unretryableView.notAnImage > 0 ? [labels.failureNotAnImage] : []),
+            ...(unretryableView.uploaded > 0
               ? [
-                  pluralize(locale, rejectedView.uploaded, {
+                  pluralize(locale, unretryableView.uploaded, {
                     one: labels.bulkDoneOne,
                     few: labels.bulkDoneFew,
                     many: labels.bulkDoneMany,
@@ -925,8 +971,8 @@ export function UploadButton({
           ].join(" · ")}
           retryLabel={labels.retry}
           skipLabel={labels.skip}
-          onRetry={retryRejected}
-          onSkip={clearRejected}
+          onRetry={() => retryFailures(unretryableFailures())}
+          onSkip={() => dropFailures(unretryableFailures())}
         />
       )}
 
@@ -964,6 +1010,25 @@ export function UploadButton({
               : labels.add}
           </span>
         </button>
+      )}
+
+      {failureSheetOpen && failures.length > 0 && (
+        <FailureSheet
+          labels={labels}
+          locale={locale}
+          failures={failures}
+          uploadedCount={batchUploaded}
+          maxFileBytes={limitsExempt ? null : limits.maxFileBytes}
+          onRetryOne={(id) =>
+            retryFailures(failures.filter((entry) => entry.id === id))
+          }
+          onSkipOne={(id) =>
+            dropFailures(failures.filter((entry) => entry.id === id))
+          }
+          onRetryAll={() => retryFailures(groupFailures(failures).retryable)}
+          onDiscard={discardFailures}
+          onClose={() => setFailureSheetOpen(false)}
+        />
       )}
 
       {dialogOpen && (

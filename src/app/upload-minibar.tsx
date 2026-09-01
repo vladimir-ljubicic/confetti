@@ -62,18 +62,31 @@ export function BulkSummary({
   failedLabel,
   retryLabel,
   onRetry,
+  onShowFailures,
 }: {
   doneLabel: string;
   failedLabel: string | null;
   retryLabel: string;
   onRetry: (() => void) | null;
+  onShowFailures: (() => void) | null;
 }) {
   return (
     <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-bar border border-ink/10 bg-card py-3.5 pr-3.5 pl-4 shadow-card">
       <ConfettiMark size={18} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm text-ink">{doneLabel}</span>
-        {failedLabel && <span className="text-xs text-ink/60">{failedLabel}</span>}
+        {failedLabel &&
+          (onShowFailures ? (
+            <button
+              type="button"
+              onClick={onShowFailures}
+              className="self-start text-left text-xs text-ink/60 underline decoration-ink/25 underline-offset-2 transition active:text-ink"
+            >
+              {failedLabel}
+            </button>
+          ) : (
+            <span className="text-xs text-ink/60">{failedLabel}</span>
+          ))}
       </div>
       {onRetry && (
         <button
