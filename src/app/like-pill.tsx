@@ -61,6 +61,7 @@ export function LikePill({
   onToggle: () => void;
   labels: { like: string; unlike: string };
 }) {
+  const showsCount = state.count > 0;
   return (
     <button
       type="button"
@@ -69,14 +70,14 @@ export function LikePill({
       aria-label={state.liked ? labels.unlike : labels.like}
       className="absolute right-2 bottom-2 -mb-[5px] flex min-h-11 items-end pb-[5px]"
     >
-      <span className="box-border flex h-[34px] min-w-[34px] items-center justify-center gap-1.5 rounded-full bg-[rgba(27,24,21,0.58)] px-2.5 backdrop-blur-[6px]">
+      <span
+        className={`box-border flex h-[34px] items-center justify-center gap-1.5 rounded-full bg-[rgba(27,24,21,0.58)] backdrop-blur-[6px] ${showsCount ? "min-w-[34px] px-2.5" : "w-[34px]"}`}
+      >
         <LikeHeart
           liked={state.liked}
           className={`h-4 w-4 ${state.liked ? "text-gold-light" : "text-card"}`}
         />
-        {state.count > 0 && (
-          <span className="text-xs text-card">{state.count}</span>
-        )}
+        {showsCount && <span className="text-xs text-card">{state.count}</span>}
       </span>
     </button>
   );
