@@ -13,6 +13,20 @@ commit made minutes earlier, is a change like any other and gets its own issue.
 Record what the work found under `## Comments` in that file, and set `Status:` to the
 state the work left it in.
 
+## Issues an agent files itself go through to-tickets
+
+Deciding to file issues is itself a decision to break work down, so do it the way
+`to-tickets` does. Read `.claude/skills/to-tickets/SKILL.md` and follow it: the skill
+is user-invocable only and cannot be reached with the Skill tool.
+
+This applies whenever filing the issues is the agent's own idea — noticing work worth
+tracking, splitting a task that turned out to be several. A breakdown the user dictated,
+or one they invoked the skill for themselves, is already theirs.
+
+What the skill is there for: vertical slices that each stand on their own, blocking
+edges spelled out, a step only a human can take made a ticket rather than left implied
+between two others, and the whole breakdown put to the user before a file is written.
+
 ## Conventions
 
 - One feature per directory: `.scratch/<feature-slug>/`

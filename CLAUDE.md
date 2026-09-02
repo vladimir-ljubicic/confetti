@@ -7,7 +7,8 @@
 Local markdown under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
 
 Nothing is committed without an issue: every change lands with the issue file that
-describes it, written before the work starts.
+describes it, written before the work starts. Issues you decide to file yourself are
+broken down the way `to-tickets` does — read `.claude/skills/to-tickets/SKILL.md`.
 
 ### Triage labels
 
