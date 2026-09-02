@@ -70,11 +70,26 @@ function spendGesture() {
 // position the page had when the entry above it was pushed, undoing wherever
 // the surface has scrolled the page to since — a viewer keeps the gallery on
 // the photo it is showing, and closing it must land there.
+//
+// Scroll restoration belongs to the history entry standing when it is set, and
+// an entry pushed from one that is holding inherits the hold. A hold taken on
+// one entry and let go on another therefore strands the first: nothing landing
+// on it is ever restored again. So the entry underfoot is put back whenever a
+// step through history lands on it with nothing holding.
 let holding = 0;
 let restorationBefore: History["scrollRestoration"] | null = null;
+let repairing = false;
+
+function repairScroll() {
+  if (holding === 0) window.history.scrollRestoration = "auto";
+}
 
 function holdScroll() {
   if (holding++ > 0) return;
+  if (!repairing) {
+    repairing = true;
+    window.addEventListener("popstate", repairScroll);
+  }
   restorationBefore = window.history.scrollRestoration;
   window.history.scrollRestoration = "manual";
 }

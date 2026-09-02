@@ -110,12 +110,24 @@ export function GalleryView({
   // out: the two orders deal the same photos into columns of different
   // heights, and a page still as tall as the outgoing one clamps the scroll.
   const landing = useRef<number | null>(null);
+  // Where this gallery was standing when it narrowed to a guest's, to be found
+  // again when that gallery is left. Nothing about the step back can be left to
+  // the browser: it restores against a page still only as tall as the guest's
+  // gallery, and a viewer that handed its entry over took scroll restoration
+  // off this gallery's entry with it.
+  const resumeAt = useRef<number | null>(null);
 
   useLayoutEffect(() => {
     if (landing.current === null) return;
     window.scrollTo(0, landing.current);
     landing.current = null;
   }, [sort]);
+
+  useLayoutEffect(() => {
+    if (guestId !== null || resumeAt.current === null) return;
+    window.scrollTo(0, resumeAt.current);
+    resumeAt.current = null;
+  }, [guestId]);
 
   const { photos, complete, held, reveal } = useFullGallery(headPhotos);
   // A view outside what the server rendered — another order of the gallery
@@ -155,6 +167,7 @@ export function GalleryView({
 
   const revealHeldHere = useCallback(() => {
     scrollMemory.current = {};
+    resumeAt.current = null;
     reveal(heldHere);
   }, [reveal, heldHere]);
 
@@ -184,13 +197,16 @@ export function GalleryView({
     (publicId: string, over?: { steppable: boolean }) => {
       if (over === undefined || over.steppable) pushed.current += 1;
       scrollMemory.current = {};
+      // The pill of the guest whose gallery this already is narrows nothing,
+      // and the place kept is still the wide gallery's own.
+      if (guestId === null) resumeAt.current = window.scrollY;
       setSelected((current) => ({ ...current, guestId: publicId }));
       const address = `/uploader/${publicId}${window.location.search}`;
       if (over === undefined) window.history.pushState(null, "", address);
       else window.history.replaceState(null, "", address);
       window.scrollTo(0, 0);
     },
-    [],
+    [guestId],
   );
 
   const leaveGuest = useCallback(() => {
@@ -202,7 +218,7 @@ export function GalleryView({
     }
     setSelected((current) => ({ ...current, guestId: null }));
     window.history.pushState(null, "", `/${window.location.search}`);
-    window.scrollTo(0, 0);
+    if (resumeAt.current === null) window.scrollTo(0, 0);
   }, []);
 
   // The chosen order rides in the address so a reload and a shared link keep
@@ -210,6 +226,7 @@ export function GalleryView({
   const goToSort = useCallback(
     (next: SortMode, move: { memory: SortScroll; scrollTo: number }) => {
       scrollMemory.current = move.memory;
+      resumeAt.current = null;
       // The order already on screen lays out no differently for being chosen
       // again, so its top is there to be reached straight away.
       if (next === sort) {

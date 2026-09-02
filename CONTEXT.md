@@ -92,7 +92,7 @@ A grid state, entered by long-pressing a tile or the Изабери pill, in whi
 Whose photos a bulk action may reach: a guest's own (their device) or, for the admin, every guest's.
 
 **Per-guest gallery**:
-A guest's public photos only — the same set for every viewer, including the guest themselves and the admin.
+A guest's public photos only — the same set for every viewer, including the guest themselves and the admin. Narrowing to one keeps the place the gallery it was opened from was standing in, and leaving it lands there again; one the address opened directly has no such place behind it and leaves to the top of the gallery.
 
 **Uploader label**:
 The "First L." name shown on gallery tiles, linking to that guest's per-guest gallery.
