@@ -107,13 +107,10 @@ The small rendition of a photo that gallery tiles render, produced on the guest'
 The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
 
 **Viewer session**:
-One turn of the viewer over the gallery, from the tap that opened it to the moment it is gone. Where the viewer fades out rather than zooming, it holds the screen for the length of that fade and lets taps through to the gallery beneath it, so a tile tapped through a leaving viewer opens a session of its own; the one on its way out takes its exit with it rather than closing the one that has replaced it.
+One turn of the viewer over the gallery, from the tap that opened it to the moment it is gone. On its way out it holds the screen for the length of its fade and lets taps through to the gallery beneath it, so a tile tapped through a leaving viewer opens a session of its own; the one on its way out takes its exit with it rather than closing the one that has replaced it.
 
 **Viewer dismiss**:
-The drag that closes the full-screen viewer, upwards or downwards alike: past 110px, or a shorter flick faster than 0.5px·ms⁻¹. The photo shrinks to 0.88 as it goes and the stage thins to 0.3 without ever clearing, so the gallery underneath stays a hint. A sideways lead belongs to the track's own scroll instead. The release hands the photo to the photo zoom.
-
-**Photo zoom**:
-The travel of one photo between its gallery tile and the viewer's stage, in both directions, as a single picture moving rather than one appearing over another. It leaves from the tile the guest tapped and returns to the tile of the last photo they saw, wherever swiping through the viewer left them, while the gallery around it dissolves into the dark stage. The tile stands empty for as long as the stage holds its photo: one photo is in one place. Where a browser cannot run it the viewer fades in and out instead, and the dismiss drag flings the photo off screen.
+The drag that closes the full-screen viewer, upwards or downwards alike: past 110px, or a shorter flick faster than 0.5px·ms⁻¹. The photo shrinks to 0.88 as it goes and the stage thins to 0.3 without ever clearing, so the gallery underneath stays a hint. A sideways lead belongs to the track's own scroll instead. The release flings the photo off screen in the drag's direction while the viewer fades out.
 
 **Export target**:
 Whose photos a ZIP holds. Two are shared, packed once for everyone: the public gallery, and the admin's — public photos, plus private ones when the admin asks for them. The third is a guest's own, every photo their device uploaded and private ones with it; there is one of those per guest, and both that guest and the couple reach it — the guest from their own page, the couple from that guest's admin page.

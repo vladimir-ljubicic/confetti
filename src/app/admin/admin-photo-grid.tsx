@@ -312,7 +312,6 @@ export function AdminPhotoGrid({
           key={viewing.session}
           photos={visible}
           startId={viewing.startId}
-          zooms={false}
           likes={likes}
           canManageAll
           locale={locale}

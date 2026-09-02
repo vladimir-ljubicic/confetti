@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -23,7 +22,6 @@ import type { Locale } from "@/lib/i18n";
 import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
-import { supportsViewTransitions } from "@/lib/view-transition";
 import {
   openedOn,
   withoutSession,
@@ -32,7 +30,6 @@ import {
 import { LikePill } from "./like-pill";
 import { hideBrokenImage, publicThumbSrc } from "./photo-image";
 import { PhotoViewer, type ViewerLabels } from "./photo-viewer";
-import { PhotoZoom } from "./photo-zoom";
 import { useScrubbing } from "./scrub-rail";
 import { UploadTileView } from "./upload-tile";
 import { useAddressedEntry } from "./use-history-entry";
@@ -238,13 +235,8 @@ export function PhotoGrid({
   const queue = useUploadQueue();
   const likes = useLikes();
   const scrubbing = useScrubbing();
-  // The photo the viewer was opened on and the one it has since been swiped to.
-  // The grid hands the latter's tile over to the stage, and that is the tile the
-  // photo comes back to.
   const [viewing, setViewing] = useState<ViewerSession<{
     startId: string;
-    currentId: string;
-    zooms: boolean;
   }> | null>(null);
   const tiles = useMemo(
     () => (showUploadTiles ? (queue?.tiles ?? []) : []),
@@ -394,17 +386,6 @@ export function PhotoGrid({
     [columns],
   );
 
-  // Each photo the viewer moves on to takes its tile over and has that tile put
-  // on screen behind the stage, so the way out lands on the photo the guest
-  // actually left the viewer on.
-  const viewerMovedTo = useCallback(
-    (photoId: string) => {
-      setViewing((open) => open && { ...open, currentId: photoId });
-      revealPhoto(photoId);
-    },
-    [revealPhoto],
-  );
-
   // A /?photo=<id> address — a shared link, or history stepped back onto a
   // photo the viewer was showing — opens the viewer on that photo. The id is
   // held on to until the photo is here, because it may only arrive with the
@@ -414,37 +395,18 @@ export function PhotoGrid({
     !viewer || viewing !== null,
   );
 
-  // A transition, so the photo zooms out of the tile under the finger rather
-  // than appearing over the grid.
   const openViewer = useCallback(
     (photoId: string) => {
-      startTransition(() => {
-        clearAddressed();
-        setViewing((open) =>
-          openedOn(open, {
-            startId: photoId,
-            currentId: photoId,
-            zooms: supportsViewTransitions(),
-          }),
-        );
-      });
+      clearAddressed();
+      setViewing((open) => openedOn(open, { startId: photoId }));
     },
     [clearAddressed],
   );
 
   useEffect(() => {
     if (addressedId === null || !photoIds.has(addressedId)) return;
-    // An addressed photo has no tile to leave from — the grid may not have
-    // reached it, let alone mounted it — so the viewer fades in over the
-    // gallery and puts the tile on screen behind itself for the way out.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewing((open) =>
-      openedOn(open, {
-        startId: addressedId,
-        currentId: addressedId,
-        zooms: false,
-      }),
-    );
+    setViewing((open) => openedOn(open, { startId: addressedId }));
     clearAddressed();
     revealPhoto(addressedId);
   }, [addressedId, clearAddressed, photoIds, revealPhoto]);
@@ -493,21 +455,15 @@ export function PhotoGrid({
                       )
                     );
                   }
-                  // The tile stands empty for as long as the stage holds its
-                  // photo: the photo is up there, not down here.
-                  const shown =
-                    viewing?.zooms && viewing.currentId === entry.photo.id;
-                  const image = shown ? null : (
-                    <PhotoZoom photoId={entry.photo.id}>
-                      <GalleryImage
-                        src={publicThumbSrc(entry.photo.id)}
-                        alt={photoAltText(altLabels, entry.photo.uploader)}
-                        width={entry.photo.width}
-                        height={entry.photo.height}
-                        eager={order < EAGER_TILES}
-                        {...absorbProps(entry.photo)}
-                      />
-                    </PhotoZoom>
+                  const image = (
+                    <GalleryImage
+                      src={publicThumbSrc(entry.photo.id)}
+                      alt={photoAltText(altLabels, entry.photo.uploader)}
+                      width={entry.photo.width}
+                      height={entry.photo.height}
+                      eager={order < EAGER_TILES}
+                      {...absorbProps(entry.photo)}
+                    />
                   );
                   return (
                     <PhotoTile
@@ -585,13 +541,12 @@ export function PhotoGrid({
           key={viewing.session}
           photos={photos}
           startId={viewing.startId}
-          zooms={viewing.zooms}
           likes={likes}
           canManageAll={viewer.canManageAll}
           locale={viewer.locale}
           labels={viewer.labels}
           galleryCount={viewer.galleryCount}
-          onCurrentChange={viewerMovedTo}
+          onCurrentChange={revealPhoto}
           onSelectUploader={onSelectUploader}
           onClose={() =>
             setViewing((open) => withoutSession(open, viewing.session))

@@ -453,21 +453,6 @@
   animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
-/* Opening a photo: it travels from its tile to the stage and back again. The
-   gallery it left dissolves into the dark stage around it on the browser's own
-   root cross-fade, which runs to the same beat. */
-::view-transition-group(.photo-zoom) {
-  animation-duration: 260ms;
-  animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
-}
-::view-transition-new(.viewer-stage) {
-  animation-duration: 260ms;
-  animation-timing-function: ease-out;
-}
-::view-transition-old(.viewer-stage) {
-  animation-duration: 260ms;
-  animation-timing-function: ease-in;
-}
 /* Tiles, hearts, sheets and the viewer land in their resting state at once. */
 @media (prefers-reduced-motion: reduce) {
   .tile-in,

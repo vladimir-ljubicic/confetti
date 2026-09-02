@@ -439,7 +439,6 @@ export function ProfileView({
           key={viewing.session}
           photos={viewerPhotos}
           startId={viewing.startId}
-          zooms={false}
           likes={likes}
           canManageAll={false}
           locale={locale}
