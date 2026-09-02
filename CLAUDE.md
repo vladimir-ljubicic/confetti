@@ -6,6 +6,9 @@
 
 Local markdown under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
 
+Nothing is committed without an issue: every change lands with the issue file that
+describes it, written before the work starts.
+
 ### Triage labels
 
 The five canonical labels, unchanged (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.

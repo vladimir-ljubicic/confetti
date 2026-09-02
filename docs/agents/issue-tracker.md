@@ -2,6 +2,17 @@
 
 Issues and specs for this repo live as markdown files in `.scratch/`.
 
+## Nothing is committed without an issue
+
+Every commit answers to an issue file. Before starting work, create
+`.scratch/<feature-slug>/issues/<NN>-<slug>.md` with what is to be built, its
+acceptance criteria and its `Status:` line; commit the issue file together with the
+change it describes. A commit that touches nothing but the tracker, or a revert of a
+commit made minutes earlier, is a change like any other and gets its own issue.
+
+Record what the work found under `## Comments` in that file, and set `Status:` to the
+state the work left it in.
+
 ## Conventions
 
 - One feature per directory: `.scratch/<feature-slug>/`
