@@ -228,7 +228,12 @@ export function PhotoViewer({
   onCurrentChange?: (photoId: string) => void;
   // Given, the uploader pill filters the gallery behind the viewer in place
   // rather than navigating to the guest's page.
-  onSelectUploader?: (publicId: string) => void;
+  // Taking the pill hands the viewer's entry to the guest's gallery, which is
+  // told whether stepping back off that entry lands on the gallery beneath.
+  onSelectUploader?: (
+    publicId: string,
+    over?: { steppable: boolean },
+  ) => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -324,7 +329,7 @@ export function PhotoViewer({
   // Open, the viewer holds a history entry, so going back closes it. Every
   // other way of closing steps back out of that entry, and the exit
   // animation runs once it is gone — one way out, whichever gesture began it.
-  const leave = useHistoryEntry({
+  const { leave, handOver } = useHistoryEntry({
     key: "photo",
     id: current?.id ?? startId,
     onBack: fadeOut,
@@ -682,9 +687,11 @@ export function PhotoViewer({
                 // not a return to the one the viewer was opened from, and
                 // fading back to a grid that is being replaced anyway reads
                 // as a stutter. Both in one commit, so neither is seen alone.
-                leave(() => {
+                // The guest's gallery takes the viewer's own entry over
+                // rather than adding one, so a step back off it leaves both.
+                handOver((steppable) => {
                   onClose();
-                  onSelectUploader(publicId);
+                  onSelectUploader(publicId, { steppable });
                 });
               }}
               className="flex min-h-12 items-center gap-2.5 rounded-pill border border-[rgba(250,246,238,0.22)] bg-[rgba(250,246,238,0.08)] py-[5px] pr-3.5 pl-1.5 transition active:bg-[rgba(250,246,238,0.14)]"

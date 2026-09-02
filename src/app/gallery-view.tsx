@@ -97,7 +97,8 @@ export function GalleryView({
   }
   const guestId = selected.guestId;
   const [sort, setSort] = useState(initialSort);
-  // History entries this view pushed itself, and so may step back through. A
+  // History entries this view may step back through: the ones it pushed
+  // itself, and the viewer's own when its uploader pill hands one over. A
   // guest's gallery opened directly has none, and leaving it pushes instead.
   const pushed = useRef(0);
   // Where the guest was standing in each order of the gallery on screen. Any
@@ -175,17 +176,22 @@ export function GalleryView({
     };
   }, [guestId, shown, initialGuest]);
 
-  const selectGuest = useCallback((publicId: string) => {
-    pushed.current += 1;
-    scrollMemory.current = {};
-    setSelected((current) => ({ ...current, guestId: publicId }));
-    window.history.pushState(
-      null,
-      "",
-      `/uploader/${publicId}${window.location.search}`,
-    );
-    window.scrollTo(0, 0);
-  }, []);
+  // The viewer's uploader pill hands its own entry over rather than leaving
+  // one behind to step through, so the guest's gallery takes that entry's
+  // place instead of adding one; `over` says whether stepping back off it
+  // lands on this view, which an entry the viewer never pushed need not.
+  const selectGuest = useCallback(
+    (publicId: string, over?: { steppable: boolean }) => {
+      if (over === undefined || over.steppable) pushed.current += 1;
+      scrollMemory.current = {};
+      setSelected((current) => ({ ...current, guestId: publicId }));
+      const address = `/uploader/${publicId}${window.location.search}`;
+      if (over === undefined) window.history.pushState(null, "", address);
+      else window.history.replaceState(null, "", address);
+      window.scrollTo(0, 0);
+    },
+    [],
+  );
 
   const leaveGuest = useCallback(() => {
     scrollMemory.current = {};

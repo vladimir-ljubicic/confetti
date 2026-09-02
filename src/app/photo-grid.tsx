@@ -230,7 +230,10 @@ export function PhotoGrid({
   // Photos still uploading belong to the whole gallery; a narrowed grid is not
   // where the guest who started them expects to find them.
   showUploadTiles?: boolean;
-  onSelectUploader?: (publicId: string) => void;
+  onSelectUploader?: (
+    publicId: string,
+    over?: { steppable: boolean },
+  ) => void;
 }) {
   const queue = useUploadQueue();
   const likes = useLikes();

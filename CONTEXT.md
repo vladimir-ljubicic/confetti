@@ -98,7 +98,7 @@ A guest's public photos only — the same set for every viewer, including the gu
 The "First L." name shown on gallery tiles, linking to that guest's per-guest gallery.
 
 **Uploader pill**:
-The tappable avatar+name control in the photo viewer that opens the per-guest gallery, showing the guest's public photo count.
+The tappable avatar+name control in the photo viewer that opens the per-guest gallery, showing the guest's public photo count. Taking it is a move from one gallery to another rather than a return, so the guest's gallery takes over the entry the viewer was holding instead of adding one: nothing on the way back names the photo the viewer was showing, and one step back off the guest's gallery leaves both it and the viewer, landing on the gallery the viewer was opened from. The uploader label on a tile, which leaves no viewer behind, pushes an entry of its own.
 
 **Thumbnail**:
 The small rendition of a photo that gallery tiles render, produced on the guest's device during upload.

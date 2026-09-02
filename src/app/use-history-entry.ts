@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Held = { id: string; pushed: boolean };
 
@@ -103,6 +103,8 @@ function releaseScroll() {
 //
 // `onBack` runs once the entry is gone, whether the user went back or the
 // returned `leave` was called; `leave(then)` runs `then` in its place.
+// `handOver(then)` gives the entry itself up to whatever `then` puts in its
+// place, so the two share one entry and one step back leaves both.
 export function useHistoryEntry({
   key,
   id,
@@ -206,15 +208,16 @@ export function useHistoryEntry({
     return () => window.removeEventListener("popstate", onPopState);
   }, [key, held]);
 
-  return useCallback(
-    (then?: () => void) => {
+  // The surface goes and the entry stays, cleared of its marker and its
+  // address, for `then` to make into whatever comes next. Nothing traverses,
+  // so there is no moment at which the entry still names the surface. `then`
+  // is told whether the entry it takes over has one of this page's own behind
+  // it, which a taken-over entry need not have.
+  const handOver = useCallback(
+    (then: (steppable: boolean) => void) => {
       if (gone.current || pending.current !== null) return;
-      if (pushed.current) {
-        pending.current = then ?? onBackRef.current;
-        window.history.back();
-        return;
-      }
       gone.current = true;
+      const steppable = pushed.current === true;
       if (named) {
         window.history.replaceState(
           stateWith(key, null),
@@ -222,10 +225,25 @@ export function useHistoryEntry({
           addressWith(key, null),
         );
       }
-      (then ?? onBackRef.current)();
+      then(steppable);
     },
     [key, named],
   );
+
+  const leave = useCallback(
+    (then?: () => void) => {
+      if (gone.current || pending.current !== null) return;
+      if (!pushed.current) {
+        handOver(then ?? onBackRef.current);
+        return;
+      }
+      pending.current = then ?? onBackRef.current;
+      window.history.back();
+    },
+    [handOver],
+  );
+
+  return useMemo(() => ({ leave, handOver }), [leave, handOver]);
 }
 
 // The id the address asks `key` to show: read once on mount from the query
