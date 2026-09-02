@@ -14,6 +14,7 @@ import {
 import { pluralize, type Locale } from "@/lib/i18n";
 import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
+import { slideAt, slideOffset } from "@/lib/slide-track";
 import type { Visibility } from "@/lib/uploader-profile";
 import { anchoredIndex } from "@/lib/viewer-anchor";
 import { HeartIcon, LikeHeart } from "./like-pill";
@@ -53,6 +54,13 @@ const CLOSE_MS = 200;
 // Slides mounted on each side of the current one. Wider than the ±1 sharpen
 // window, so a swipe always lands on a slide that already exists.
 const OVERSCAN_SLIDES = 3;
+
+// The track lays its slides out in fractions of its own width, so a slide's
+// place is a multiple of that width and not of the whole pixels `clientWidth`
+// rounds it to: over thousands of slides the rounding grows past a slide.
+function slideWidthOf(track: HTMLElement): number {
+  return parseFloat(getComputedStyle(track).width) || track.clientWidth;
+}
 
 // Two taps count as one gesture within this window and distance of each other.
 const DOUBLE_TAP_MS = 300;
@@ -361,18 +369,18 @@ export function PhotoViewer({
     const place = placeRef.current;
     const target = anchoredIndex(place.visible, place.index, visible);
     placeRef.current = { visible, index: target };
+    const width = slideWidthOf(track);
     // Already standing on (or swiping around) the anchored slide: imposing
     // now would only yank a swipe in progress.
     if (
       target === place.index &&
-      Math.abs(track.scrollLeft - target * track.clientWidth) <
-        track.clientWidth
+      Math.abs(track.scrollLeft - slideOffset(target, width)) < width
     ) {
       return;
     }
     setIndex(target);
     track.scrollTo({
-      left: target * track.clientWidth,
+      left: slideOffset(target, width),
       behavior: "instant",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -394,14 +402,10 @@ export function PhotoViewer({
 
   const onScroll = useCallback(() => {
     const track = trackRef.current;
-    if (!track || track.clientWidth === 0) return;
-    const next = Math.max(
-      0,
-      Math.min(
-        Math.round(track.scrollLeft / track.clientWidth),
-        slideCount - 1,
-      ),
-    );
+    if (!track) return;
+    const width = slideWidthOf(track);
+    if (width === 0) return;
+    const next = slideAt(track.scrollLeft, width, slideCount);
     placeRef.current = { ...placeRef.current, index: next };
     setIndex(next);
   }, [slideCount]);
