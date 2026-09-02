@@ -107,7 +107,7 @@ The small rendition of a photo that gallery tiles render, produced on the guest'
 The larger rendition the full-screen viewer shows once it loads; the thumbnail stands in until then, and remains when no viewer image exists.
 
 **Viewer session**:
-One turn of the viewer over the gallery, from the tap that opened it to the moment it is gone. On its way out it holds the screen for the length of its fade and lets taps through to the gallery beneath it, so a tile tapped through a leaving viewer opens a session of its own; the one on its way out takes its exit with it rather than closing the one that has replaced it.
+One turn of the viewer over the gallery, from the tap that opened it to the moment it is gone. It stops taking input where it commits to leaving rather than where it starts to go, so it never stands over the gallery unseen. On its way out it holds the screen for the length of its fade and lets taps through to the gallery beneath it, so a tile tapped through a leaving viewer opens a session of its own; the one on its way out takes its exit with it rather than closing the one that has replaced it.
 
 **Viewer dismiss**:
 The drag that closes the full-screen viewer, upwards or downwards alike: past 110px, or a shorter flick faster than 0.5px·ms⁻¹. The photo shrinks to 0.88 as it goes and the stage thins to 0.3 without ever clearing, so the gallery underneath stays a hint. A sideways lead belongs to the track's own scroll instead. The release flings the photo off screen in the drag's direction while the viewer fades out.

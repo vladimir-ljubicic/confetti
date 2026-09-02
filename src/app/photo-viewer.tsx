@@ -329,7 +329,14 @@ export function PhotoViewer({
     id: current?.id ?? startId,
     onBack: fadeOut,
   });
-  const dismiss = useCallback(() => leave(), [leave]);
+  // Stepping back out of the entry is answered a task or more later, and a
+  // flung photo is already off screen by then. The viewer takes no input from
+  // the moment a dismiss commits, so it never stands over the gallery unseen.
+  const [leaving, setLeaving] = useState(false);
+  const dismiss = useCallback(() => {
+    setLeaving(true);
+    leave();
+  }, [leave]);
 
   // With the share sheet up, Escape is its to close.
   const sheetUp = shareState !== null;
@@ -541,8 +548,8 @@ export function PhotoViewer({
       role="dialog"
       aria-modal="true"
       className={`fixed inset-0 z-50 flex flex-col ${
-        closing ? "viewer-out pointer-events-none" : "viewer-in"
-      }`}
+        closing ? "viewer-out" : "viewer-in"
+      } ${closing || leaving ? "pointer-events-none" : ""}`}
     >
       <div
         aria-hidden
