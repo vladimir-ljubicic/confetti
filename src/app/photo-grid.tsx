@@ -23,9 +23,10 @@ import { photoAltText, type PhotoAltLabels } from "@/lib/photo-alt";
 import type { PublicPhoto } from "@/lib/public-photos";
 import { shortUploaderName } from "@/lib/uploader-name";
 import {
+  noSessions,
   openedOn,
   withoutSession,
-  type ViewerSession,
+  type ViewerSessions,
 } from "@/lib/viewer-session";
 import { LikePill } from "./like-pill";
 import { hideBrokenImage, publicThumbSrc } from "./photo-image";
@@ -238,9 +239,10 @@ export function PhotoGrid({
   const queue = useUploadQueue();
   const likes = useLikes();
   const scrubbing = useScrubbing();
-  const [viewing, setViewing] = useState<ViewerSession<{
-    startId: string;
-  }> | null>(null);
+  const [viewing, setViewing] = useState<ViewerSessions<{ startId: string }>>(
+    noSessions,
+  );
+  const open = viewing.open;
   const tiles = useMemo(
     () => (showUploadTiles ? (queue?.tiles ?? []) : []),
     [queue, showUploadTiles],
@@ -395,13 +397,13 @@ export function PhotoGrid({
   // background fetch of the full gallery.
   const { id: addressedId, clear: clearAddressed } = useAddressedEntry(
     "photo",
-    !viewer || viewing !== null,
+    !viewer || open !== null,
   );
 
   const openViewer = useCallback(
     (photoId: string) => {
       clearAddressed();
-      setViewing((open) => openedOn(open, { startId: photoId }));
+      setViewing((sessions) => openedOn(sessions, { startId: photoId }));
     },
     [clearAddressed],
   );
@@ -409,7 +411,7 @@ export function PhotoGrid({
   useEffect(() => {
     if (addressedId === null || !photoIds.has(addressedId)) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewing((open) => openedOn(open, { startId: addressedId }));
+    setViewing((sessions) => openedOn(sessions, { startId: addressedId }));
     clearAddressed();
     revealPhoto(addressedId);
   }, [addressedId, clearAddressed, photoIds, revealPhoto]);
@@ -539,11 +541,11 @@ export function PhotoGrid({
           );
         })}
       </div>
-      {viewer && viewing !== null && (
+      {viewer && open !== null && (
         <PhotoViewer
-          key={viewing.session}
+          key={open.session}
           photos={photos}
-          startId={viewing.startId}
+          startId={open.startId}
           likes={likes}
           canManageAll={viewer.canManageAll}
           locale={viewer.locale}
@@ -552,7 +554,7 @@ export function PhotoGrid({
           onCurrentChange={revealPhoto}
           onSelectUploader={onSelectUploader}
           onClose={() =>
-            setViewing((open) => withoutSession(open, viewing.session))
+            setViewing((sessions) => withoutSession(sessions, open.session))
           }
         />
       )}

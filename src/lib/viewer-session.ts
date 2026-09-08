@@ -6,18 +6,33 @@
 // taken its place.
 export type ViewerSession<T> = T & { session: number };
 
+// What a gallery keeps of its viewer: the session on screen, if any, and how
+// many there have been. The count outlives a close, so no session is ever
+// numbered like an earlier one. A close and an open settled in the same render
+// would otherwise hand the new session the closed one's number, and with it the
+// closed one's instance, frozen at the end of its exit.
+export type ViewerSessions<T> = {
+  open: ViewerSession<T> | null;
+  opened: number;
+};
+
+export const noSessions: ViewerSessions<never> = { open: null, opened: 0 };
+
 export function openedOn<T extends object>(
-  open: { session: number } | null,
+  sessions: ViewerSessions<T>,
   showing: T,
-): ViewerSession<T> {
-  return { ...showing, session: (open?.session ?? 0) + 1 };
+): ViewerSessions<T> {
+  const session = sessions.opened + 1;
+  return { open: { ...showing, session }, opened: session };
 }
 
 // What is left open once `session` closes: the session itself is gone, any
 // later one stands.
 export function withoutSession<T>(
-  open: ViewerSession<T> | null,
+  sessions: ViewerSessions<T>,
   session: number,
-): ViewerSession<T> | null {
-  return open !== null && open.session !== session ? open : null;
+): ViewerSessions<T> {
+  return sessions.open !== null && sessions.open.session === session
+    ? { ...sessions, open: null }
+    : sessions;
 }

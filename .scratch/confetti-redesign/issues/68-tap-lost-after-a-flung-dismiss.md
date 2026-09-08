@@ -12,6 +12,10 @@ photo, no visible change — and the photo opens on the second tap. The other wa
 - [x] The viewer takes no input from the moment a dismiss commits, whichever gesture
       committed it, rather than from the moment history answers
 - [x] Every other way out still closes exactly as it does now
+- [x] A tap that lands as the fade ends opens a session of its own, numbered past
+      the one closing, rather than being folded into it
+- [x] Reproduced in Chromium with touch emulation, fixed at the cause, and watched
+      open on the first tap at every delay across the fade
 - [ ] Confirm on a device: fling the viewer away, tap another tile the instant the
       gallery shows through, and see it open
 
@@ -46,3 +50,35 @@ the fling no longer leaves an invisible viewer standing over the gallery.
 Left for a human: this was reasoned from the source and the close path's timings, not
 watched — there is no browser here, and the repo's tests are over pure functions, so a
 viewer flung away and a tile tapped after it is beyond what they reach.
+
+Not resolved by the above: the tap was still lost on a device. Reproduced here in
+Chromium with touch emulation (Playwright, Pixel 7), which the earlier reasoning had
+no way to do, and the cause is not the viewer standing there at all. The step back
+out of history is answered within about 3ms of the release, so the inert window above
+was never wide enough to matter. The tap reaches the tile every time, and the tile
+opens a session. What loses it is the close and the open settling in one render, in
+that order.
+
+The fade ends on a 200ms timer that closes the session. Blink holds timers back while
+a finger is down, so a tap whose press begins before the timer is due and lifts after
+it is answered in one go: the timer runs, then the tap's click. Both set the gallery's
+viewer record, and React folds the two into a single render: the close leaves nothing
+open, and the open then numbers the new session from nothing and gets 1, the number of
+the session that has just closed. Same key, so React keeps the old viewer instance and
+only hands it a new starting photo, which it ignores after mount. That viewer is at
+the end of its exit, faded to nothing, inert and unable to leave again, and it stays
+that way until the next tap, which is numbered 2 and replaces it. Hence no visible
+change, and a photo on the second tap.
+
+A fling exposes it because the gallery shows through at once and the guest taps while
+the fade is still running; every other way out keeps the viewer painted until the fade
+ends, so the guest's press begins after the timer has run. The window is the whole of
+the press, not the 3ms above.
+
+So the gallery's record now keeps a count of the sessions it has opened, and the count
+outlives a close: no session is ever numbered like an earlier one, and a close and an
+open in the same render give the open a viewer of its own. The regression test pins
+that pair. Watched in Chromium: with the fix, a tap at every delay from 20ms to 600ms
+after the release, with presses of 60ms and 120ms, opens the tapped photo on the first
+tap; without it, every press that spans the end of the fade is lost. The device check
+stays with a human: the browser here is Chromium, not the phone's.

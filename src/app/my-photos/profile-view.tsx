@@ -8,9 +8,10 @@ import { formatRecoveryCode } from "@/lib/recovery-code";
 import { selectionView } from "@/lib/selection-view";
 import type { Visibility } from "@/lib/uploader-profile";
 import {
+  noSessions,
   openedOn,
   withoutSession,
-  type ViewerSession,
+  type ViewerSessions,
 } from "@/lib/viewer-session";
 import { LocaleToggle } from "../locale-toggle";
 import { hideBrokenImage, publicThumbSrc, thumbSrc } from "../photo-image";
@@ -256,13 +257,14 @@ export function ProfileView({
 }) {
   const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
-  const [viewing, setViewing] = useState<ViewerSession<{
-    startId: string;
-  }> | null>(null);
+  const [viewing, setViewing] = useState<ViewerSessions<{ startId: string }>>(
+    noSessions,
+  );
+  const open = viewing.open;
   const listRef = useRef<HTMLUListElement>(null);
   const { id: addressedId, clear: clearAddressed } = useAddressedEntry(
     "photo",
-    viewing !== null,
+    open !== null,
   );
   const mode = useSelectMode({
     endpoints: { visibility: "/api/my-photos/visibility", delete: "/api/my-photos/delete" },
@@ -303,7 +305,7 @@ export function ProfileView({
     clearAddressed();
     if (!addressedShown) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setViewing((open) => openedOn(open, { startId: addressedId }));
+    setViewing((sessions) => openedOn(sessions, { startId: addressedId }));
     revealTile(
       listRef.current?.querySelector(`[data-photo-id="${addressedId}"]`),
     );
@@ -400,8 +402,8 @@ export function ProfileView({
                     aria-pressed={mode.active ? selected : undefined}
                     onClick={() =>
                       mode.tap(photo.id, () =>
-                        setViewing((open) =>
-                          openedOn(open, { startId: photo.id }),
+                        setViewing((sessions) =>
+                          openedOn(sessions, { startId: photo.id }),
                         ),
                       )
                     }
@@ -434,11 +436,11 @@ export function ProfileView({
         <SelectBar mode={mode} photos={all} shown={shown} />
       )}
 
-      {viewing !== null && (
+      {open !== null && (
         <PhotoViewer
-          key={viewing.session}
+          key={open.session}
           photos={viewerPhotos}
-          startId={viewing.startId}
+          startId={open.startId}
           likes={likes}
           canManageAll={false}
           locale={locale}
@@ -449,7 +451,7 @@ export function ProfileView({
             )
           }
           onClose={() =>
-            setViewing((open) => withoutSession(open, viewing.session))
+            setViewing((sessions) => withoutSession(sessions, open.session))
           }
         />
       )}

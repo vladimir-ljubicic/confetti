@@ -28,9 +28,10 @@ import type { Locale } from "@/lib/i18n";
 import { selectionView } from "@/lib/selection-view";
 import { tileEnterDelay } from "@/lib/tile-entrance";
 import {
+  noSessions,
   openedOn,
   withoutSession,
-  type ViewerSession,
+  type ViewerSessions,
 } from "@/lib/viewer-session";
 
 export type { AdminFilter, AdminPhoto };
@@ -116,9 +117,10 @@ export function AdminPhotoGrid({
   children?: React.ReactNode;
 }) {
   const likes = useLikes();
-  const [viewing, setViewing] = useState<ViewerSession<{
-    startId: string;
-  }> | null>(null);
+  const [viewing, setViewing] = useState<ViewerSessions<{ startId: string }>>(
+    noSessions,
+  );
+  const open = viewing.open;
   const listRef = useRef<HTMLUListElement>(null);
   // What the grid is showing, and what the pressed chip promises it will show
   // — the two differ only while the new first page is on its way.
@@ -269,7 +271,9 @@ export function AdminPhotoGrid({
                   aria-pressed={mode.active ? selected : undefined}
                   onClick={() =>
                     mode.tap(photo.id, () =>
-                      setViewing((open) => openedOn(open, { startId: photo.id })),
+                      setViewing((sessions) =>
+                        openedOn(sessions, { startId: photo.id }),
+                      ),
                     )
                   }
                   {...mode.pressHandlers(photo.id)}
@@ -307,11 +311,11 @@ export function AdminPhotoGrid({
       ) : (
         children
       )}
-      {viewing !== null && (
+      {open !== null && (
         <PhotoViewer
-          key={viewing.session}
+          key={open.session}
           photos={visible}
-          startId={viewing.startId}
+          startId={open.startId}
           likes={likes}
           canManageAll
           locale={locale}
@@ -324,7 +328,7 @@ export function AdminPhotoGrid({
             )
           }
           onClose={() =>
-            setViewing((open) => withoutSession(open, viewing.session))
+            setViewing((sessions) => withoutSession(sessions, open.session))
           }
         />
       )}
