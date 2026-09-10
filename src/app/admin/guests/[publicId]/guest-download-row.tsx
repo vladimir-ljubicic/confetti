@@ -14,9 +14,9 @@ import {
 } from "@/lib/export";
 import type { Locale } from "@/lib/i18n";
 
-// Admin variant of the download surface, over one guest's zip — the same zip
-// that guest prepares from their own page, so it holds every photo they
-// uploaded and there is no private-photos choice to make.
+// Admin variant of the download surface, over one guest's zip: every photo
+// they uploaded, private ones included, so there is no private-photos choice
+// to make.
 export function GuestDownloadRow({
   publicId,
   rowLabel,

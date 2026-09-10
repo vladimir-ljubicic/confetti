@@ -159,7 +159,7 @@ describe("export targets", () => {
   it("names the download after whose photos it holds", () => {
     expect(exportDownloadName(PUBLIC_EXPORT)).toBe("fotografije.zip");
     expect(exportDownloadName(ADMIN_EXPORT)).toBe("sve-fotografije.zip");
-    expect(exportDownloadName(uploaderExport(GUEST))).toBe("moje-fotografije.zip");
+    expect(exportDownloadName(uploaderExport(GUEST))).toBe("fotografije-gosta.zip");
   });
 
   it("keeps private photos out of the public zip only", () => {

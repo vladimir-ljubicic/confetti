@@ -4,7 +4,7 @@ import { estimateRemainingMs } from "./upload-eta";
 
 // Whose photos a zip holds. The two shared zips are built once for everyone:
 // public holds the public gallery, admin holds everything the couple can see.
-// A guest's own zip holds their photos alone, public and private alike.
+// One guest's zip holds that guest's photos alone, public and private alike.
 export type ExportKind = "public" | "admin" | "uploader";
 
 export type ExportTarget =
@@ -46,14 +46,14 @@ export function exportStoragePath(target: ExportTarget): string {
 
 // What each kind of zip is: the name the browser saves it under, whether
 // private photos may go in, and whether traffic alone may create it. A guest's
-// own is theirs to ask for, so nothing creates it on their behalf.
+// exists only once the couple ask for it.
 const EXPORT_KINDS: Record<
   ExportKind,
   { downloadName: string; takesPrivate: boolean; autoCreates: boolean }
 > = {
   public: { downloadName: "fotografije.zip", takesPrivate: false, autoCreates: true },
   admin: { downloadName: "sve-fotografije.zip", takesPrivate: true, autoCreates: true },
-  uploader: { downloadName: "moje-fotografije.zip", takesPrivate: true, autoCreates: false },
+  uploader: { downloadName: "fotografije-gosta.zip", takesPrivate: true, autoCreates: false },
 };
 
 export function exportDownloadName(target: ExportTarget): string {
@@ -79,17 +79,14 @@ export function exportAutoCreates(target: ExportTarget): boolean {
 // admin zip sits behind the admin session, can be prepared at any time — the
 // freeze then replaces a zip prepared earlier — and takes the private-photos
 // choice in the POST body; preparing with a different choice replaces the
-// live zip. The own-photos zip sits behind the device cookie, holds every
-// photo that device uploaded, and can likewise be prepared at any time; since
-// the guest keeps uploading, preparing it again once their photos have moved
-// replaces it rather than handing back the older snapshot. The couple reach
-// that same zip per guest from behind the admin session, naming the guest by
-// their public id.
+// live zip. A guest's zip sits behind the admin session too, naming the guest
+// by their public id; it holds every photo that guest's device uploaded and can
+// likewise be prepared at any time. Since the guest keeps uploading, preparing
+// it again once their photos have moved replaces it rather than handing back
+// the older snapshot.
 // A ready zip stays downloadable for a week; after that the object is purged
 // and the zip has to be prepared again.
 export const EXPORT_PUBLIC_PATH = "/api/export/public";
-export const EXPORT_MINE_PATH = "/api/export/mine";
-export const EXPORT_MINE_CANCEL_PATH = "/api/export/mine/cancel";
 export const EXPORT_ADMIN_PATH = "/api/export/admin";
 export const EXPORT_ADMIN_CANCEL_PATH = "/api/export/admin/cancel";
 const EXPORT_ADMIN_GUESTS_PATH = "/api/export/admin/guests";

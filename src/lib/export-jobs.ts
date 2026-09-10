@@ -184,7 +184,7 @@ async function livePhotoCount(uploaderId: string): Promise<number> {
   return count ?? 0;
 }
 
-// A guest's own zip is a snapshot of photos they are still adding to, so a
+// A guest's zip is a snapshot of photos they are still adding to, so a
 // finished one falls out of date as soon as their count moves. One still
 // packing is already building the snapshot they just asked for, and replacing
 // it would strand the upload it has in flight. The shared zips snapshot the
@@ -259,8 +259,8 @@ async function replaceExportJob(
 }
 
 // What a build worker sees: the job as it stands. A shared zip is created on
-// demand once uploads are frozen; a guest's own zip is never created here, only
-// by their prepare. A cancelled or expired job stays that way.
+// demand once uploads are frozen; a guest's zip is never created here, only
+// by the couple's prepare. A cancelled or expired job stays that way.
 export async function ensureExportJob(target: ExportTarget): Promise<ExportJob | null> {
   const existing = await getExportJob(target);
   if (existing) return existing;
@@ -273,8 +273,8 @@ export type PreparedExportJob = { job: ExportJob; created: boolean };
 
 // The explicit prepare action: hands back the live job, creating one when
 // there is none, the last one was cancelled or expired, the live one holds a
-// different private-photos choice, or — for a guest's own zip — their photos
-// have moved since it was snapshotted. The admin zip and a guest's own can be
+// different private-photos choice, or — for a guest's zip — their photos
+// have moved since it was snapshotted. The admin zip and a guest's can be
 // prepared while uploads are still open; the public zip only once they freeze,
 // and it never takes private photos.
 export async function prepareExportJob(
@@ -382,8 +382,9 @@ export async function purgeExpiredExports(now: Date): Promise<string[]> {
 
 // Once uploads are frozen: a zip snapshotted while they were still open is
 // replaced, and every build without a live worker is started. Idempotent, so
-// both the freeze and its daily check call it. A guest's own zip is theirs to
-// ask for, so the sweep leaves it alone. Resolves to the kinds kicked.
+// both the freeze and its daily check call it. A guest's zip exists only once
+// the couple ask for it, so the sweep leaves it alone. Resolves to the kinds
+// kicked.
 export async function startFrozenExportBuilds(origin: string): Promise<ExportKind[]> {
   const kicked: ExportKind[] = [];
   for (const target of SHARED_EXPORT_TARGETS) {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pluralize, type Locale } from "@/lib/i18n";
 import { formatRecoveryCode } from "@/lib/recovery-code";
 import { selectionView } from "@/lib/selection-view";
@@ -239,7 +239,6 @@ export function ProfileView({
   labels,
   recoveryLabels,
   viewerLabels,
-  download,
 }: {
   photos: OwnPhoto[];
   defaultVisibility: Visibility | null;
@@ -251,9 +250,6 @@ export function ProfileView({
   labels: ProfileLabels;
   recoveryLabels: RecoverySheetLabels;
   viewerLabels: ViewerLabels;
-  // Server-rendered download surface, threaded through so it can quote the
-  // guest's own zip as the server knows it.
-  download: ReactNode;
 }) {
   const likes = useLikes();
   const [filter, setFilter] = useState<Filter>("all");
@@ -427,8 +423,6 @@ export function ProfileView({
               );
             })}
           </ul>
-
-          {!mode.active && download}
         </>
       )}
 

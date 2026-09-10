@@ -1,13 +1,10 @@
 import { getDeviceId } from "@/lib/device";
-import { uploaderExport } from "@/lib/export";
-import { exportJobStatus, liveExportJob, type ExportJob } from "@/lib/export-jobs";
 import { getDict, getLocale } from "@/lib/locale";
 import { loadViewerLikes } from "@/lib/public-photos";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import type { Visibility } from "@/lib/uploader-profile";
 import { getUploaderProfile, type UploaderProfile } from "@/lib/uploaders";
 import { viewerLabels } from "../viewer-labels";
-import { DownloadMineButton } from "./download-mine";
 import { ProfileView, type OwnPhoto } from "./profile-view";
 
 export const dynamic = "force-dynamic";
@@ -20,16 +17,13 @@ type OwnPhotoRow = {
   uploaded_at: string;
   image_width: number | null;
   image_height: number | null;
-  size_bytes: number;
 };
 
-type OwnPhotos = { photos: OwnPhoto[]; totalBytes: number };
-
-async function loadOwnPhotos(deviceId: string): Promise<OwnPhotos> {
+async function loadOwnPhotos(deviceId: string): Promise<OwnPhoto[]> {
   const { data, error } = await supabaseAdmin()
     .from("photos")
     .select(
-      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height, size_bytes",
+      "id, original_filename, visibility, like_count, uploaded_at, image_width, image_height",
     )
     .eq("uploader_id", deviceId)
     .not("uploaded_at", "is", null)
@@ -38,19 +32,16 @@ async function loadOwnPhotos(deviceId: string): Promise<OwnPhotos> {
   if (error) throw new Error(`Loading own photos failed: ${error.message}`);
   const rows = data as OwnPhotoRow[];
   const viewerLikes = await loadViewerLikes(deviceId);
-  return {
-    photos: rows.map((photo) => ({
-      id: photo.id,
-      uploadedAt: photo.uploaded_at,
-      width: photo.image_width,
-      height: photo.image_height,
-      originalFilename: photo.original_filename,
-      visibility: photo.visibility,
-      likeCount: photo.like_count,
-      likedByViewer: viewerLikes.has(photo.id),
-    })),
-    totalBytes: rows.reduce((sum, photo) => sum + photo.size_bytes, 0),
-  };
+  return rows.map((photo) => ({
+    id: photo.id,
+    uploadedAt: photo.uploaded_at,
+    width: photo.image_width,
+    height: photo.image_height,
+    originalFilename: photo.original_filename,
+    visibility: photo.visibility,
+    likeCount: photo.like_count,
+    likedByViewer: viewerLikes.has(photo.id),
+  }));
 }
 
 export default async function MyPhotosPage() {
@@ -59,20 +50,18 @@ export default async function MyPhotosPage() {
 
   const deviceId = await getDeviceId();
   let profile: UploaderProfile | null = null;
-  let own: OwnPhotos = { photos: [], totalBytes: 0 };
-  let exportJob: ExportJob | null = null;
+  let photos: OwnPhoto[] = [];
   if (deviceId) {
-    [profile, own, exportJob] = await Promise.all([
+    [profile, photos] = await Promise.all([
       getUploaderProfile(deviceId),
       loadOwnPhotos(deviceId),
-      liveExportJob(uploaderExport(deviceId)),
     ]);
   }
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col">
       <ProfileView
-        photos={own.photos}
+        photos={photos}
         defaultVisibility={profile?.defaultVisibility ?? null}
         displayName={profile?.displayName ?? null}
         recoveryCode={profile?.recoveryCode ?? null}
@@ -80,20 +69,6 @@ export default async function MyPhotosPage() {
         labels={{ ...dict.myPhotos, localeAriaLabel: dict.localeToggle.ariaLabel }}
         recoveryLabels={dict.recovery}
         viewerLabels={viewerLabels(dict)}
-        download={
-          <DownloadMineButton
-            labels={{
-              ...dict.downloadSheet,
-              title: dict.myPhotos.download,
-              intro: dict.myPhotos.downloadIntro,
-              download: dict.myPhotos.download,
-            }}
-            locale={locale}
-            photoCount={own.photos.length}
-            sizeBytes={own.totalBytes}
-            initialStatus={exportJob ? exportJobStatus(exportJob) : null}
-          />
-        }
       />
     </main>
   );

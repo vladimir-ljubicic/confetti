@@ -109,9 +109,6 @@ const en = {
     recoveryCopy: "Copy",
     recoveryCopied: "Copied",
     recoveryEnter: "Already uploaded from another phone?",
-    download: "Download your photos",
-    downloadIntro:
-      "All of your photos, public and private. Preparing the ZIP file takes a few minutes.",
     enterSelect: "Select",
     longPressHint: "Or long-press any photo",
     exitSelect: "Exit selection",
@@ -449,9 +446,6 @@ const sr: Dictionary = {
     recoveryCopy: "Копирај",
     recoveryCopied: "Копирано",
     recoveryEnter: "Већ сте отпремали са другог телефона?",
-    download: "Преузми своје фотографије",
-    downloadIntro:
-      "Све ваше фотографије, јавне и приватне. Припрема ZIP датотеке траје неколико минута.",
     enterSelect: "Изабери",
     longPressHint: "Или дуго притисните било коју фотографију",
     exitSelect: "Изађи из избора",
