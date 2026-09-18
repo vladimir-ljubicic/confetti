@@ -8,8 +8,12 @@ import {
   exportStoragePath,
   exportTakesPrivate,
   exportTargetQuery,
+  downloadBackoffMs,
+  DOWNLOAD_ATTEMPTS,
   exportUploaderId,
   linkExpiresAt,
+  restartAfterFailure,
+  storageFailureIsFatal,
   resolveExportState,
   SHARED_EXPORT_TARGETS,
   type ExportKind,
@@ -486,14 +490,18 @@ async function tusPatch(url: string, offset: number, chunk: Buffer): Promise<num
 
 class FatalExportError extends Error {}
 
-async function downloadPhoto(entry: ManifestEntry): Promise<Buffer> {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function downloadPhotoOnce(entry: ManifestEntry): Promise<Buffer> {
   const { data, error } = await supabaseAdmin()
     .storage.from(PHOTOS_BUCKET)
     .download(entry.path);
   if (error || !data) {
     const status = (error as { status?: number } | null)?.status;
     const message = `Downloading ${entry.path} failed: ${error?.message ?? "no data"}`;
-    if (status === 400 || status === 404) throw new FatalExportError(message);
+    if (storageFailureIsFatal(status)) throw new FatalExportError(message);
     throw new Error(message);
   }
   const bytes = Buffer.from(await data.arrayBuffer());
@@ -503,6 +511,17 @@ async function downloadPhoto(entry: ManifestEntry): Promise<Buffer> {
     );
   }
   return bytes;
+}
+
+async function downloadPhoto(entry: ManifestEntry): Promise<Buffer> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await downloadPhotoOnce(entry);
+    } catch (error) {
+      if (error instanceof FatalExportError || attempt >= DOWNLOAD_ATTEMPTS) throw error;
+      await delay(downloadBackoffMs(attempt));
+    }
+  }
 }
 
 function zipEntry(entry: ManifestEntry): ZipEntry {
@@ -528,6 +547,7 @@ export async function runExportJob(
   const job = await ensureExportJob(target);
   if (!job || job.state !== "packing") return { finished: true, retry: false };
 
+  let packed = 0;
   try {
     const entries = job.manifest.map(zipEntry);
     const plan = planZip(job.manifest);
@@ -589,6 +609,7 @@ export async function runExportJob(
       push(skip > 0 ? bytes.subarray(skip) : bytes);
       await flushChunks(false);
       await patchJob(job, { crcs, done_count: i + 1 });
+      packed += 1;
     }
 
     const tail = tailBytes(entries, crcs as number[], plan);
@@ -608,12 +629,13 @@ export async function runExportJob(
     return { finished: true, retry: false };
   } catch (error) {
     if (error instanceof ExportSupersededError) return { finished: true, retry: false };
+    const fatal = error instanceof FatalExportError;
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Export ${exportStoragePath(target)} packing failed`, error);
     await patchJob(job, {
-      ...(error instanceof FatalExportError ? { state: "failed" } : {}),
+      ...(fatal ? { state: "failed" } : {}),
       error: message,
     }).catch(() => undefined);
-    return { finished: false, retry: false };
+    return { finished: false, retry: !fatal && restartAfterFailure(packed) };
   }
 }

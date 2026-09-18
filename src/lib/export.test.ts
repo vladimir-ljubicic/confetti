@@ -19,6 +19,10 @@ import {
   packingEtaMs,
   parseExportStatus,
   parsePrepareRequest,
+  storageFailureIsFatal,
+  downloadBackoffMs,
+  DOWNLOAD_ATTEMPTS,
+  restartAfterFailure,
 } from "./export";
 
 describe("formatSize", () => {
@@ -197,5 +201,39 @@ describe("the admin's per-guest export paths", () => {
     expect(exportGuestCancelPath(GUEST_PUBLIC_ID)).toBe(
       `/api/export/admin/guests/${GUEST_PUBLIC_ID}/cancel`,
     );
+  });
+});
+
+describe("a storage failure while packing", () => {
+  it("is fatal when the object is missing or the request is malformed", () => {
+    expect(storageFailureIsFatal(404)).toBe(true);
+    expect(storageFailureIsFatal(400)).toBe(true);
+  });
+
+  it("is passing for a gateway, a timeout or a rate limit", () => {
+    expect(storageFailureIsFatal(502)).toBe(false);
+    expect(storageFailureIsFatal(503)).toBe(false);
+    expect(storageFailureIsFatal(429)).toBe(false);
+  });
+
+  it("is passing when the answer carried no status at all", () => {
+    expect(storageFailureIsFatal(undefined)).toBe(false);
+  });
+
+  it("waits longer before each further attempt", () => {
+    const waits = Array.from({ length: DOWNLOAD_ATTEMPTS - 1 }, (_, i) =>
+      downloadBackoffMs(i + 1),
+    );
+    expect(waits).toEqual([250, 500, 1000]);
+  });
+});
+
+describe("restarting a slice that stopped on a passing failure", () => {
+  it("hands the job to a new worker when the slice packed something", () => {
+    expect(restartAfterFailure(1)).toBe(true);
+  });
+
+  it("stops when the slice failed where the last one failed", () => {
+    expect(restartAfterFailure(0)).toBe(false);
   });
 });

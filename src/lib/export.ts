@@ -193,3 +193,25 @@ export function packingEtaMs(
   if (elapsed < PACKING_ETA_WARMUP_MS) return null;
   return estimateRemainingMs(latest.done - first.done, total - first.done, elapsed);
 }
+
+// --- packing through a passing storage failure ----------------------------
+
+// Answers that mean the object itself is wrong, where asking again cannot
+// help. Every other answer is treated as passing.
+export function storageFailureIsFatal(status: number | undefined): boolean {
+  return status === 400 || status === 404;
+}
+
+export const DOWNLOAD_ATTEMPTS = 4;
+
+export function downloadBackoffMs(attempt: number): number {
+  return 250 * 2 ** (attempt - 1);
+}
+
+// Whether a slice that stopped on a passing failure should hand the job to a
+// new worker. Only once it has packed something: a slice that fails where the
+// last one failed would otherwise restart forever, so a photo that always
+// fails costs one restart and then waits for the nightly sweep.
+export function restartAfterFailure(packedThisSlice: number): boolean {
+  return packedThisSlice > 0;
+}
