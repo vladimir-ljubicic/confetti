@@ -7,7 +7,7 @@ import {
 } from "@/lib/admin-filter";
 import { loadAdminPhotos, loadAdminSummary } from "@/lib/admin-gallery";
 import { isAdmin } from "@/lib/admin-session";
-import { getEventSettings } from "@/lib/event-settings";
+import { loadEventSettings } from "@/lib/event-settings";
 import { ADMIN_EXPORT, formatSize } from "@/lib/export";
 import { exportJobStatus, liveExportJob } from "@/lib/export-jobs";
 import { pluralize } from "@/lib/i18n";
@@ -49,7 +49,7 @@ export default async function AdminPage({
   const [summary, page, settings, exportJob] = await Promise.all([
     loadAdminSummary(),
     loadAdminPhotos({ filter }),
-    getEventSettings(),
+    loadEventSettings(),
     liveExportJob(ADMIN_EXPORT),
   ]);
 
